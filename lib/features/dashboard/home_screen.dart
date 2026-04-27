@@ -17,6 +17,74 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _celebrationHandled = false;
 
+  void _showDashboardInfoSheet(BuildContext context) {
+    final theme = Theme.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width,
+      ),
+      builder: (ctx) {
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'About your plan',
+                  style: theme.textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Calorie targets are estimates based on common formulas '
+                  '(~7700 kcal per kg of fat change per week). '
+                  'Not medical advice—consult a professional for health '
+                  'conditions or aggressive deficits.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Shortcuts',
+                  style: theme.textTheme.titleSmall,
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: const Icon(Icons.monitor_weight_outlined),
+                  title: const Text('Log weight'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/log-weight');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.insights_outlined),
+                  title: const Text('Weekly review'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/weekly-review');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.show_chart_outlined),
+                  title: const Text('Weight history'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    context.push('/history');
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final repo = context.read<CalTrackRepository>();
@@ -42,8 +110,17 @@ class _HomeScreenState extends State<HomeScreen> {
           _celebrationHandled = false;
         }
 
+        final bottomInset = MediaQuery.paddingOf(context).bottom +
+            kFloatingActionButtonMargin +
+            72;
+
         return Scaffold(
           appBar: AppBar(
+            leading: IconButton(
+              tooltip: 'About & shortcuts',
+              icon: const Icon(Icons.info_outline),
+              onPressed: () => _showDashboardInfoSheet(context),
+            ),
             title: const Text('CalTrack'),
             actions: [
               IconButton(
@@ -53,6 +130,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => context.push('/log-food'),
+            icon: const Icon(Icons.restaurant_menu_outlined),
+            label: const Text('Log food'),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
           body: profileCtl.loading || profileCtl.profile == null
               ? const Center(child: CircularProgressIndicator())
               : RefreshIndicator(
@@ -60,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     await profileCtl.refresh();
                   },
                   child: ListView(
-                    padding: const EdgeInsets.all(20),
+                    padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
                     children: [
                       const SizedBox(height: 16),
                       FutureBuilder<ComputedPlan?>(
@@ -70,36 +153,26 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         builder: (context, planSnap) {
                           final plan = planSnap.data;
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (plan == null)
-                                const Card(
-                                  child: Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Text(
-                                      'Log your weight to see calorie and macro targets.',
-                                    ),
-                                  ),
-                                )
-                              else
-                                _PlanCard(
-                                  plan: plan,
-                                  profile: profileCtl.profile!,
+                          if (plan == null) {
+                            return const Card(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text(
+                                  'Log your weight to see calorie and macro targets.',
                                 ),
-                              const SizedBox(height: 16),
-                              StreamBuilder<DailyIntakeTotals>(
-                                stream: repo.watchIntakeForDay(DateTime.now()),
-                                builder: (context, intakeSnap) {
-                                  final intake =
-                                      intakeSnap.data ?? DailyIntakeTotals.zero;
-                                  return _TodayIntakeCard(
-                                    plan: plan,
-                                    intake: intake,
-                                  );
-                                },
                               ),
-                            ],
+                            );
+                          }
+                          return StreamBuilder<DailyIntakeTotals>(
+                            stream: repo.watchIntakeForDay(DateTime.now()),
+                            builder: (context, intakeSnap) {
+                              final intake =
+                                  intakeSnap.data ?? DailyIntakeTotals.zero;
+                              return _TodaySummaryCard(
+                                plan: plan,
+                                intake: intake,
+                              );
+                            },
                           );
                         },
                       ),
@@ -145,29 +218,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           return const SizedBox.shrink();
                         },
                       ),
-                      FilledButton.icon(
-                        onPressed: () => context.push('/log-food'),
-                        icon: const Icon(Icons.restaurant_menu_outlined),
-                        label: const Text('Log food'),
-                      ),
-                      const SizedBox(height: 12),
-                      FilledButton.icon(
-                        onPressed: () => context.push('/log-weight'),
-                        icon: const Icon(Icons.monitor_weight_outlined),
-                        label: const Text('Log weight'),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () => context.push('/weekly-review'),
-                        icon: const Icon(Icons.insights_outlined),
-                        label: const Text('Weekly review'),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () => context.push('/history'),
-                        icon: const Icon(Icons.show_chart),
-                        label: const Text('Weight history'),
-                      ),
                     ],
                   ),
                 ),
@@ -177,86 +227,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.plan, required this.profile});
+/// One unified card showing today's intake against the daily plan:
+/// calories (consumed / target) plus per-macro progress bars.
+class _TodaySummaryCard extends StatelessWidget {
+  const _TodaySummaryCard({required this.plan, required this.intake});
 
   final ComputedPlan plan;
-  final Profile profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cal = NumberFormat.decimalPattern().format(
-      plan.dailyCalories.round(),
-    );
-    final m = plan.macros;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Daily target', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              '$cal kcal',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              'TDEE ~${plan.tdee.round()} kcal',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const Divider(height: 24),
-            Text('Macros', style: theme.textTheme.titleSmall),
-            const SizedBox(height: 8),
-            _MacroRow(
-              label: 'Protein',
-              grams: m.protein,
-              pct: profile.proteinPct,
-              color: theme.colorScheme.primary,
-            ),
-            _MacroRow(
-              label: 'Carbs',
-              grams: m.carbs,
-              pct: profile.carbsPct,
-              color: theme.colorScheme.secondary,
-            ),
-            _MacroRow(
-              label: 'Fat',
-              grams: m.fat,
-              pct: profile.fatPct,
-              color: theme.colorScheme.tertiary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TodayIntakeCard extends StatelessWidget {
-  const _TodayIntakeCard({required this.plan, required this.intake});
-
-  final ComputedPlan? plan;
   final DailyIntakeTotals intake;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final nf = NumberFormat.decimalPattern();
-    final calIn = intake.kcal.round();
-    String? budgetLine;
-    final p = plan;
-    if (p != null) {
-      final rem = p.dailyCalories - intake.kcal;
-      budgetLine =
-          'Goal ${nf.format(p.dailyCalories.round())} kcal · '
-          '${nf.format(rem.round())} kcal remaining';
-    }
+
+    final consumed = intake.kcal;
+    final target = plan.dailyCalories;
+    final remaining = (target - consumed).round();
+    final overCal = consumed > target;
+    final calRatio =
+        target <= 0 ? 0.0 : (consumed / target).clamp(0.0, 1.0);
+
+    final remainingLabel = overCal
+        ? '${nf.format(-remaining)} kcal over'
+        : '${nf.format(remaining)} kcal left';
 
     return Card(
       child: Padding(
@@ -264,47 +258,78 @@ class _TodayIntakeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Today's intake", style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              '$calIn kcal',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            if (budgetLine != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  budgetLine,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Expanded(
+                  child: Text('Today', style: theme.textTheme.titleMedium),
+                ),
+                Text(
+                  remainingLabel,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: overCal ? scheme.error : scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            RichText(
+              text: TextSpan(
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: scheme.onSurface,
+                ),
+                children: [
+                  TextSpan(text: nf.format(consumed.round())),
+                  TextSpan(
+                    text: ' / ${nf.format(target.round())} kcal',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
-            if (p != null) ...[
-              const Divider(height: 24),
-              Text('Macros eaten', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
-              _IntakeMacroRow(
-                label: 'Protein',
-                consumed: intake.proteinG,
-                target: p.macros.protein,
-                color: theme.colorScheme.primary,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'TDEE ~${nf.format(plan.tdee.round())} kcal',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
-              _IntakeMacroRow(
-                label: 'Carbs',
-                consumed: intake.carbsG,
-                target: p.macros.carbs,
-                color: theme.colorScheme.secondary,
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                minHeight: 10,
+                value: target <= 0 ? null : (overCal ? 1.0 : calRatio),
+                backgroundColor: scheme.surfaceContainerHighest,
+                color: overCal ? scheme.error : scheme.primary,
               ),
-              _IntakeMacroRow(
-                label: 'Fat',
-                consumed: intake.fatG,
-                target: p.macros.fat,
-                color: theme.colorScheme.tertiary,
-              ),
-            ],
+            ),
+            const Divider(height: 32),
+            _MacroIntakeProgressLinear(
+              label: 'Protein',
+              consumed: intake.proteinG,
+              target: plan.macros.protein,
+              color: scheme.primary,
+            ),
+            _MacroIntakeProgressLinear(
+              label: 'Carbs',
+              consumed: intake.carbsG,
+              target: plan.macros.carbs,
+              color: scheme.secondary,
+            ),
+            _MacroIntakeProgressLinear(
+              label: 'Fat',
+              consumed: intake.fatG,
+              target: plan.macros.fat,
+              color: scheme.tertiary,
+              isLast: true,
+            ),
           ],
         ),
       ),
@@ -312,76 +337,57 @@ class _TodayIntakeCard extends StatelessWidget {
   }
 }
 
-class _IntakeMacroRow extends StatelessWidget {
-  const _IntakeMacroRow({
+/// Material 3 linear progress toward daily macro gram targets.
+class _MacroIntakeProgressLinear extends StatelessWidget {
+  const _MacroIntakeProgressLinear({
     required this.label,
     required this.consumed,
     required this.target,
     required this.color,
+    this.isLast = false,
   });
 
   final String label;
   final double consumed;
   final double target;
   final Color color;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final safeTarget = target > 0 ? target : 1.0;
+    final ratio = (consumed / safeTarget).clamp(0.0, 1.0);
+    final over = target > 0 && consumed > target;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          Row(
+            children: [
+              Expanded(
+                child: Text(label, style: theme.textTheme.titleSmall),
+              ),
+              Text(
+                '${consumed.round()} / ${target.round()} g',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: over ? scheme.error : null,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label)),
-          Text(
-            '${consumed.round()} / ${target.round()} g',
-            style: theme.textTheme.titleSmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MacroRow extends StatelessWidget {
-  const _MacroRow({
-    required this.label,
-    required this.grams,
-    required this.pct,
-    required this.color,
-  });
-
-  final String label;
-  final double grams;
-  final int pct;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label)),
-          Text('${grams.round()} g', style: theme.textTheme.titleSmall),
-          const SizedBox(width: 12),
-          Text(
-            '$pct%',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              minHeight: 8,
+              value: target <= 0 ? null : (over ? 1.0 : ratio),
+              backgroundColor: scheme.surfaceContainerHighest,
+              color: over ? scheme.error : color,
             ),
           ),
         ],
