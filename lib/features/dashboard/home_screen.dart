@@ -62,7 +62,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(20),
                     children: [
-                      _DisclaimerCard(),
                       const SizedBox(height: 16),
                       FutureBuilder<ComputedPlan?>(
                         future: repo.computePlanForProfile(
@@ -178,31 +177,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _DisclaimerCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(
-          'Calorie targets are estimates based on common formulas (~7700 kcal per kg '
-          'of fat change per week). Not medical advice—consult a professional for '
-          'health conditions or aggressive deficits.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _PlanCard extends StatelessWidget {
-  const _PlanCard({
-    required this.plan,
-    required this.profile,
-  });
+  const _PlanCard({required this.plan, required this.profile});
 
   final ComputedPlan plan;
   final Profile profile;
@@ -210,7 +186,9 @@ class _PlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cal = NumberFormat.decimalPattern().format(plan.dailyCalories.round());
+    final cal = NumberFormat.decimalPattern().format(
+      plan.dailyCalories.round(),
+    );
     final m = plan.macros;
     return Card(
       child: Padding(
@@ -218,10 +196,7 @@ class _PlanCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Daily target',
-              style: theme.textTheme.titleMedium,
-            ),
+            Text('Daily target', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
               '$cal kcal',
@@ -264,10 +239,7 @@ class _PlanCard extends StatelessWidget {
 }
 
 class _TodayIntakeCard extends StatelessWidget {
-  const _TodayIntakeCard({
-    required this.plan,
-    required this.intake,
-  });
+  const _TodayIntakeCard({required this.plan, required this.intake});
 
   final ComputedPlan? plan;
   final DailyIntakeTotals intake;
@@ -292,10 +264,7 @@ class _TodayIntakeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "Today's intake",
-              style: theme.textTheme.titleMedium,
-            ),
+            Text("Today's intake", style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
               '$calIn kcal',
@@ -366,10 +335,7 @@ class _IntakeMacroRow extends StatelessWidget {
           Container(
             width: 10,
             height: 10,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 12),
           Expanded(child: Text(label)),
@@ -406,17 +372,11 @@ class _MacroRow extends StatelessWidget {
           Container(
             width: 10,
             height: 10,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 12),
           Expanded(child: Text(label)),
-          Text(
-            '${grams.round()} g',
-            style: theme.textTheme.titleSmall,
-          ),
+          Text('${grams.round()} g', style: theme.textTheme.titleSmall),
           const SizedBox(width: 12),
           Text(
             '$pct%',
@@ -453,11 +413,9 @@ class _GoalSummary extends StatelessWidget {
         if (goal.status == 'maintain' || rate.abs() < 0.001) {
           pace = 'Maintenance';
         } else if (rate < 0) {
-          pace =
-              'Losing ~${(-rate).toStringAsFixed(2)} kg/week';
+          pace = 'Losing ~${(-rate).toStringAsFixed(2)} kg/week';
         } else {
-          pace =
-              'Gaining ~${rate.toStringAsFixed(2)} kg/week';
+          pace = 'Gaining ~${rate.toStringAsFixed(2)} kg/week';
         }
         return Card(
           child: ListTile(
