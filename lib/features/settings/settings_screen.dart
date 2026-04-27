@@ -2,8 +2,10 @@ import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/services/notification_service.dart';
+import 'package:caltrack/widgets/opennutrition_attribution.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -183,6 +185,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   await profileCtl.refresh();
                   setState(() {});
                 },
+              ),
+              const Divider(height: 40),
+              Text('Food data', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              const OpenNutritionAttribution(),
+              const SizedBox(height: 12),
+              Text(
+                'Portions of the catalog originate from Open Food Facts. '
+                'When displaying that data, maintain attribution to '
+                '(c) Open Food Facts contributors — see their terms.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  final uri = Uri.parse(
+                    'https://world.openfoodfacts.org/terms-of-use',
+                  );
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: const Text('Open Food Facts terms'),
               ),
             ],
           );

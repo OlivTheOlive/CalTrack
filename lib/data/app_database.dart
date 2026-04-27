@@ -45,14 +45,40 @@ class WeightEntries extends Table {
   TextColumn get note => text().nullable()();
 }
 
-@DriftDatabase(tables: [Profiles, Goals, WeightEntries])
+/// Logged food with snapshot macros for the chosen portion (not per-100g).
+class FoodLogEntries extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  DateTimeColumn get loggedAt => dateTime()();
+  TextColumn get source => text()(); // opennutrition | custom
+  TextColumn get catalogFoodId => text().nullable()();
+  TextColumn get displayName => text()();
+  RealColumn get grams => real()();
+  RealColumn get kcal => real()();
+  RealColumn get proteinG => real()();
+  RealColumn get carbsG => real()();
+  RealColumn get fatG => real()();
+}
+
+@DriftDatabase(tables: [Profiles, Goals, WeightEntries, FoodLogEntries])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (Migrator m) async {
+          await m.createAll();
+        },
+        onUpgrade: (Migrator m, int from, int to) async {
+          if (from < 2) {
+            await m.createTable(foodLogEntries);
+          }
+        },
+      );
 
   Future<void> seedIfEmpty() async {
     final p = await select(profiles).getSingleOrNull();

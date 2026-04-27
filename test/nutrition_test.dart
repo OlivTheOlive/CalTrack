@@ -1,4 +1,5 @@
 import 'package:caltrack/core/nutrition.dart';
+import 'package:caltrack/core/nutrition_scaling.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -30,6 +31,39 @@ void main() {
       final m = macroGramsFromPercentages(2000, 30, 40, 30);
       final kcal = m.protein * 4 + m.carbs * 4 + m.fat * 9;
       expect(kcal, closeTo(2000, 1));
+    });
+  });
+
+  group('scaleFromPer100g', () {
+    test('50g of 200 kcal per 100g', () {
+      final s = scaleFromPer100g(
+        grams: 50,
+        kcalPer100g: 200,
+        proteinPer100g: 10,
+        carbsPer100g: 20,
+        fatPer100g: 5,
+      );
+      expect(s.kcal, 100);
+      expect(s.proteinG, 5);
+      expect(s.carbsG, 10);
+      expect(s.fatG, 2.5);
+    });
+  });
+
+  group('rescaleLoggedPortion', () {
+    test('double grams doubles macros', () {
+      final s = rescaleLoggedPortion(
+        previousGrams: 100,
+        previousKcal: 250,
+        previousProteinG: 20,
+        previousCarbsG: 30,
+        previousFatG: 10,
+        newGrams: 200,
+      );
+      expect(s.kcal, 500);
+      expect(s.proteinG, 40);
+      expect(s.carbsG, 60);
+      expect(s.fatG, 20);
     });
   });
 

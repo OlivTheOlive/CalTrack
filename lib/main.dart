@@ -3,6 +3,7 @@ import 'package:caltrack/app/router.dart';
 import 'package:caltrack/app/theme.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
+import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -16,6 +17,7 @@ Future<void> main() async {
   await db.seedIfEmpty();
 
   final repo = CalTrackRepository(db);
+  final catalog = OpenNutritionCatalog();
   final profileController = ProfileController(repo);
 
   late final GoRouter router;
@@ -36,6 +38,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         Provider<CalTrackRepository>.value(value: repo),
+        Provider<OpenNutritionCatalog>.value(value: catalog),
         ChangeNotifierProvider<ProfileController>.value(value: profileController),
       ],
       child: CalTrackApp(router: router),

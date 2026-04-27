@@ -4,7 +4,40 @@ import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:drift/drift.dart';
 
-export 'package:caltrack/data/app_database.dart' show Profile, Goal, WeightEntry;
+export 'package:caltrack/data/app_database.dart'
+    show Profile, Goal, WeightEntry, FoodLogEntry;
+
+/// Aggregated intake for a calendar day (sums logged portions).
+class DailyIntakeTotals {
+  const DailyIntakeTotals({
+    required this.kcal,
+    required this.proteinG,
+    required this.carbsG,
+    required this.fatG,
+  });
+
+  final double kcal;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
+
+  static DailyIntakeTotals fromEntries(Iterable<FoodLogEntry> rows) {
+    var k = 0.0;
+    var p = 0.0;
+    var c = 0.0;
+    var f = 0.0;
+    for (final e in rows) {
+      k += e.kcal;
+      p += e.proteinG;
+      c += e.carbsG;
+      f += e.fatG;
+    }
+    return DailyIntakeTotals(kcal: k, proteinG: p, carbsG: c, fatG: f);
+  }
+
+  static const zero =
+      DailyIntakeTotals(kcal: 0, proteinG: 0, carbsG: 0, fatG: 0);
+}
 
 class ComputedPlan {
   const ComputedPlan({
@@ -300,7 +333,76 @@ class CalTrackRepository {
     await recacheDailyTarget();
   }
 
+  (DateTime start, DateTime endExclusive) _dayBounds(DateTime when) {
+    final start = DateTime(when.year, when.month, when.day);
+    return (start, start.add(const Duration(days: 1)));
+  }
+
+  Future<DailyIntakeTotals> intakeForDay(DateTime day) async {
+    final (s, e) = _dayBounds(day);
+    final rows = await (_db.select(_db.foodLogEntries)
+          ..where((t) =>
+              t.loggedAt.isBiggerOrEqualValue(s) &
+              t.loggedAt.isSmallerThanValue(e)))
+        .get();
+    return DailyIntakeTotals.fromEntries(rows);
+  }
+
+  Stream<DailyIntakeTotals> watchIntakeForDay(DateTime day) {
+    final (s, e) = _dayBounds(day);
+    return (_db.select(_db.foodLogEntries)
+          ..where((t) =>
+              t.loggedAt.isBiggerOrEqualValue(s) &
+              t.loggedAt.isSmallerThanValue(e)))
+        .watch()
+        .map(DailyIntakeTotals.fromEntries);
+  }
+
+  Future<void> addFoodLog({
+    required String source,
+    String? catalogFoodId,
+    required String displayName,
+    required double grams,
+    required double kcal,
+    required double proteinG,
+    required double carbsG,
+    required double fatG,
+    DateTime? loggedAt,
+  }) async {
+    await _db.into(_db.foodLogEntries).insert(
+          FoodLogEntriesCompanion.insert(
+            loggedAt: loggedAt ?? DateTime.now(),
+            source: source,
+            catalogFoodId: Value(catalogFoodId),
+            displayName: displayName,
+            grams: grams,
+            kcal: kcal,
+            proteinG: proteinG,
+            carbsG: carbsG,
+            fatG: fatG,
+          ),
+        );
+  }
+
+  Future<List<FoodLogEntry>> recentDistinctFoodLogs({int limit = 15}) async {
+    final rows = await (_db.select(_db.foodLogEntries)
+          ..orderBy([(t) => OrderingTerm.desc(t.loggedAt)])
+          ..limit(300))
+        .get();
+    final seen = <String>{};
+    final out = <FoodLogEntry>[];
+    for (final r in rows) {
+      final key = r.catalogFoodId ?? r.displayName;
+      if (seen.contains(key)) continue;
+      seen.add(key);
+      out.add(r);
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
+
   Future<void> resetForTesting() async {
+    await _db.delete(_db.foodLogEntries).go();
     await _db.delete(_db.weightEntries).go();
     await _db.delete(_db.goals).go();
     await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(

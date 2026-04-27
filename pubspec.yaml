@@ -45,6 +45,9 @@ dependencies:
   intl: ^0.19.0
   fl_chart: ^0.69.0
   flutter_timezone: ^3.0.1
+  sqlite3: ^2.5.0
+  mobile_scanner: ^6.0.2
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
@@ -66,8 +69,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
+  assets:
+    - assets/opennutrition.sqlite
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
