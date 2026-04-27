@@ -1,0 +1,313 @@
+import 'package:caltrack/core/goal_logic.dart';
+import 'package:caltrack/core/nutrition.dart';
+import 'package:caltrack/core/units.dart';
+import 'package:caltrack/data/app_database.dart';
+import 'package:drift/drift.dart';
+
+export 'package:caltrack/data/app_database.dart' show Profile, Goal, WeightEntry;
+
+class ComputedPlan {
+  const ComputedPlan({
+    required this.dailyCalories,
+    required this.macros,
+    required this.tdee,
+  });
+
+  final double dailyCalories;
+  final MacroGrams macros;
+  final double tdee;
+}
+
+class CalTrackRepository {
+  CalTrackRepository(this._db);
+
+  final AppDatabase _db;
+
+  Future<Profile> requireProfile() async {
+    final rows = await _db.select(_db.profiles).get();
+    if (rows.isEmpty) {
+      await _db.seedIfEmpty();
+    }
+    return (await _db.select(_db.profiles).get()).first;
+  }
+
+  Stream<Profile> watchProfile() =>
+      _db.select(_db.profiles).watchSingle();
+
+  Future<Goal?> currentGoal() async {
+    final goals = await (_db.select(_db.goals)
+          ..orderBy([(t) => OrderingTerm.desc(t.id)])
+          ..limit(1))
+        .get();
+    return goals.isEmpty ? null : goals.first;
+  }
+
+  Stream<Goal?> watchCurrentGoal() {
+    return _db.select(_db.goals).watch().map((all) {
+      if (all.isEmpty) return null;
+      final sorted = [...all]..sort((a, b) => b.id.compareTo(a.id));
+      return sorted.first;
+    });
+  }
+
+  Stream<List<WeightEntry>> watchWeightEntries() {
+    final q = _db.select(_db.weightEntries)
+      ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)]);
+    return q.watch();
+  }
+
+  Future<List<WeightEntry>> weightEntriesLimit(int n) async {
+    final q = _db.select(_db.weightEntries)
+      ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
+      ..limit(n);
+    return q.get();
+  }
+
+  Future<ComputedPlan?> computePlanForProfile(Profile profile, Goal? goal) async {
+    if (goal == null) return null;
+    final entries = await weightEntriesLimit(1);
+    if (entries.isEmpty) return null;
+    final w = entries.first.weightKg;
+    final birth = DateTime.fromMillisecondsSinceEpoch(profile.birthDateMillis);
+    final age = ageFromBirthDate(birth, DateTime.now());
+    final isMale = profile.sex == 'male';
+    final activity = ActivityLevel.fromIndex(profile.activityLevel);
+    final tdeeVal = tdee(
+      isMale: isMale,
+      weightKg: w,
+      heightCm: profile.heightCm,
+      ageYears: age,
+      activity: activity,
+    );
+    double weekly = goal.weeklyChangeKgPerWeek;
+    if (goal.status == 'maintain') {
+      weekly = 0;
+    }
+    final daily = dailyCalorieTarget(tdee: tdeeVal, weeklyWeightChangeKg: weekly);
+    final macros = macroGramsFromPercentages(
+      daily,
+      profile.proteinPct,
+      profile.carbsPct,
+      profile.fatPct,
+    );
+    return ComputedPlan(dailyCalories: daily, macros: macros, tdee: tdeeVal);
+  }
+
+  Future<void> recacheDailyTarget() async {
+    final profile = await requireProfile();
+    final goal = await currentGoal();
+    final plan = await computePlanForProfile(profile, goal);
+    if (plan == null) return;
+    await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
+      ProfilesCompanion(dailyCalorieTarget: Value(plan.dailyCalories)),
+    );
+  }
+
+  /// Full onboarding submit: profile, goal, first weight, cache calories.
+  Future<void> submitOnboarding({
+    required String sex,
+    required DateTime birthDate,
+    required double heightCm,
+    required int activityLevelIndex,
+    required WeightUnit weightUnit,
+    required double currentWeightKg,
+    required double targetWeightKg,
+    required double weeklyChangeKgPerWeek,
+    required int proteinPct,
+    required int carbsPct,
+    required int fatPct,
+    required int reminderWeekday,
+    required int reminderHour,
+    required int reminderMinute,
+  }) async {
+    await _db.transaction(() async {
+      await _db.delete(_db.goals).go();
+      await _db.into(_db.goals).insert(
+            GoalsCompanion.insert(
+              targetWeightKg: targetWeightKg,
+              weeklyChangeKgPerWeek: weeklyChangeKgPerWeek,
+              status: 'active',
+            ),
+          );
+      await (_db.into(_db.weightEntries)).insert(
+        WeightEntriesCompanion.insert(
+          recordedAt: DateTime.now(),
+          weightKg: currentWeightKg,
+        ),
+      );
+      await (_db.into(_db.profiles)).insertOnConflictUpdate(
+        ProfilesCompanion.insert(
+          id: const Value(1),
+          sex: sex,
+          birthDateMillis: birthDate.millisecondsSinceEpoch,
+          heightCm: heightCm,
+          activityLevel: activityLevelIndex,
+          weightUnit: weightUnit.name,
+          proteinPct: proteinPct,
+          carbsPct: carbsPct,
+          fatPct: fatPct,
+          reminderWeekday: reminderWeekday,
+          reminderHour: reminderHour,
+          reminderMinute: reminderMinute,
+          onboardingCompleted: const Value(true),
+          dailyCalorieTarget: const Value.absent(),
+        ),
+      );
+      final g = await currentGoal();
+      final pRow = await requireProfile();
+      final plan = await computePlanForProfile(pRow, g);
+      if (plan != null) {
+        await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
+          ProfilesCompanion(dailyCalorieTarget: Value(plan.dailyCalories)),
+        );
+      }
+    });
+  }
+
+  Future<void> addWeightEntry({
+    required double weightKg,
+    String? note,
+  }) async {
+    await _db.into(_db.weightEntries).insert(
+          WeightEntriesCompanion.insert(
+            recordedAt: DateTime.now(),
+            weightKg: weightKg,
+            note: Value(note),
+          ),
+        );
+    await recacheDailyTarget();
+    await checkGoalCompletionAfterWeighIn();
+  }
+
+  Future<void> updateMacroSplit({
+    required int proteinPct,
+    required int carbsPct,
+    required int fatPct,
+  }) async {
+    await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
+      ProfilesCompanion(
+        proteinPct: Value(proteinPct),
+        carbsPct: Value(carbsPct),
+        fatPct: Value(fatPct),
+      ),
+    );
+    await recacheDailyTarget();
+  }
+
+  Future<void> updateReminderSchedule({
+    required int weekday,
+    required int hour,
+    required int minute,
+  }) async {
+    await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
+      ProfilesCompanion(
+        reminderWeekday: Value(weekday),
+        reminderHour: Value(hour),
+        reminderMinute: Value(minute),
+      ),
+    );
+  }
+
+  Future<void> updateWeightUnit(WeightUnit unit) async {
+    await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
+      ProfilesCompanion(weightUnit: Value(unit.name)),
+    );
+  }
+
+  Future<void> chooseMaintainWeight() async {
+    final goal = await currentGoal();
+    if (goal == null) return;
+    await (_db.update(_db.goals)..where((t) => t.id.equals(goal.id))).write(
+      GoalsCompanion(
+        weeklyChangeKgPerWeek: const Value(0),
+        status: const Value('maintain'),
+      ),
+    );
+    await recacheDailyTarget();
+  }
+
+  Future<void> setNewGoal({
+    required double targetWeightKg,
+    required double weeklyChangeKgPerWeek,
+  }) async {
+    await _db.delete(_db.goals).go();
+    await _db.into(_db.goals).insert(
+          GoalsCompanion.insert(
+            targetWeightKg: targetWeightKg,
+            weeklyChangeKgPerWeek: weeklyChangeKgPerWeek,
+            status: 'active',
+          ),
+        );
+    await recacheDailyTarget();
+  }
+
+  Future<void> checkGoalCompletionAfterWeighIn() async {
+    final goal = await currentGoal();
+    if (goal == null || goal.status != 'active') return;
+    final recent = await weightEntriesLimit(4);
+    if (recent.length < 2) return;
+    final weights = recent.map((e) => e.weightKg).toList();
+    if (isGoalReached(
+      latestWeightKg: weights.first,
+      targetWeightKg: goal.targetWeightKg,
+      recentWeightsKgNewestFirst: weights,
+    )) {
+      final g = await currentGoal();
+      if (g == null) return;
+      await (_db.update(_db.goals)..where((t) => t.id.equals(g.id))).write(
+        const GoalsCompanion(status: Value('pending_choice')),
+      );
+    }
+  }
+
+  /// Compare weight ~7 days ago to now for weekly review.
+  Future<double?> weeklyDeltaKg() async {
+    final entries = await weightEntriesLimit(20);
+    if (entries.length < 2) return null;
+    final latest = entries.first;
+    final weekAgo = latest.recordedAt.subtract(const Duration(days: 7));
+    WeightEntry? anchor;
+    for (final e in entries) {
+      if (!e.recordedAt.isAfter(weekAgo)) {
+        anchor = e;
+        break;
+      }
+    }
+    anchor ??= entries.last;
+    return latest.weightKg - anchor.weightKg;
+  }
+
+  Future<void> applyWeeklyAdjustment() async {
+    final profile = await requireProfile();
+    final goal = await currentGoal();
+    if (goal == null || goal.status != 'active') return;
+    final delta = await weeklyDeltaKg();
+    if (delta == null) return;
+    final intendedWeeks = goal.weeklyChangeKgPerWeek;
+    final currentTarget = profile.dailyCalorieTarget;
+    if (currentTarget == null) return;
+    final adjusted = adjustCaloriesForProgress(
+      currentDailyTarget: currentTarget,
+      intendedWeeklyChangeKg: intendedWeeks,
+      actualWeeklyChangeKg: delta,
+    );
+    await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
+      ProfilesCompanion(dailyCalorieTarget: Value(adjusted)),
+    );
+  }
+
+  Future<void> keepCurrentPlan() async {
+    await recacheDailyTarget();
+  }
+
+  Future<void> resetForTesting() async {
+    await _db.delete(_db.weightEntries).go();
+    await _db.delete(_db.goals).go();
+    await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
+      const ProfilesCompanion(
+        onboardingCompleted: Value(false),
+        dailyCalorieTarget: Value.absent(),
+      ),
+    );
+  }
+}
