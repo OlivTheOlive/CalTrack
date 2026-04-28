@@ -7,8 +7,10 @@
 .buildlog/
 .history
 
+.cursor/*
 
 
+/opennutrition-dataset-*/
 # Flutter repo-specific
 /bin/cache/
 /bin/internal/bootstrap.bat
