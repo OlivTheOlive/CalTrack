@@ -10,6 +10,10 @@
 
 assets/*
 opennutrition-dataset-*
+
+# Generated reports/audit artifacts from tool/opennutrition_import.py
+tool/opennutrition_clean_report.json
+tool/opennutrition_ambiguous.csv
 # Flutter repo-specific
 /bin/cache/
 /bin/internal/bootstrap.bat

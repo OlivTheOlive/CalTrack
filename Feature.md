@@ -10,6 +10,7 @@
 - User should see how we the app will adapt to their weekly reports (meaning that they understand the medothology of how and why would adjust their calory goal for their needs and best caloric floor/deficit/magnitude for them)
 - User should see a difference in impact when modifying their magnidute by having a visual/colour representation. 1kg a week could be read but much harder to sustain so may be not ideal for most, but .5kg a week may be slower but more effective in the long run.
 - use range of age and not a specific age selector, (e.g. 18-20, 20-25, 25-30... use the bigger number)
+- In the setting page, where the food data is, we should  see the amount of food in the local database. This metric should be shown in two parts, from OpenNutrion and from user input. 
 
 ## Specific features
 
@@ -19,6 +20,8 @@
 - Weigh-in streaks / reminders — You already have notifications; surfacing adherence in UI helps motivation without new data. (done)
 
 ## Data cleaning in opennutrition
+
 - create a script that will clean and remove any unwanted products. I only want to retain the whole none branded food from that database.
 - create a script that will clean the OpenNutrition data by removing any branded items and only retaining whole foods like fruits, vegies, meats, grains and others.
 - remove any duplicate.
+
