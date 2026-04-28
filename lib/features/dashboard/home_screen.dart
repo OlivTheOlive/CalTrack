@@ -14,8 +14,37 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   bool _celebrationHandled = false;
+  bool _fabMenuOpen = false;
+  late final AnimationController _fabMenuController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+  );
+
+  @override
+  void dispose() {
+    _fabMenuController.dispose();
+    super.dispose();
+  }
+
+  void _toggleFabMenu() {
+    setState(() {
+      _fabMenuOpen = !_fabMenuOpen;
+      if (_fabMenuOpen) {
+        _fabMenuController.forward();
+      } else {
+        _fabMenuController.reverse();
+      }
+    });
+  }
+
+  void _closeFabMenu() {
+    if (!_fabMenuOpen) return;
+    setState(() => _fabMenuOpen = false);
+    _fabMenuController.reverse();
+  }
 
   void _showDashboardInfoSheet(BuildContext context) {
     final theme = Theme.of(context);
@@ -130,99 +159,142 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => context.push('/log-food'),
-            icon: const Icon(Icons.restaurant_menu_outlined),
-            label: const Text('Log food'),
+          floatingActionButton: _LogFabMenu(
+            controller: _fabMenuController,
+            isOpen: _fabMenuOpen,
+            onToggle: _toggleFabMenu,
+            onLogFood: () {
+              _closeFabMenu();
+              context.push('/log-food');
+            },
+            onLogWeight: () {
+              _closeFabMenu();
+              context.push('/log-weight');
+            },
           ),
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-          body: profileCtl.loading || profileCtl.profile == null
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: () async {
-                    await profileCtl.refresh();
-                  },
-                  child: ListView(
-                    padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
-                    children: [
-                      const SizedBox(height: 16),
-                      FutureBuilder<ComputedPlan?>(
-                        future: repo.computePlanForProfile(
-                          profileCtl.profile!,
-                          goal,
-                        ),
-                        builder: (context, planSnap) {
-                          final plan = planSnap.data;
-                          if (plan == null) {
-                            return const Card(
-                              child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text(
-                                  'Log your weight to see calorie and macro targets.',
-                                ),
-                              ),
-                            );
-                          }
-                          return StreamBuilder<DailyIntakeTotals>(
-                            stream: repo.watchIntakeForDay(DateTime.now()),
-                            builder: (context, intakeSnap) {
-                              final intake =
-                                  intakeSnap.data ?? DailyIntakeTotals.zero;
-                              return _TodaySummaryCard(
-                                plan: plan,
-                                intake: intake,
-                              );
-                            },
-                          );
-                        },
+          body: Stack(
+            children: [
+              profileCtl.loading || profileCtl.profile == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        await profileCtl.refresh();
+                      },
+                      child: _BodyListView(
+                        repo: repo,
+                        profileCtl: profileCtl,
+                        goal: goal,
+                        bottomInset: bottomInset,
                       ),
-                      const SizedBox(height: 16),
-                      if (goal != null) _GoalSummary(goal: goal),
-                      const SizedBox(height: 16),
-                      FutureBuilder<List<WeightEntry>>(
-                        future: repo.weightEntriesLimit(1),
-                        builder: (context, wSnap) {
-                          final list = wSnap.data;
-                          final last = list == null || list.isEmpty
-                              ? null
-                              : list.first;
-                          if (last == null) {
-                            return const SizedBox.shrink();
-                          }
-                          final overdue = DateTime.now()
-                              .difference(last.recordedAt)
-                              .inDays;
-                          if (overdue >= 8) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: Card(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .errorContainer
-                                    .withValues(alpha: 0.35),
-                                child: ListTile(
-                                  title: const Text('Weigh-in overdue'),
-                                  subtitle: Text(
-                                    'Last entry ${DateFormat.yMMMd().format(last.recordedAt)}. '
-                                    'Weekly check-ins help adjust your plan.',
-                                  ),
-                                  trailing: TextButton(
-                                    onPressed: () =>
-                                        context.push('/log-weight'),
-                                    child: const Text('Log'),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
-                    ],
+                    ),
+              IgnorePointer(
+                ignoring: !_fabMenuOpen,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 180),
+                  opacity: _fabMenuOpen ? 1 : 0,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _closeFabMenu,
+                    child: Container(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .scrim
+                          .withValues(alpha: 0.32),
+                    ),
                   ),
                 ),
+              ),
+            ],
+          ),
         );
       },
+    );
+  }
+}
+
+class _BodyListView extends StatelessWidget {
+  const _BodyListView({
+    required this.repo,
+    required this.profileCtl,
+    required this.goal,
+    required this.bottomInset,
+  });
+
+  final CalTrackRepository repo;
+  final ProfileController profileCtl;
+  final Goal? goal;
+  final double bottomInset;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentGoal = goal;
+    return ListView(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+      children: [
+        const SizedBox(height: 16),
+        FutureBuilder<ComputedPlan?>(
+          future: repo.computePlanForProfile(profileCtl.profile!, currentGoal),
+          builder: (context, planSnap) {
+            final plan = planSnap.data;
+            if (plan == null) {
+              return const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Log your weight to see calorie and macro targets.',
+                  ),
+                ),
+              );
+            }
+            return StreamBuilder<DailyIntakeTotals>(
+              stream: repo.watchIntakeForDay(DateTime.now()),
+              builder: (context, intakeSnap) {
+                final intake = intakeSnap.data ?? DailyIntakeTotals.zero;
+                return _TodaySummaryCard(plan: plan, intake: intake);
+              },
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        if (currentGoal != null) _GoalSummary(goal: currentGoal),
+        const SizedBox(height: 16),
+        FutureBuilder<List<WeightEntry>>(
+          future: repo.weightEntriesLimit(1),
+          builder: (context, wSnap) {
+            final list = wSnap.data;
+            final last = list == null || list.isEmpty ? null : list.first;
+            if (last == null) {
+              return const SizedBox.shrink();
+            }
+            final overdue =
+                DateTime.now().difference(last.recordedAt).inDays;
+            if (overdue >= 8) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Card(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .errorContainer
+                      .withValues(alpha: 0.35),
+                  child: ListTile(
+                    title: const Text('Weigh-in overdue'),
+                    subtitle: Text(
+                      'Last entry ${DateFormat.yMMMd().format(last.recordedAt)}. '
+                      'Weekly check-ins help adjust your plan.',
+                    ),
+                    trailing: TextButton(
+                      onPressed: () => context.push('/log-weight'),
+                      child: const Text('Log'),
+                    ),
+                  ),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+      ],
     );
   }
 }
@@ -429,6 +501,130 @@ class _GoalSummary extends StatelessWidget {
             subtitle: Text(
               goal.status == 'pending_choice' ? 'Choose next step' : pace,
               style: theme.textTheme.bodySmall,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Material 3 expandable FAB menu: a primary FAB that reveals smaller
+/// labeled FABs for adding food and weight entries.
+class _LogFabMenu extends StatelessWidget {
+  const _LogFabMenu({
+    required this.controller,
+    required this.isOpen,
+    required this.onToggle,
+    required this.onLogFood,
+    required this.onLogWeight,
+  });
+
+  final AnimationController controller;
+  final bool isOpen;
+  final VoidCallback onToggle;
+  final VoidCallback onLogFood;
+  final VoidCallback onLogWeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _FabMenuItem(
+          controller: controller,
+          index: 1,
+          icon: Icons.monitor_weight_outlined,
+          label: 'Log weight',
+          heroTag: 'fab_menu_weight',
+          onPressed: onLogWeight,
+        ),
+        const SizedBox(height: 12),
+        _FabMenuItem(
+          controller: controller,
+          index: 0,
+          icon: Icons.restaurant_menu_outlined,
+          label: 'Log food',
+          heroTag: 'fab_menu_food',
+          onPressed: onLogFood,
+        ),
+        const SizedBox(height: 12),
+        FloatingActionButton(
+          onPressed: onToggle,
+          tooltip: isOpen ? 'Close menu' : 'Add entry',
+          child: AnimatedRotation(
+            turns: isOpen ? 0.125 : 0, // 0 -> 45 degrees
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FabMenuItem extends StatelessWidget {
+  const _FabMenuItem({
+    required this.controller,
+    required this.index,
+    required this.icon,
+    required this.label,
+    required this.heroTag,
+    required this.onPressed,
+  });
+
+  final AnimationController controller;
+  final int index;
+  final IconData icon;
+  final String label;
+  final String heroTag;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final t = Curves.easeOutCubic.transform(
+          (controller.value * 1.6 - index * 0.15).clamp(0.0, 1.0),
+        );
+        return IgnorePointer(
+          ignoring: t < 0.5,
+          child: Opacity(
+            opacity: t,
+            child: Transform.translate(
+              offset: Offset(0, (1 - t) * 16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Material(
+                    color: theme.colorScheme.inverseSurface,
+                    elevation: 2,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Text(
+                        label,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.onInverseSurface,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  FloatingActionButton.small(
+                    heroTag: heroTag,
+                    onPressed: onPressed,
+                    child: Icon(icon),
+                  ),
+                ],
+              ),
             ),
           ),
         );
