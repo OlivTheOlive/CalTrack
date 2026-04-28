@@ -8,10 +8,8 @@
 .history
 .cursor/*
 
-# CalTrack — large local datasets and DB (generate/download locally; do not commit)
-opennutrition-dataset-*/
-assets/opennutrition.sqlite
-
+assets/*
+opennutrition-dataset-*
 # Flutter repo-specific
 /bin/cache/
 /bin/internal/bootstrap.bat
