@@ -7,112 +7,22 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+/// Dashboard tab body. Owns the goal-completion celebration sheet and
+/// the scrolling cards. Pure body content — the surrounding shell
+/// provides the [AppBar], [FloatingActionButton], and [NavigationBar].
+class DashboardTab extends StatefulWidget {
+  const DashboardTab({super.key, this.bottomInset = 0});
+
+  /// Extra padding to leave under the last item, e.g. space for the
+  /// shell's FAB or NavigationBar.
+  final double bottomInset;
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<DashboardTab> createState() => _DashboardTabState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+class _DashboardTabState extends State<DashboardTab> {
   bool _celebrationHandled = false;
-  bool _fabMenuOpen = false;
-  late final AnimationController _fabMenuController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 220),
-  );
-
-  @override
-  void dispose() {
-    _fabMenuController.dispose();
-    super.dispose();
-  }
-
-  void _toggleFabMenu() {
-    setState(() {
-      _fabMenuOpen = !_fabMenuOpen;
-      if (_fabMenuOpen) {
-        _fabMenuController.forward();
-      } else {
-        _fabMenuController.reverse();
-      }
-    });
-  }
-
-  void _closeFabMenu() {
-    if (!_fabMenuOpen) return;
-    setState(() => _fabMenuOpen = false);
-    _fabMenuController.reverse();
-  }
-
-  void _showDashboardInfoSheet(BuildContext context) {
-    final theme = Theme.of(context);
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      useSafeArea: true,
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.sizeOf(context).width,
-      ),
-      builder: (ctx) {
-        return SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'About your plan',
-                  style: theme.textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Calorie targets are estimates based on common formulas '
-                  '(~7700 kcal per kg of fat change per week). '
-                  'Not medical advice—consult a professional for health '
-                  'conditions or aggressive deficits.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Shortcuts',
-                  style: theme.textTheme.titleSmall,
-                ),
-                const SizedBox(height: 8),
-                ListTile(
-                  leading: const Icon(Icons.monitor_weight_outlined),
-                  title: const Text('Log weight'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    context.push('/log-weight');
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.insights_outlined),
-                  title: const Text('Weekly review'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    context.push('/weekly-review');
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.show_chart_outlined),
-                  title: const Text('Weight history'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    context.push('/history');
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,73 +49,19 @@ class _HomeScreenState extends State<HomeScreen>
           _celebrationHandled = false;
         }
 
-        final bottomInset = MediaQuery.paddingOf(context).bottom +
-            kFloatingActionButtonMargin +
-            72;
+        if (profileCtl.loading || profileCtl.profile == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-        return Scaffold(
-          appBar: AppBar(
-            leading: IconButton(
-              tooltip: 'About & shortcuts',
-              icon: const Icon(Icons.info_outline),
-              onPressed: () => _showDashboardInfoSheet(context),
-            ),
-            title: const Text('CalTrack'),
-            actions: [
-              IconButton(
-                tooltip: 'Settings',
-                onPressed: () => context.push('/settings'),
-                icon: const Icon(Icons.settings_outlined),
-              ),
-            ],
-          ),
-          floatingActionButton: _LogFabMenu(
-            controller: _fabMenuController,
-            isOpen: _fabMenuOpen,
-            onToggle: _toggleFabMenu,
-            onLogFood: () {
-              _closeFabMenu();
-              context.push('/log-food');
-            },
-            onLogWeight: () {
-              _closeFabMenu();
-              context.push('/log-weight');
-            },
-          ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-          body: Stack(
-            children: [
-              profileCtl.loading || profileCtl.profile == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : RefreshIndicator(
-                      onRefresh: () async {
-                        await profileCtl.refresh();
-                      },
-                      child: _BodyListView(
-                        repo: repo,
-                        profileCtl: profileCtl,
-                        goal: goal,
-                        bottomInset: bottomInset,
-                      ),
-                    ),
-              IgnorePointer(
-                ignoring: !_fabMenuOpen,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 180),
-                  opacity: _fabMenuOpen ? 1 : 0,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _closeFabMenu,
-                    child: Container(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .scrim
-                          .withValues(alpha: 0.32),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+        return RefreshIndicator(
+          onRefresh: () async {
+            await profileCtl.refresh();
+          },
+          child: _DashboardListView(
+            repo: repo,
+            profileCtl: profileCtl,
+            goal: goal,
+            bottomInset: widget.bottomInset,
           ),
         );
       },
@@ -213,8 +69,56 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
-class _BodyListView extends StatelessWidget {
-  const _BodyListView({
+/// Modal bottom sheet with disclaimer and quick links. Used by the
+/// AppBar's info icon in the shell.
+void showDashboardInfoSheet(BuildContext context) {
+  final theme = Theme.of(context);
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    useSafeArea: true,
+    constraints: BoxConstraints(
+      maxWidth: MediaQuery.sizeOf(context).width,
+    ),
+    builder: (ctx) {
+      return SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('About your plan', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Text(
+                'Calorie targets are estimates based on common formulas '
+                '(~7700 kcal per kg of fat change per week). '
+                'Not medical advice—consult a professional for health '
+                'conditions or aggressive deficits.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text('Shortcuts', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.insights_outlined),
+                title: const Text('Weekly review'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/weekly-review');
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _DashboardListView extends StatelessWidget {
+  const _DashboardListView({
     required this.repo,
     required this.profileCtl,
     required this.goal,
@@ -256,6 +160,8 @@ class _BodyListView extends StatelessWidget {
             );
           },
         ),
+        const SizedBox(height: 16),
+        _TodayFoodLogCard(repo: repo),
         const SizedBox(height: 16),
         if (currentGoal != null) _GoalSummary(goal: currentGoal),
         const SizedBox(height: 16),
@@ -509,126 +415,136 @@ class _GoalSummary extends StatelessWidget {
   }
 }
 
-/// Material 3 expandable FAB menu: a primary FAB that reveals smaller
-/// labeled FABs for adding food and weight entries.
-class _LogFabMenu extends StatelessWidget {
-  const _LogFabMenu({
-    required this.controller,
-    required this.isOpen,
-    required this.onToggle,
-    required this.onLogFood,
-    required this.onLogWeight,
-  });
+/// Lists every food log entry for the current calendar day, with
+/// swipe-to-delete and an undo SnackBar.
+class _TodayFoodLogCard extends StatelessWidget {
+  const _TodayFoodLogCard({required this.repo});
 
-  final AnimationController controller;
-  final bool isOpen;
-  final VoidCallback onToggle;
-  final VoidCallback onLogFood;
-  final VoidCallback onLogWeight;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        _FabMenuItem(
-          controller: controller,
-          index: 1,
-          icon: Icons.monitor_weight_outlined,
-          label: 'Log weight',
-          heroTag: 'fab_menu_weight',
-          onPressed: onLogWeight,
-        ),
-        const SizedBox(height: 12),
-        _FabMenuItem(
-          controller: controller,
-          index: 0,
-          icon: Icons.restaurant_menu_outlined,
-          label: 'Log food',
-          heroTag: 'fab_menu_food',
-          onPressed: onLogFood,
-        ),
-        const SizedBox(height: 12),
-        FloatingActionButton(
-          onPressed: onToggle,
-          tooltip: isOpen ? 'Close menu' : 'Add entry',
-          child: AnimatedRotation(
-            turns: isOpen ? 0.125 : 0, // 0 -> 45 degrees
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            child: const Icon(Icons.add),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FabMenuItem extends StatelessWidget {
-  const _FabMenuItem({
-    required this.controller,
-    required this.index,
-    required this.icon,
-    required this.label,
-    required this.heroTag,
-    required this.onPressed,
-  });
-
-  final AnimationController controller;
-  final int index;
-  final IconData icon;
-  final String label;
-  final String heroTag;
-  final VoidCallback onPressed;
+  final CalTrackRepository repo;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final t = Curves.easeOutCubic.transform(
-          (controller.value * 1.6 - index * 0.15).clamp(0.0, 1.0),
-        );
-        return IgnorePointer(
-          ignoring: t < 0.5,
-          child: Opacity(
-            opacity: t,
-            child: Transform.translate(
-              offset: Offset(0, (1 - t) * 16),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Material(
-                    color: theme.colorScheme.inverseSurface,
-                    elevation: 2,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
+    return StreamBuilder<List<FoodLogEntry>>(
+      stream: repo.watchFoodLogsForDay(DateTime.now()),
+      builder: (context, snap) {
+        final entries = snap.data ?? const <FoodLogEntry>[];
+        return Card(
+          clipBehavior: Clip.hardEdge,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                child: Row(
+                  children: [
+                    Expanded(
                       child: Text(
-                        label,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.onInverseSurface,
-                        ),
+                        "Today's food",
+                        style: theme.textTheme.titleMedium,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  FloatingActionButton.small(
-                    heroTag: heroTag,
-                    onPressed: onPressed,
-                    child: Icon(icon),
-                  ),
-                ],
+                    Text(
+                      entries.isEmpty ? '' : '${entries.length} entries',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: () => context.push('/log-food'),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add'),
+                    ),
+                  ],
+                ),
               ),
+              if (entries.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Text(
+                    'Nothing logged yet today.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                for (var i = 0; i < entries.length; i++) ...[
+                  if (i > 0) const Divider(height: 1),
+                  _FoodLogTile(entry: entries[i], repo: repo),
+                ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FoodLogTile extends StatelessWidget {
+  const _FoodLogTile({required this.entry, required this.repo});
+
+  final FoodLogEntry entry;
+  final CalTrackRepository repo;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final time = DateFormat.jm().format(entry.loggedAt);
+    return Dismissible(
+      key: ValueKey('food-${entry.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        color: theme.colorScheme.errorContainer,
+        child: Icon(
+          Icons.delete_outline,
+          color: theme.colorScheme.onErrorContainer,
+        ),
+      ),
+      onDismissed: (_) async {
+        await repo.deleteFoodLog(entry.id);
+        if (!context.mounted) return;
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Removed ${entry.displayName}'),
+            action: SnackBarAction(
+              label: 'Undo',
+              onPressed: () {
+                repo.addFoodLogReturnId(
+                  source: entry.source,
+                  catalogFoodId: entry.catalogFoodId,
+                  displayName: entry.displayName,
+                  grams: entry.grams,
+                  kcal: entry.kcal,
+                  proteinG: entry.proteinG,
+                  carbsG: entry.carbsG,
+                  fatG: entry.fatG,
+                  loggedAt: entry.loggedAt,
+                );
+              },
             ),
           ),
         );
       },
+      child: ListTile(
+        title: Text(
+          entry.displayName,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text('${entry.grams.round()} g · $time'),
+        trailing: Text(
+          '${entry.kcal.round()} kcal',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -358,6 +358,47 @@ class CalTrackRepository {
         .map(DailyIntakeTotals.fromEntries);
   }
 
+  /// Stream of food log entries for a calendar day, newest first.
+  Stream<List<FoodLogEntry>> watchFoodLogsForDay(DateTime day) {
+    final (s, e) = _dayBounds(day);
+    return (_db.select(_db.foodLogEntries)
+          ..where((t) =>
+              t.loggedAt.isBiggerOrEqualValue(s) &
+              t.loggedAt.isSmallerThanValue(e))
+          ..orderBy([(t) => OrderingTerm.desc(t.loggedAt)]))
+        .watch();
+  }
+
+  Future<void> deleteFoodLog(int id) async {
+    await (_db.delete(_db.foodLogEntries)..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<int> addFoodLogReturnId({
+    required String source,
+    String? catalogFoodId,
+    required String displayName,
+    required double grams,
+    required double kcal,
+    required double proteinG,
+    required double carbsG,
+    required double fatG,
+    DateTime? loggedAt,
+  }) {
+    return _db.into(_db.foodLogEntries).insert(
+          FoodLogEntriesCompanion.insert(
+            loggedAt: loggedAt ?? DateTime.now(),
+            source: source,
+            catalogFoodId: Value(catalogFoodId),
+            displayName: displayName,
+            grams: grams,
+            kcal: kcal,
+            proteinG: proteinG,
+            carbsG: carbsG,
+            fatG: fatG,
+          ),
+        );
+  }
+
   Future<void> addFoodLog({
     required String source,
     String? catalogFoodId,

@@ -1,10 +1,9 @@
 import 'package:caltrack/app/profile_controller.dart';
-import 'package:caltrack/features/dashboard/home_screen.dart';
 import 'package:caltrack/features/food/barcode_scan_screen.dart';
 import 'package:caltrack/features/food/log_food_screen.dart';
 import 'package:caltrack/features/onboarding/onboarding_screen.dart';
 import 'package:caltrack/features/settings/settings_screen.dart';
-import 'package:caltrack/features/weight/history_screen.dart';
+import 'package:caltrack/features/shell/root_shell.dart';
 import 'package:caltrack/features/weight/log_weight_screen.dart';
 import 'package:caltrack/features/weekly/weekly_review_screen.dart';
 import 'package:go_router/go_router.dart';
@@ -27,7 +26,7 @@ GoRouter createRouter(ProfileController profileController) {
     routes: [
       GoRoute(
         path: '/',
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => const RootShell(),
       ),
       GoRoute(
         path: '/onboarding',
@@ -36,10 +35,6 @@ GoRouter createRouter(ProfileController profileController) {
       GoRoute(
         path: '/log-weight',
         builder: (context, state) => const LogWeightScreen(),
-      ),
-      GoRoute(
-        path: '/history',
-        builder: (context, state) => const HistoryScreen(),
       ),
       GoRoute(
         path: '/settings',
