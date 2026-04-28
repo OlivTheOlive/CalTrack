@@ -45,28 +45,61 @@ class WeightEntries extends Table {
   TextColumn get note => text().nullable()();
 }
 
+enum ServingUnit { g, ml }
+
+/// User-created foods stored locally for fast re-use and barcode lookup.
+class CustomFoods extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// Required display name, e.g. "Greek yogurt".
+  TextColumn get name => text()();
+
+  /// Optional, e.g. "Chobani".
+  TextColumn get brand => text().nullable()();
+
+  /// Optional, normalized digits (EAN-13 if present).
+  TextColumn get barcode => text().nullable()();
+
+  /// Serving size amount (in [servingUnit]).
+  RealColumn get servingSize => real()();
+
+  /// 'g' | 'ml'
+  TextColumn get servingUnit => text()();
+
+  /// Nutrition per serving.
+  RealColumn get calories => real()();
+  RealColumn get fatG => real()();
+  RealColumn get carbsG => real()();
+  RealColumn get sugarG => real()();
+  RealColumn get fiberG => real()();
+  RealColumn get proteinG => real()();
+}
+
 /// Logged food with snapshot macros for the chosen portion (not per-100g).
 class FoodLogEntries extends Table {
   IntColumn get id => integer().autoIncrement()();
   DateTimeColumn get loggedAt => dateTime()();
   TextColumn get source => text()(); // opennutrition | custom
   TextColumn get catalogFoodId => text().nullable()();
+  IntColumn get customFoodId => integer().nullable()();
   TextColumn get displayName => text()();
   RealColumn get grams => real()();
   RealColumn get kcal => real()();
   RealColumn get proteinG => real()();
   RealColumn get carbsG => real()();
+  RealColumn get sugarG => real().withDefault(const Constant(0))();
+  RealColumn get fiberG => real().withDefault(const Constant(0))();
   RealColumn get fatG => real()();
 }
 
-@DriftDatabase(tables: [Profiles, Goals, WeightEntries, FoodLogEntries])
+@DriftDatabase(tables: [Profiles, Goals, WeightEntries, CustomFoods, FoodLogEntries])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -76,6 +109,12 @@ class AppDatabase extends _$AppDatabase {
         onUpgrade: (Migrator m, int from, int to) async {
           if (from < 2) {
             await m.createTable(foodLogEntries);
+          }
+          if (from < 3) {
+            await m.createTable(customFoods);
+            await m.addColumn(foodLogEntries, foodLogEntries.customFoodId);
+            await m.addColumn(foodLogEntries, foodLogEntries.sugarG);
+            await m.addColumn(foodLogEntries, foodLogEntries.fiberG);
           }
         },
       );

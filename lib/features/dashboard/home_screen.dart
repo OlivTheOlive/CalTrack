@@ -494,7 +494,10 @@ class _FoodLogTile extends StatelessWidget {
     double kcal100 = entry.grams > 0 ? entry.kcal * 100 / entry.grams : 0;
     double p100 = entry.grams > 0 ? entry.proteinG * 100 / entry.grams : 0;
     double c100 = entry.grams > 0 ? entry.carbsG * 100 / entry.grams : 0;
+    double s100 = entry.grams > 0 ? entry.sugarG * 100 / entry.grams : 0;
+    double fi100 = entry.grams > 0 ? entry.fiberG * 100 / entry.grams : 0;
     double f100 = entry.grams > 0 ? entry.fatG * 100 / entry.grams : 0;
+    var unitLabel = 'g';
 
     final id = entry.catalogFoodId;
     if (id != null) {
@@ -508,6 +511,22 @@ class _FoodLogTile extends StatelessWidget {
       }
     }
 
+    final customId = entry.customFoodId;
+    if (customId != null) {
+      final custom = await repo.customFoodById(customId);
+      if (custom != null) {
+        final serving = custom.servingSize;
+        final factor = serving > 0 ? 100.0 / serving : 1.0;
+        kcal100 = custom.calories * factor;
+        p100 = custom.proteinG * factor;
+        c100 = custom.carbsG * factor;
+        s100 = custom.sugarG * factor;
+        fi100 = custom.fiberG * factor;
+        f100 = custom.fatG * factor;
+        unitLabel = custom.servingUnit;
+      }
+    }
+
     if (!context.mounted) return;
     await showFoodEntrySheet(
       context,
@@ -515,13 +534,17 @@ class _FoodLogTile extends StatelessWidget {
         displayName: entry.displayName,
         source: entry.source,
         catalogFoodId: entry.catalogFoodId,
+        customFoodId: entry.customFoodId,
         kcalPer100g: kcal100,
         proteinPer100g: p100,
         carbsPer100g: c100,
+        sugarPer100g: s100,
+        fiberPer100g: fi100,
         fatPer100g: f100,
         initialGrams: entry.grams,
         editingEntryId: entry.id,
         loggedAtForEdit: entry.loggedAt,
+        unitLabel: unitLabel,
       ),
     );
   }
@@ -556,11 +579,14 @@ class _FoodLogTile extends StatelessWidget {
                 repo.addFoodLogReturnId(
                   source: entry.source,
                   catalogFoodId: entry.catalogFoodId,
+                  customFoodId: entry.customFoodId,
                   displayName: entry.displayName,
                   grams: entry.grams,
                   kcal: entry.kcal,
                   proteinG: entry.proteinG,
                   carbsG: entry.carbsG,
+                  sugarG: entry.sugarG,
+                  fiberG: entry.fiberG,
                   fatG: entry.fatG,
                   loggedAt: entry.loggedAt,
                 );
