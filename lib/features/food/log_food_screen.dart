@@ -7,10 +7,15 @@ import 'package:caltrack/features/food/food_entry_sheet.dart';
 import 'package:caltrack/widgets/opennutrition_attribution.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class LogFoodScreen extends StatefulWidget {
-  const LogFoodScreen({super.key});
+  const LogFoodScreen({super.key, this.initialDay});
+
+  /// When non-null, new entries default to a timestamp on this day rather
+  /// than [DateTime.now()].
+  final DateTime? initialDay;
 
   @override
   State<LogFoodScreen> createState() => _LogFoodScreenState();
@@ -29,6 +34,29 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     _debounce?.cancel();
     _search.dispose();
     super.dispose();
+  }
+
+  /// Returns the timestamp to use for a new log entry. If we're targeting
+  /// a non-today day, snap to noon on that day so it deterministically
+  /// falls inside the day bounds and reads as a reasonable time.
+  DateTime? _initialLoggedAt() {
+    final day = widget.initialDay;
+    if (day == null) return null;
+    final today = DateTime.now();
+    final isToday = day.year == today.year &&
+        day.month == today.month &&
+        day.day == today.day;
+    if (isToday) return null;
+    return DateTime(day.year, day.month, day.day, 12);
+  }
+
+  bool get _isAlternateDay {
+    final day = widget.initialDay;
+    if (day == null) return false;
+    final today = DateTime.now();
+    return !(day.year == today.year &&
+        day.month == today.month &&
+        day.day == today.day);
   }
 
   Future<void> _runSearch(String q) async {
@@ -99,6 +127,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
         fatPer100g: food.fatPer100g,
         initialGrams: initialGrams,
         showOpenNutritionAttribution: true,
+        loggedAtForEdit: _initialLoggedAt(),
       ),
     );
     if (!mounted || action == null) return;
@@ -144,6 +173,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
         fiberPer100g: entry.fiberG * per100Factor,
         fatPer100g: entry.fatG * per100Factor,
         initialGrams: entry.grams,
+        loggedAtForEdit: _initialLoggedAt(),
       ),
     );
     if (!mounted || action != FoodEntryAction.added) return;
@@ -156,9 +186,14 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
   Widget build(BuildContext context) {
     final repo = context.read<CalTrackRepository>();
 
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Log food'),
+        title: Text(
+          _isAlternateDay && widget.initialDay != null
+              ? 'Log food · ${DateFormat.MMMd().format(widget.initialDay!)}'
+              : 'Log food',
+        ),
         actions: [
           IconButton(
             tooltip: 'Scan barcode',
@@ -178,6 +213,35 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_isAlternateDay && widget.initialDay != null)
+            Container(
+              width: double.infinity,
+              color: theme.colorScheme.tertiaryContainer
+                  .withValues(alpha: 0.5),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 10,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.event_note_outlined,
+                    size: 18,
+                    color: theme.colorScheme.onTertiaryContainer,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Adding to '
+                      '${DateFormat.yMMMEd().format(widget.initialDay!)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onTertiaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(

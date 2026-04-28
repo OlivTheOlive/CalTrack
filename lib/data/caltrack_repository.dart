@@ -236,6 +236,48 @@ class CalTrackRepository {
     await checkGoalCompletionAfterWeighIn();
   }
 
+  /// Look up the most recent weight entry on the same calendar day as
+  /// [day] (local time). Returns null if the day has no entries.
+  Future<WeightEntry?> weightEntryForDay(DateTime day) async {
+    final (s, e) = _dayBounds(day);
+    final rows = await (_db.select(_db.weightEntries)
+          ..where((t) =>
+              t.recordedAt.isBiggerOrEqualValue(s) &
+              t.recordedAt.isSmallerThanValue(e))
+          ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
+          ..limit(1))
+        .get();
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  Future<WeightEntry?> weightEntryById(int id) async {
+    final rows = await (_db.select(_db.weightEntries)
+          ..where((t) => t.id.equals(id))
+          ..limit(1))
+        .get();
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  Future<void> updateWeightEntry({
+    required int id,
+    required double weightKg,
+    String? note,
+  }) async {
+    await (_db.update(_db.weightEntries)..where((t) => t.id.equals(id))).write(
+      WeightEntriesCompanion(
+        weightKg: Value(weightKg),
+        note: Value(note),
+      ),
+    );
+    await recacheDailyTarget();
+    await checkGoalCompletionAfterWeighIn();
+  }
+
+  Future<void> deleteWeightEntry(int id) async {
+    await (_db.delete(_db.weightEntries)..where((t) => t.id.equals(id))).go();
+    await recacheDailyTarget();
+  }
+
   Future<void> updateMacroSplit({
     required int proteinPct,
     required int carbsPct,
@@ -370,6 +412,67 @@ class CalTrackRepository {
               t.loggedAt.isSmallerThanValue(e)))
         .get();
     return DailyIntakeTotals.fromEntries(rows);
+  }
+
+  /// Aggregate kcal logged per calendar day in [start, endExclusive).
+  /// Returned map keys are local-midnight DateTimes; days with no entries
+  /// are omitted (callers should treat missing keys as 0).
+  Future<Map<DateTime, double>> dailyKcalTotals({
+    required DateTime start,
+    required DateTime endExclusive,
+  }) async {
+    final s = DateTime(start.year, start.month, start.day);
+    final e = DateTime(
+      endExclusive.year,
+      endExclusive.month,
+      endExclusive.day,
+    );
+    final rows = await (_db.select(_db.foodLogEntries)
+          ..where((t) =>
+              t.loggedAt.isBiggerOrEqualValue(s) &
+              t.loggedAt.isSmallerThanValue(e)))
+        .get();
+    final out = <DateTime, double>{};
+    for (final r in rows) {
+      final d = DateTime(
+        r.loggedAt.year,
+        r.loggedAt.month,
+        r.loggedAt.day,
+      );
+      out.update(d, (v) => v + r.kcal, ifAbsent: () => r.kcal);
+    }
+    return out;
+  }
+
+  /// Reactive variant of [dailyKcalTotals] driven by changes to the food
+  /// log table.
+  Stream<Map<DateTime, double>> watchDailyKcalTotals({
+    required DateTime start,
+    required DateTime endExclusive,
+  }) {
+    final s = DateTime(start.year, start.month, start.day);
+    final e = DateTime(
+      endExclusive.year,
+      endExclusive.month,
+      endExclusive.day,
+    );
+    return (_db.select(_db.foodLogEntries)
+          ..where((t) =>
+              t.loggedAt.isBiggerOrEqualValue(s) &
+              t.loggedAt.isSmallerThanValue(e)))
+        .watch()
+        .map((rows) {
+      final out = <DateTime, double>{};
+      for (final r in rows) {
+        final d = DateTime(
+          r.loggedAt.year,
+          r.loggedAt.month,
+          r.loggedAt.day,
+        );
+        out.update(d, (v) => v + r.kcal, ifAbsent: () => r.kcal);
+      }
+      return out;
+    });
   }
 
   Stream<DailyIntakeTotals> watchIntakeForDay(DateTime day) {
