@@ -38,6 +38,17 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _ageBandMaxYearsMeta = const VerificationMeta(
+    'ageBandMaxYears',
+  );
+  @override
+  late final GeneratedColumn<int> ageBandMaxYears = GeneratedColumn<int>(
+    'age_band_max_years',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _heightCmMeta = const VerificationMeta(
     'heightCm',
   );
@@ -165,6 +176,7 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
     id,
     sex,
     birthDateMillis,
+    ageBandMaxYears,
     heightCm,
     activityLevel,
     weightUnit,
@@ -210,6 +222,15 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
       );
     } else if (isInserting) {
       context.missing(_birthDateMillisMeta);
+    }
+    if (data.containsKey('age_band_max_years')) {
+      context.handle(
+        _ageBandMaxYearsMeta,
+        ageBandMaxYears.isAcceptableOrUnknown(
+          data['age_band_max_years']!,
+          _ageBandMaxYearsMeta,
+        ),
+      );
     }
     if (data.containsKey('height_cm')) {
       context.handle(
@@ -334,6 +355,10 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
         DriftSqlType.int,
         data['${effectivePrefix}birth_date_millis'],
       )!,
+      ageBandMaxYears: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}age_band_max_years'],
+      ),
       heightCm: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}height_cm'],
@@ -391,6 +416,10 @@ class Profile extends DataClass implements Insertable<Profile> {
   final int id;
   final String sex;
   final int birthDateMillis;
+
+  /// Upper bound of the user's age band (years). Preferred input to TDEE
+  /// math; older rows may have it null and fall back to [birthDateMillis].
+  final int? ageBandMaxYears;
   final double heightCm;
   final int activityLevel;
   final String weightUnit;
@@ -406,6 +435,7 @@ class Profile extends DataClass implements Insertable<Profile> {
     required this.id,
     required this.sex,
     required this.birthDateMillis,
+    this.ageBandMaxYears,
     required this.heightCm,
     required this.activityLevel,
     required this.weightUnit,
@@ -424,6 +454,9 @@ class Profile extends DataClass implements Insertable<Profile> {
     map['id'] = Variable<int>(id);
     map['sex'] = Variable<String>(sex);
     map['birth_date_millis'] = Variable<int>(birthDateMillis);
+    if (!nullToAbsent || ageBandMaxYears != null) {
+      map['age_band_max_years'] = Variable<int>(ageBandMaxYears);
+    }
     map['height_cm'] = Variable<double>(heightCm);
     map['activity_level'] = Variable<int>(activityLevel);
     map['weight_unit'] = Variable<String>(weightUnit);
@@ -445,6 +478,9 @@ class Profile extends DataClass implements Insertable<Profile> {
       id: Value(id),
       sex: Value(sex),
       birthDateMillis: Value(birthDateMillis),
+      ageBandMaxYears: ageBandMaxYears == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ageBandMaxYears),
       heightCm: Value(heightCm),
       activityLevel: Value(activityLevel),
       weightUnit: Value(weightUnit),
@@ -470,6 +506,7 @@ class Profile extends DataClass implements Insertable<Profile> {
       id: serializer.fromJson<int>(json['id']),
       sex: serializer.fromJson<String>(json['sex']),
       birthDateMillis: serializer.fromJson<int>(json['birthDateMillis']),
+      ageBandMaxYears: serializer.fromJson<int?>(json['ageBandMaxYears']),
       heightCm: serializer.fromJson<double>(json['heightCm']),
       activityLevel: serializer.fromJson<int>(json['activityLevel']),
       weightUnit: serializer.fromJson<String>(json['weightUnit']),
@@ -494,6 +531,7 @@ class Profile extends DataClass implements Insertable<Profile> {
       'id': serializer.toJson<int>(id),
       'sex': serializer.toJson<String>(sex),
       'birthDateMillis': serializer.toJson<int>(birthDateMillis),
+      'ageBandMaxYears': serializer.toJson<int?>(ageBandMaxYears),
       'heightCm': serializer.toJson<double>(heightCm),
       'activityLevel': serializer.toJson<int>(activityLevel),
       'weightUnit': serializer.toJson<String>(weightUnit),
@@ -512,6 +550,7 @@ class Profile extends DataClass implements Insertable<Profile> {
     int? id,
     String? sex,
     int? birthDateMillis,
+    Value<int?> ageBandMaxYears = const Value.absent(),
     double? heightCm,
     int? activityLevel,
     String? weightUnit,
@@ -527,6 +566,9 @@ class Profile extends DataClass implements Insertable<Profile> {
     id: id ?? this.id,
     sex: sex ?? this.sex,
     birthDateMillis: birthDateMillis ?? this.birthDateMillis,
+    ageBandMaxYears: ageBandMaxYears.present
+        ? ageBandMaxYears.value
+        : this.ageBandMaxYears,
     heightCm: heightCm ?? this.heightCm,
     activityLevel: activityLevel ?? this.activityLevel,
     weightUnit: weightUnit ?? this.weightUnit,
@@ -548,6 +590,9 @@ class Profile extends DataClass implements Insertable<Profile> {
       birthDateMillis: data.birthDateMillis.present
           ? data.birthDateMillis.value
           : this.birthDateMillis,
+      ageBandMaxYears: data.ageBandMaxYears.present
+          ? data.ageBandMaxYears.value
+          : this.ageBandMaxYears,
       heightCm: data.heightCm.present ? data.heightCm.value : this.heightCm,
       activityLevel: data.activityLevel.present
           ? data.activityLevel.value
@@ -584,6 +629,7 @@ class Profile extends DataClass implements Insertable<Profile> {
           ..write('id: $id, ')
           ..write('sex: $sex, ')
           ..write('birthDateMillis: $birthDateMillis, ')
+          ..write('ageBandMaxYears: $ageBandMaxYears, ')
           ..write('heightCm: $heightCm, ')
           ..write('activityLevel: $activityLevel, ')
           ..write('weightUnit: $weightUnit, ')
@@ -604,6 +650,7 @@ class Profile extends DataClass implements Insertable<Profile> {
     id,
     sex,
     birthDateMillis,
+    ageBandMaxYears,
     heightCm,
     activityLevel,
     weightUnit,
@@ -623,6 +670,7 @@ class Profile extends DataClass implements Insertable<Profile> {
           other.id == this.id &&
           other.sex == this.sex &&
           other.birthDateMillis == this.birthDateMillis &&
+          other.ageBandMaxYears == this.ageBandMaxYears &&
           other.heightCm == this.heightCm &&
           other.activityLevel == this.activityLevel &&
           other.weightUnit == this.weightUnit &&
@@ -640,6 +688,7 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
   final Value<int> id;
   final Value<String> sex;
   final Value<int> birthDateMillis;
+  final Value<int?> ageBandMaxYears;
   final Value<double> heightCm;
   final Value<int> activityLevel;
   final Value<String> weightUnit;
@@ -655,6 +704,7 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     this.id = const Value.absent(),
     this.sex = const Value.absent(),
     this.birthDateMillis = const Value.absent(),
+    this.ageBandMaxYears = const Value.absent(),
     this.heightCm = const Value.absent(),
     this.activityLevel = const Value.absent(),
     this.weightUnit = const Value.absent(),
@@ -671,6 +721,7 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     this.id = const Value.absent(),
     required String sex,
     required int birthDateMillis,
+    this.ageBandMaxYears = const Value.absent(),
     required double heightCm,
     required int activityLevel,
     required String weightUnit,
@@ -697,6 +748,7 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     Expression<int>? id,
     Expression<String>? sex,
     Expression<int>? birthDateMillis,
+    Expression<int>? ageBandMaxYears,
     Expression<double>? heightCm,
     Expression<int>? activityLevel,
     Expression<String>? weightUnit,
@@ -713,6 +765,7 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
       if (id != null) 'id': id,
       if (sex != null) 'sex': sex,
       if (birthDateMillis != null) 'birth_date_millis': birthDateMillis,
+      if (ageBandMaxYears != null) 'age_band_max_years': ageBandMaxYears,
       if (heightCm != null) 'height_cm': heightCm,
       if (activityLevel != null) 'activity_level': activityLevel,
       if (weightUnit != null) 'weight_unit': weightUnit,
@@ -733,6 +786,7 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     Value<int>? id,
     Value<String>? sex,
     Value<int>? birthDateMillis,
+    Value<int?>? ageBandMaxYears,
     Value<double>? heightCm,
     Value<int>? activityLevel,
     Value<String>? weightUnit,
@@ -749,6 +803,7 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
       id: id ?? this.id,
       sex: sex ?? this.sex,
       birthDateMillis: birthDateMillis ?? this.birthDateMillis,
+      ageBandMaxYears: ageBandMaxYears ?? this.ageBandMaxYears,
       heightCm: heightCm ?? this.heightCm,
       activityLevel: activityLevel ?? this.activityLevel,
       weightUnit: weightUnit ?? this.weightUnit,
@@ -774,6 +829,9 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     }
     if (birthDateMillis.present) {
       map['birth_date_millis'] = Variable<int>(birthDateMillis.value);
+    }
+    if (ageBandMaxYears.present) {
+      map['age_band_max_years'] = Variable<int>(ageBandMaxYears.value);
     }
     if (heightCm.present) {
       map['height_cm'] = Variable<double>(heightCm.value);
@@ -817,6 +875,7 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
           ..write('id: $id, ')
           ..write('sex: $sex, ')
           ..write('birthDateMillis: $birthDateMillis, ')
+          ..write('ageBandMaxYears: $ageBandMaxYears, ')
           ..write('heightCm: $heightCm, ')
           ..write('activityLevel: $activityLevel, ')
           ..write('weightUnit: $weightUnit, ')
@@ -2926,6 +2985,7 @@ typedef $$ProfilesTableCreateCompanionBuilder =
       Value<int> id,
       required String sex,
       required int birthDateMillis,
+      Value<int?> ageBandMaxYears,
       required double heightCm,
       required int activityLevel,
       required String weightUnit,
@@ -2943,6 +3003,7 @@ typedef $$ProfilesTableUpdateCompanionBuilder =
       Value<int> id,
       Value<String> sex,
       Value<int> birthDateMillis,
+      Value<int?> ageBandMaxYears,
       Value<double> heightCm,
       Value<int> activityLevel,
       Value<String> weightUnit,
@@ -2977,6 +3038,11 @@ class $$ProfilesTableFilterComposer
 
   ColumnFilters<int> get birthDateMillis => $composableBuilder(
     column: $table.birthDateMillis,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ageBandMaxYears => $composableBuilder(
+    column: $table.ageBandMaxYears,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3060,6 +3126,11 @@ class $$ProfilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get ageBandMaxYears => $composableBuilder(
+    column: $table.ageBandMaxYears,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get heightCm => $composableBuilder(
     column: $table.heightCm,
     builder: (column) => ColumnOrderings(column),
@@ -3133,6 +3204,11 @@ class $$ProfilesTableAnnotationComposer
 
   GeneratedColumn<int> get birthDateMillis => $composableBuilder(
     column: $table.birthDateMillis,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get ageBandMaxYears => $composableBuilder(
+    column: $table.ageBandMaxYears,
     builder: (column) => column,
   );
 
@@ -3217,6 +3293,7 @@ class $$ProfilesTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> sex = const Value.absent(),
                 Value<int> birthDateMillis = const Value.absent(),
+                Value<int?> ageBandMaxYears = const Value.absent(),
                 Value<double> heightCm = const Value.absent(),
                 Value<int> activityLevel = const Value.absent(),
                 Value<String> weightUnit = const Value.absent(),
@@ -3232,6 +3309,7 @@ class $$ProfilesTableTableManager
                 id: id,
                 sex: sex,
                 birthDateMillis: birthDateMillis,
+                ageBandMaxYears: ageBandMaxYears,
                 heightCm: heightCm,
                 activityLevel: activityLevel,
                 weightUnit: weightUnit,
@@ -3249,6 +3327,7 @@ class $$ProfilesTableTableManager
                 Value<int> id = const Value.absent(),
                 required String sex,
                 required int birthDateMillis,
+                Value<int?> ageBandMaxYears = const Value.absent(),
                 required double heightCm,
                 required int activityLevel,
                 required String weightUnit,
@@ -3264,6 +3343,7 @@ class $$ProfilesTableTableManager
                 id: id,
                 sex: sex,
                 birthDateMillis: birthDateMillis,
+                ageBandMaxYears: ageBandMaxYears,
                 heightCm: heightCm,
                 activityLevel: activityLevel,
                 weightUnit: weightUnit,

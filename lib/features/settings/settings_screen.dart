@@ -1,9 +1,12 @@
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
+import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/services/notification_service.dart';
 import 'package:caltrack/widgets/opennutrition_attribution.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -124,6 +127,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: const Text('Save macros'),
               ),
               const Divider(height: 40),
+              Text(
+                'Plan',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.tune),
+                title: const Text('Calorie bands'),
+                subtitle: const Text(
+                  'See your floor, maintenance and goal target, '
+                  'and try out what-if scenarios.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/calorie-bands'),
+              ),
+              const Divider(height: 40),
               Text('Weekly reminder', style: Theme.of(context).textTheme.titleMedium),
               ListTile(
                 title: const Text('Reschedule'),
@@ -191,6 +210,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 8),
               const OpenNutritionAttribution(),
               const SizedBox(height: 12),
+              const _FoodDataCounts(),
+              const SizedBox(height: 12),
               Text(
                 'Portions of the catalog originate from Open Food Facts. '
                 'When displaying that data, maintain attribution to '
@@ -229,5 +250,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'Sunday',
     ];
     return names[weekday.clamp(1, 7)];
+  }
+}
+
+/// Two-line summary of how many foods are stored locally: catalog rows
+/// (bundled OpenNutrition) versus user-created entries.
+class _FoodDataCounts extends StatelessWidget {
+  const _FoodDataCounts();
+
+  Future<({int catalog, int custom})> _load(BuildContext context) async {
+    final catalog = context.read<OpenNutritionCatalog>();
+    final repo = context.read<CalTrackRepository>();
+    final results = await Future.wait([
+      catalog.foodRowCount(),
+      repo.customFoodCount(),
+    ]);
+    return (catalog: results[0], custom: results[1]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final nf = NumberFormat.decimalPattern();
+
+    return FutureBuilder<({int catalog, int custom})>(
+      future: _load(context),
+      builder: (context, snap) {
+        final data = snap.data;
+        final catalogText = data == null ? '—' : nf.format(data.catalog);
+        final customText = data == null ? '—' : nf.format(data.custom);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.menu_book_outlined, color: scheme.primary),
+              title: const Text('OpenNutrition catalog'),
+              trailing: Text(
+                '$catalogText foods',
+                style: theme.textTheme.titleSmall,
+              ),
+            ),
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.edit_note_outlined, color: scheme.secondary),
+              title: const Text('Your foods'),
+              trailing: Text(
+                '$customText foods',
+                style: theme.textTheme.titleSmall,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

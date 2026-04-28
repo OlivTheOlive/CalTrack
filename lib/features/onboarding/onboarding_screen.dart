@@ -6,7 +6,6 @@ import 'package:caltrack/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -17,13 +16,15 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
+  static const int _pageCount = 9;
+
   final _pageController = PageController();
   int _page = 0;
 
   WeightUnit _unit = WeightUnit.kg;
   String _sex = 'male';
-  DateTime _birthDate =
-      DateTime(DateTime.now().year - 28, DateTime.now().month, DateTime.now().day);
+  // Default age band: 25–30 (upper bound 30) — middle of typical onboarding.
+  int _ageBandMaxYears = 30;
   double _heightCm = 175;
   final _heightCmController = TextEditingController(text: '175');
   int _activityIndex = 2;
@@ -47,17 +48,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _goalWeightController.dispose();
     _heightCmController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickBirthDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _birthDate,
-      firstDate: DateTime(now.year - 100),
-      lastDate: DateTime(now.year - 14),
-    );
-    if (picked != null) setState(() => _birthDate = picked);
   }
 
   Future<void> _pickReminderTime() async {
@@ -129,7 +119,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     await repo.submitOnboarding(
       sex: _sex,
-      birthDate: _birthDate,
+      ageBandMaxYears: _ageBandMaxYears,
       heightCm: _heightCm,
       activityLevelIndex: _activityIndex,
       weightUnit: _unit,
@@ -150,7 +140,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _next() {
-    if (_page < 7) {
+    if (_page < _pageCount - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeOutCubic,
@@ -174,7 +164,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('Welcome · ${_page + 1}/8'),
+        title: Text('Welcome · ${_page + 1}/$_pageCount'),
         leading: _page > 0
             ? IconButton(
                 onPressed: _back,
@@ -184,7 +174,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
       body: Column(
         children: [
-          LinearProgressIndicator(value: (_page + 1) / 8),
+          LinearProgressIndicator(value: (_page + 1) / _pageCount),
           Expanded(
             child: PageView(
               controller: _pageController,
@@ -195,6 +185,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _unitsProfile(theme),
                 _activity(theme),
                 _currentWeight(theme),
+                _tdeePreview(theme),
                 _goalPace(theme),
                 _macros(theme),
                 _reminder(theme),
@@ -209,7 +200,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: _next,
-                  child: Text(_page == 7 ? 'Start tracking' : 'Continue'),
+                  child: Text(
+                    _page == _pageCount - 1 ? 'Start tracking' : 'Continue',
+                  ),
                 ),
               ),
             ),
@@ -270,13 +263,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           onSelectionChanged: (s) => setState(() => _sex = s.first),
         ),
         const SizedBox(height: 16),
-        ListTile(
-          title: const Text('Birth date'),
-          subtitle: Text(DateFormat.yMMMd().format(_birthDate)),
-          trailing: const Icon(Icons.calendar_today_outlined),
-          onTap: _pickBirthDate,
+        Text('Age range', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 4),
+        Text(
+          'Pick the band that contains your age. We use the upper number to '
+          'estimate energy needs — that keeps the math conservative without '
+          'asking for an exact birth date.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final upper in ageBandUpperBoundsYears)
+              ChoiceChip(
+                label: Text(ageBandLabel(upper)),
+                selected: _ageBandMaxYears == upper,
+                onSelected: (_) =>
+                    setState(() => _ageBandMaxYears = upper),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
         Text('Height', style: theme.textTheme.titleSmall),
         Text(
           'Enter height in centimeters for accuracy (your weight can stay in ${_unit.name}).',
@@ -360,10 +371,128 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  Widget _tdeePreview(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final cw = _parseWeightKg();
+    final hv = double.tryParse(
+      _heightCmController.text.replaceAll(',', '.'),
+    );
+    final h = (hv != null && hv > 50 && hv < 280) ? hv : _heightCm;
+
+    if (cw <= 0) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Your TDEE estimate', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 12),
+            Text(
+              'Go back and enter your current weight so we can show how '
+              'your daily energy needs are estimated.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final isMale = _sex == 'male';
+    final activity = ActivityLevel.fromIndex(_activityIndex);
+    final bmr = mifflinStJeorBmr(
+      isMale: isMale,
+      weightKg: cw,
+      heightCm: h,
+      ageYears: _ageBandMaxYears,
+    );
+    final tdeeVal = bmr * activity.multiplier;
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text('Your TDEE estimate', style: theme.textTheme.titleLarge),
+        const SizedBox(height: 8),
+        Text(
+          'TDEE is your estimated daily calories at the activity level you '
+          'picked. We use the Mifflin–St Jeor equation, which is widely '
+          'cited and only needs the inputs you already provided.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 20),
+        _TdeeStepRow(
+          label: 'Inputs',
+          value: '${cw.toStringAsFixed(1)} kg · ${h.round()} cm · '
+              '${ageBandLabel(_ageBandMaxYears)} · '
+              '${isMale ? "Male" : "Female"}',
+        ),
+        const Divider(height: 24),
+        _TdeeStepRow(
+          label: 'BMR (Mifflin–St Jeor)',
+          value: '${bmr.round()} kcal/day',
+        ),
+        const SizedBox(height: 8),
+        _TdeeStepRow(
+          label: 'Activity multiplier',
+          value:
+              '×${activity.multiplier.toStringAsFixed(2)} (${_activityLabel(activity)})',
+        ),
+        const Divider(height: 24),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.local_fire_department_outlined,
+                  color: scheme.onPrimaryContainer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TDEE',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                      ),
+                    ),
+                    Text(
+                      '${tdeeVal.round()} kcal/day',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Next we will pick a weekly pace. Your daily target is just TDEE '
+          'plus or minus the calories needed for that pace (~7700 kcal '
+          'per kg of fat).',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _goalPace(ThemeData theme) {
     final suffix = _unit == WeightUnit.kg ? 'kg' : 'lb';
     final rateLabel =
         _unit == WeightUnit.kg ? '${_weeklyRateKg.toStringAsFixed(2)} kg/week' : '${kgToLb(_weeklyRateKg).toStringAsFixed(2)} lb/week';
+    final pace = paceLevelForKgPerWeek(_weeklyRateKg);
 
     return ListView(
       padding: const EdgeInsets.all(24),
@@ -381,24 +510,77 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ],
         ),
         const SizedBox(height: 24),
-        Text('Weekly change magnitude', style: theme.textTheme.titleSmall),
-        Slider(
-          value: _weeklyRateKg.clamp(0.1, 1.0),
-          min: 0.1,
-          max: 1.0,
-          divisions: 18,
-          label: rateLabel,
-          onChanged: (v) => setState(() => _weeklyRateKg = v),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Weekly change magnitude',
+                style: theme.textTheme.titleSmall,
+              ),
+            ),
+            _PaceBadge(level: pace),
+          ],
         ),
+        SliderTheme(
+          data: theme.sliderTheme.copyWith(
+            activeTrackColor: _paceColorFor(theme.colorScheme, pace),
+            thumbColor: _paceColorFor(theme.colorScheme, pace),
+          ),
+          child: Slider(
+            value: _weeklyRateKg.clamp(0.1, 1.0),
+            min: 0.1,
+            max: 1.0,
+            divisions: 18,
+            label: rateLabel,
+            onChanged: (v) => setState(() => _weeklyRateKg = v),
+          ),
+        ),
+        const SizedBox(height: 4),
+        _PaceGradient(level: pace),
+        const SizedBox(height: 12),
         Text(
-          'Direction follows your goal: below current weight means fat loss pace; '
-          'above means gain pace. Same number if you only maintain.',
+          _paceCopy(pace),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Direction follows your goal: below current weight means fat loss '
+          'pace; above means gain pace. Same number if you only maintain.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
       ],
     );
+  }
+
+  static String _activityLabel(ActivityLevel a) {
+    switch (a) {
+      case ActivityLevel.sedentary:
+        return 'Sedentary';
+      case ActivityLevel.light:
+        return 'Light';
+      case ActivityLevel.moderate:
+        return 'Moderate';
+      case ActivityLevel.active:
+        return 'Active';
+      case ActivityLevel.veryActive:
+        return 'Very active';
+    }
+  }
+
+  String _paceCopy(PaceLevel level) {
+    switch (level) {
+      case PaceLevel.gentle:
+        return 'Gentle pace — usually the easiest to sustain over months.';
+      case PaceLevel.moderate:
+        return 'Moderate pace — noticeable progress with some discipline.';
+      case PaceLevel.aggressive:
+        return 'Aggressive pace — fast results but harder to keep up '
+            'and easier to overshoot the calorie floor.';
+    }
   }
 
   Widget _macros(ThemeData theme) {
@@ -562,6 +744,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           subtitle: Text(_unit.name),
         ),
         ListTile(
+          title: const Text('Profile'),
+          subtitle: Text(
+            '${_sex == "male" ? "Male" : "Female"} · '
+            'Age ${ageBandLabel(_ageBandMaxYears)} · '
+            '${_heightCm.round()} cm',
+          ),
+        ),
+        ListTile(
           title: const Text('Goal'),
           subtitle: Text(
             cw > 0 && gw > 0
@@ -599,5 +789,156 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       'Sunday',
     ];
     return names[weekday.clamp(1, 7)];
+  }
+}
+
+/// Two-column row used in the TDEE breakdown step.
+class _TdeeStepRow extends StatelessWidget {
+  const _TdeeStepRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          textAlign: TextAlign.right,
+          style: theme.textTheme.titleSmall,
+        ),
+      ],
+    );
+  }
+}
+
+String _paceLabelText(PaceLevel level) {
+  switch (level) {
+    case PaceLevel.gentle:
+      return 'Gentle';
+    case PaceLevel.moderate:
+      return 'Moderate';
+    case PaceLevel.aggressive:
+      return 'Aggressive';
+  }
+}
+
+IconData _paceIcon(PaceLevel level) {
+  switch (level) {
+    case PaceLevel.gentle:
+      return Icons.spa_outlined;
+    case PaceLevel.moderate:
+      return Icons.directions_walk;
+    case PaceLevel.aggressive:
+      return Icons.warning_amber_rounded;
+  }
+}
+
+Color _paceColorFor(ColorScheme scheme, PaceLevel level) {
+  switch (level) {
+    case PaceLevel.gentle:
+      return scheme.primary;
+    case PaceLevel.moderate:
+      return scheme.tertiary;
+    case PaceLevel.aggressive:
+      return scheme.error;
+  }
+}
+
+/// Compact icon + label "chip" indicating pace sustainability.
+class _PaceBadge extends StatelessWidget {
+  const _PaceBadge({required this.level});
+
+  final PaceLevel level;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final color = _paceColorFor(scheme, level);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_paceIcon(level), size: 16, color: color),
+          const SizedBox(width: 4),
+          Text(
+            _paceLabelText(level),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Three-zone gradient bar that highlights the active sustainability tier
+/// alongside the slider, reinforcing the chosen pace beyond colour alone.
+class _PaceGradient extends StatelessWidget {
+  const _PaceGradient({required this.level});
+
+  final PaceLevel level;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    Color zone(PaceLevel z) {
+      final base = _paceColorFor(scheme, z);
+      return level == z ? base : base.withValues(alpha: 0.25);
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: zone(PaceLevel.gentle),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(3),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 2),
+        Expanded(
+          child: Container(
+            height: 6,
+            color: zone(PaceLevel.moderate),
+          ),
+        ),
+        const SizedBox(width: 2),
+        Expanded(
+          child: Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: zone(PaceLevel.aggressive),
+              borderRadius: const BorderRadius.horizontal(
+                right: Radius.circular(3),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

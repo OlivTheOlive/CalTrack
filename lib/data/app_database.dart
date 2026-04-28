@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:caltrack/core/nutrition.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
@@ -11,7 +12,10 @@ class Profiles extends Table {
   IntColumn get id => integer().withDefault(const Constant(1))();
   TextColumn get sex => text()(); // male | female
   IntColumn get birthDateMillis =>
-      integer()(); // local date at midnight stored as millis
+      integer()(); // legacy: local date at midnight stored as millis
+  /// Upper bound of the user's age band (years). Preferred input to TDEE
+  /// math; older rows may have it null and fall back to [birthDateMillis].
+  IntColumn get ageBandMaxYears => integer().nullable()();
   RealColumn get heightCm => real()();
   IntColumn get activityLevel => integer()(); // 0-4
   TextColumn get weightUnit => text()(); // kg | lb
@@ -99,7 +103,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -115,6 +119,20 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(foodLogEntries, foodLogEntries.customFoodId);
             await m.addColumn(foodLogEntries, foodLogEntries.sugarG);
             await m.addColumn(foodLogEntries, foodLogEntries.fiberG);
+          }
+          if (from < 4) {
+            await m.addColumn(profiles, profiles.ageBandMaxYears);
+            final rows = await select(profiles).get();
+            final today = DateTime.now();
+            for (final row in rows) {
+              final birth = DateTime.fromMillisecondsSinceEpoch(
+                row.birthDateMillis,
+              );
+              final age = ageFromBirthDate(birth, today);
+              final upper = ageBandUpperBoundForYears(age);
+              await (update(profiles)..where((t) => t.id.equals(row.id)))
+                  .write(ProfilesCompanion(ageBandMaxYears: Value(upper)));
+            }
           }
         },
       );

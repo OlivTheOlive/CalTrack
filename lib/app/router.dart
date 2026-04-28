@@ -1,4 +1,5 @@
 import 'package:caltrack/app/profile_controller.dart';
+import 'package:caltrack/features/bands/calorie_bands_screen.dart';
 import 'package:caltrack/features/food/add_custom_food_screen.dart';
 import 'package:caltrack/features/food/barcode_scan_screen.dart';
 import 'package:caltrack/features/food/log_food_screen.dart';
@@ -49,6 +50,10 @@ GoRouter createRouter(ProfileController profileController) {
       GoRoute(
         path: '/weekly-review',
         builder: (context, state) => const WeeklyReviewScreen(),
+      ),
+      GoRoute(
+        path: '/calorie-bands',
+        builder: (context, state) => const CalorieBandsScreen(),
       ),
       GoRoute(
         path: '/log-food',

@@ -66,6 +66,16 @@ class ComputedPlan {
   final double tdee;
 }
 
+/// Resolve the integer age (years) used by the TDEE math for a [Profile].
+/// Prefers the stored [Profile.ageBandMaxYears] (added with age bands);
+/// falls back to deriving it from the legacy birth date for older rows.
+int ageYearsForProfile(Profile profile) {
+  final band = profile.ageBandMaxYears;
+  if (band != null) return band.clamp(14, 120);
+  final birth = DateTime.fromMillisecondsSinceEpoch(profile.birthDateMillis);
+  return ageFromBirthDate(birth, DateTime.now());
+}
+
 class CalTrackRepository {
   CalTrackRepository(this._db);
 
@@ -125,8 +135,7 @@ class CalTrackRepository {
     final entries = await weightEntriesLimit(1);
     if (entries.isEmpty) return null;
     final w = entries.first.weightKg;
-    final birth = DateTime.fromMillisecondsSinceEpoch(profile.birthDateMillis);
-    final age = ageFromBirthDate(birth, DateTime.now());
+    final age = ageYearsForProfile(profile);
     final isMale = profile.sex == 'male';
     final activity = ActivityLevel.fromIndex(profile.activityLevel);
     final tdeeVal = tdee(
@@ -161,9 +170,14 @@ class CalTrackRepository {
   }
 
   /// Full onboarding submit: profile, goal, first weight, cache calories.
+  ///
+  /// [ageBandMaxYears] is the upper bound of the user's age band (e.g. 25
+  /// for the 20–25 band) and feeds the TDEE math directly per Feature.md.
+  /// A synthetic [birthDateMillis] is also written so legacy code paths
+  /// keep working until they are migrated to read the band.
   Future<void> submitOnboarding({
     required String sex,
-    required DateTime birthDate,
+    required int ageBandMaxYears,
     required double heightCm,
     required int activityLevelIndex,
     required WeightUnit weightUnit,
@@ -177,6 +191,9 @@ class CalTrackRepository {
     required int reminderHour,
     required int reminderMinute,
   }) async {
+    final now = DateTime.now();
+    final syntheticBirth =
+        DateTime(now.year - ageBandMaxYears, now.month, now.day);
     await _db.transaction(() async {
       await _db.delete(_db.goals).go();
       await _db.into(_db.goals).insert(
@@ -196,7 +213,8 @@ class CalTrackRepository {
         ProfilesCompanion.insert(
           id: const Value(1),
           sex: sex,
-          birthDateMillis: birthDate.millisecondsSinceEpoch,
+          birthDateMillis: syntheticBirth.millisecondsSinceEpoch,
+          ageBandMaxYears: Value(ageBandMaxYears),
           heightCm: heightCm,
           activityLevel: activityLevelIndex,
           weightUnit: weightUnit.name,
@@ -219,6 +237,20 @@ class CalTrackRepository {
         );
       }
     });
+  }
+
+  /// Update only the user's age band, recomputing the daily target.
+  Future<void> updateAgeBandMaxYears(int ageBandMaxYears) async {
+    final now = DateTime.now();
+    final syntheticBirth =
+        DateTime(now.year - ageBandMaxYears, now.month, now.day);
+    await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
+      ProfilesCompanion(
+        birthDateMillis: Value(syntheticBirth.millisecondsSinceEpoch),
+        ageBandMaxYears: Value(ageBandMaxYears),
+      ),
+    );
+    await recacheDailyTarget();
   }
 
   Future<void> addWeightEntry({
@@ -669,6 +701,14 @@ class CalTrackRepository {
 
   Future<void> deleteCustomFood(int id) async {
     await (_db.delete(_db.customFoods)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// Number of user-created foods stored locally.
+  Future<int> customFoodCount() async {
+    final cnt = _db.customFoods.id.count();
+    final row = await (_db.selectOnly(_db.customFoods)..addColumns([cnt]))
+        .getSingle();
+    return row.read(cnt) ?? 0;
   }
 
   Future<void> resetForTesting() async {
