@@ -72,11 +72,11 @@ double? _toDouble(String? raw) {
 
 double? _firstNumber(String s) => _toDouble(_bareNumber.firstMatch(s)?.group(1));
 
-/// First explicit "<n> g" quantity in the line (ignores other numbers).
+/// First explicit `<n> g` quantity in the line (ignores other numbers).
 double? _firstGramQuantity(String s) =>
     _toDouble(_gramQuantity.firstMatch(s)?.group(1));
 
-/// First explicit "<n> ml" quantity in the line.
+/// First explicit `<n> ml` quantity in the line.
 double? _firstMlQuantity(String s) =>
     _toDouble(_mlQuantity.firstMatch(s)?.group(1));
 
