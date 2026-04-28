@@ -67,6 +67,147 @@ void main() {
     });
   });
 
+  group('computeDayStreak', () {
+    DateTime d(int y, int m, int day) => DateTime(y, m, day);
+
+    test('returns zero current and best when no qualifying days', () {
+      final s = computeDayStreak(
+        qualifyingDays: <DateTime>{},
+        referenceDay: d(2026, 4, 28),
+      );
+      expect(s.current, 0);
+      expect(s.best, 0);
+    });
+
+    test('counts current streak ending at reference day', () {
+      final s = computeDayStreak(
+        qualifyingDays: {
+          d(2026, 4, 26),
+          d(2026, 4, 27),
+          d(2026, 4, 28),
+        },
+        referenceDay: d(2026, 4, 28),
+      );
+      expect(s.current, 3);
+      expect(s.best, 3);
+    });
+
+    test('treats reference day not yet logged as still streaking', () {
+      final s = computeDayStreak(
+        qualifyingDays: {
+          d(2026, 4, 26),
+          d(2026, 4, 27),
+        },
+        referenceDay: d(2026, 4, 28),
+      );
+      expect(s.current, 2);
+      expect(s.best, 2);
+    });
+
+    test('best streak ignores gaps and exceeds current', () {
+      final s = computeDayStreak(
+        qualifyingDays: {
+          d(2026, 4, 1),
+          d(2026, 4, 2),
+          d(2026, 4, 3),
+          d(2026, 4, 4),
+          d(2026, 4, 5),
+          d(2026, 4, 27),
+          d(2026, 4, 28),
+        },
+        referenceDay: d(2026, 4, 28),
+      );
+      expect(s.current, 2);
+      expect(s.best, 5);
+    });
+
+    test('normalizes timestamps to calendar day', () {
+      final s = computeDayStreak(
+        qualifyingDays: {
+          DateTime(2026, 4, 27, 8, 30),
+          DateTime(2026, 4, 27, 19, 5),
+          DateTime(2026, 4, 28, 7, 0),
+        },
+        referenceDay: DateTime(2026, 4, 28, 23, 59),
+      );
+      expect(s.current, 2);
+    });
+
+    test('breaks streak when a day is missing before reference', () {
+      final s = computeDayStreak(
+        qualifyingDays: {
+          d(2026, 4, 24),
+          d(2026, 4, 25),
+          d(2026, 4, 27),
+        },
+        referenceDay: d(2026, 4, 28),
+      );
+      expect(s.current, 1);
+      expect(s.best, 2);
+    });
+  });
+
+  group('computeWeightTrendStats', () {
+    ({DateTime recordedAt, double weightKg}) e(DateTime t, double kg) =>
+        (recordedAt: t, weightKg: kg);
+
+    test('filters to window and sorts chronologically', () {
+      final ref = DateTime(2026, 4, 28);
+      final stats = computeWeightTrendStats(
+        entries: [
+          e(DateTime(2026, 4, 28, 8), 80.0),
+          e(DateTime(2026, 4, 1), 90.0),
+          e(DateTime(2026, 4, 22), 81.0),
+        ],
+        windowDays: 7,
+        referenceDay: ref,
+      );
+      expect(stats.points.length, 2);
+      expect(stats.points.first.weightKg, 81.0);
+      expect(stats.points.last.weightKg, 80.0);
+    });
+
+    test('reports kg/week from linear fit', () {
+      final ref = DateTime(2026, 4, 28);
+      final stats = computeWeightTrendStats(
+        entries: [
+          e(DateTime(2026, 4, 21), 80.0),
+          e(DateTime(2026, 4, 28), 79.0),
+        ],
+        windowDays: 14,
+        referenceDay: ref,
+      );
+      expect(stats.kgPerWeek, isNotNull);
+      expect(stats.kgPerWeek!, closeTo(-1.0, 0.01));
+    });
+
+    test('consistency reflects distinct days / window', () {
+      final ref = DateTime(2026, 4, 28);
+      final stats = computeWeightTrendStats(
+        entries: [
+          e(DateTime(2026, 4, 28, 6), 80.0),
+          e(DateTime(2026, 4, 28, 18), 80.2),
+          e(DateTime(2026, 4, 27, 7), 80.4),
+        ],
+        windowDays: 7,
+        referenceDay: ref,
+      );
+      expect(stats.distinctDaysLogged, 2);
+      expect(stats.consistency, closeTo(2 / 7, 0.001));
+    });
+
+    test('returns null kgPerWeek when fewer than two points', () {
+      final ref = DateTime(2026, 4, 28);
+      final stats = computeWeightTrendStats(
+        entries: [e(DateTime(2026, 4, 28), 80.0)],
+        windowDays: 7,
+        referenceDay: ref,
+      );
+      expect(stats.kgPerWeek, isNull);
+      expect(stats.hasEnoughData, isFalse);
+    });
+  });
+
   group('adjustCaloriesForProgress', () {
     test('no change when within band', () {
       expect(

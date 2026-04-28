@@ -1,4 +1,5 @@
 import 'package:caltrack/app/profile_controller.dart';
+import 'package:caltrack/core/nutrition.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
@@ -25,6 +26,29 @@ class DashboardTab extends StatefulWidget {
 
 class _DashboardTabState extends State<DashboardTab> {
   bool _celebrationHandled = false;
+  late DateTime _selectedDay = calendarDay(DateTime.now());
+
+  void _shiftDay(int days) {
+    setState(() {
+      _selectedDay = _selectedDay.add(Duration(days: days));
+    });
+  }
+
+  Future<void> _pickDay() async {
+    final today = calendarDay(DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDay,
+      firstDate: today.subtract(const Duration(days: 365 * 5)),
+      lastDate: today,
+    );
+    if (!mounted || picked == null) return;
+    setState(() => _selectedDay = calendarDay(picked));
+  }
+
+  void _resetToToday() {
+    setState(() => _selectedDay = calendarDay(DateTime.now()));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +88,11 @@ class _DashboardTabState extends State<DashboardTab> {
             profileCtl: profileCtl,
             goal: goal,
             bottomInset: widget.bottomInset,
+            selectedDay: _selectedDay,
+            onPrevDay: () => _shiftDay(-1),
+            onNextDay: () => _shiftDay(1),
+            onPickDay: _pickDay,
+            onResetToday: _resetToToday,
           ),
         );
       },
@@ -125,19 +154,42 @@ class _DashboardListView extends StatelessWidget {
     required this.profileCtl,
     required this.goal,
     required this.bottomInset,
+    required this.selectedDay,
+    required this.onPrevDay,
+    required this.onNextDay,
+    required this.onPickDay,
+    required this.onResetToday,
   });
 
   final CalTrackRepository repo;
   final ProfileController profileCtl;
   final Goal? goal;
   final double bottomInset;
+  final DateTime selectedDay;
+  final VoidCallback onPrevDay;
+  final VoidCallback onNextDay;
+  final VoidCallback onPickDay;
+  final VoidCallback onResetToday;
 
   @override
   Widget build(BuildContext context) {
     final currentGoal = goal;
+    final today = calendarDay(DateTime.now());
+    final isToday = selectedDay == today;
+    final canGoForward = selectedDay.isBefore(today);
+
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
       children: [
+        _DayNavigator(
+          selectedDay: selectedDay,
+          isToday: isToday,
+          canGoForward: canGoForward,
+          onPrev: onPrevDay,
+          onNext: canGoForward ? onNextDay : null,
+          onPick: onPickDay,
+          onReset: isToday ? null : onResetToday,
+        ),
         const SizedBox(height: 16),
         FutureBuilder<ComputedPlan?>(
           future: repo.computePlanForProfile(profileCtl.profile!, currentGoal),
@@ -154,16 +206,27 @@ class _DashboardListView extends StatelessWidget {
               );
             }
             return StreamBuilder<DailyIntakeTotals>(
-              stream: repo.watchIntakeForDay(DateTime.now()),
+              stream: repo.watchIntakeForDay(selectedDay),
               builder: (context, intakeSnap) {
                 final intake = intakeSnap.data ?? DailyIntakeTotals.zero;
-                return _TodaySummaryCard(plan: plan, intake: intake);
+                return _TodaySummaryCard(
+                  plan: plan,
+                  intake: intake,
+                  selectedDay: selectedDay,
+                  isToday: isToday,
+                );
               },
             );
           },
         ),
         const SizedBox(height: 16),
-        _TodayFoodLogCard(repo: repo),
+        _FoodAdherenceStreakCard(
+          repo: repo,
+          dailyTarget: profileCtl.profile!.dailyCalorieTarget,
+          referenceDay: selectedDay,
+        ),
+        const SizedBox(height: 16),
+        _TodayFoodLogCard(repo: repo, selectedDay: selectedDay, isToday: isToday),
         const SizedBox(height: 16),
         if (currentGoal != null) _GoalSummary(goal: currentGoal),
         const SizedBox(height: 16),
@@ -210,10 +273,17 @@ class _DashboardListView extends StatelessWidget {
 /// One unified card showing today's intake against the daily plan:
 /// calories (consumed / target) plus per-macro progress bars.
 class _TodaySummaryCard extends StatelessWidget {
-  const _TodaySummaryCard({required this.plan, required this.intake});
+  const _TodaySummaryCard({
+    required this.plan,
+    required this.intake,
+    required this.selectedDay,
+    required this.isToday,
+  });
 
   final ComputedPlan plan;
   final DailyIntakeTotals intake;
+  final DateTime selectedDay;
+  final bool isToday;
 
   @override
   Widget build(BuildContext context) {
@@ -243,7 +313,12 @@ class _TodaySummaryCard extends StatelessWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Expanded(
-                  child: Text('Today', style: theme.textTheme.titleMedium),
+                  child: Text(
+                    isToday
+                        ? 'Today'
+                        : DateFormat.MMMEd().format(selectedDay),
+                    style: theme.textTheme.titleMedium,
+                  ),
                 ),
                 Text(
                   remainingLabel,
@@ -417,20 +492,39 @@ class _GoalSummary extends StatelessWidget {
   }
 }
 
-/// Lists every food log entry for the current calendar day, with
+/// Lists every food log entry for the selected calendar day, with
 /// swipe-to-delete and an undo SnackBar.
 class _TodayFoodLogCard extends StatelessWidget {
-  const _TodayFoodLogCard({required this.repo});
+  const _TodayFoodLogCard({
+    required this.repo,
+    required this.selectedDay,
+    required this.isToday,
+  });
 
   final CalTrackRepository repo;
+  final DateTime selectedDay;
+  final bool isToday;
+
+  String _formatDayParam(DateTime day) {
+    final y = day.year.toString().padLeft(4, '0');
+    final m = day.month.toString().padLeft(2, '0');
+    final d = day.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return StreamBuilder<List<FoodLogEntry>>(
-      stream: repo.watchFoodLogsForDay(DateTime.now()),
+      stream: repo.watchFoodLogsForDay(selectedDay),
       builder: (context, snap) {
         final entries = snap.data ?? const <FoodLogEntry>[];
+        final title = isToday
+            ? "Today's food"
+            : 'Food · ${DateFormat.MMMd().format(selectedDay)}';
+        final emptyMsg = isToday
+            ? 'Nothing logged yet today.'
+            : 'Nothing logged on this day.';
         return Card(
           clipBehavior: Clip.hardEdge,
           child: Column(
@@ -442,7 +536,7 @@ class _TodayFoodLogCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        "Today's food",
+                        title,
                         style: theme.textTheme.titleMedium,
                       ),
                     ),
@@ -454,7 +548,12 @@ class _TodayFoodLogCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     TextButton.icon(
-                      onPressed: () => context.push('/log-food'),
+                      onPressed: () {
+                        final path = isToday
+                            ? '/log-food'
+                            : '/log-food?day=${_formatDayParam(selectedDay)}';
+                        context.push(path);
+                      },
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('Add'),
                     ),
@@ -465,7 +564,7 @@ class _TodayFoodLogCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                   child: Text(
-                    'Nothing logged yet today.',
+                    emptyMsg,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -584,6 +683,157 @@ class _FoodLogTile extends StatelessWidget {
         ),
         onTap: () => _openEdit(context),
       ),
+    );
+  }
+}
+
+/// Compact day picker on top of the dashboard. Lets the user navigate to
+/// previous days to add or modify logs without leaving the home screen.
+class _DayNavigator extends StatelessWidget {
+  const _DayNavigator({
+    required this.selectedDay,
+    required this.isToday,
+    required this.canGoForward,
+    required this.onPrev,
+    required this.onNext,
+    required this.onPick,
+    required this.onReset,
+  });
+
+  final DateTime selectedDay;
+  final bool isToday;
+  final bool canGoForward;
+  final VoidCallback onPrev;
+  final VoidCallback? onNext;
+  final VoidCallback onPick;
+  final VoidCallback? onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final today = calendarDay(DateTime.now());
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    String label;
+    if (isToday) {
+      label = 'Today';
+    } else if (selectedDay == yesterday) {
+      label = 'Yesterday';
+    } else {
+      label = DateFormat.yMMMEd().format(selectedDay);
+    }
+
+    return Card(
+      elevation: 0,
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: 'Previous day',
+              onPressed: onPrev,
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Expanded(
+              child: TextButton.icon(
+                onPressed: onPick,
+                icon: const Icon(Icons.calendar_today_outlined, size: 18),
+                label: Text(
+                  label,
+                  style: theme.textTheme.titleSmall,
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Next day',
+              onPressed: canGoForward ? onNext : null,
+              icon: const Icon(Icons.chevron_right),
+            ),
+            if (onReset != null)
+              TextButton(
+                onPressed: onReset,
+                child: const Text('Today'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shows a compact food-logging adherence streak ("X days >= 80% of target")
+/// based on the cached daily calorie target. Hidden if the user has no
+/// daily target yet (e.g. before onboarding completes a plan).
+class _FoodAdherenceStreakCard extends StatelessWidget {
+  const _FoodAdherenceStreakCard({
+    required this.repo,
+    required this.dailyTarget,
+    required this.referenceDay,
+  });
+
+  final CalTrackRepository repo;
+  final double? dailyTarget;
+  final DateTime referenceDay;
+
+  static const _lookbackDays = 60;
+  static const _adherenceFraction = 0.8;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = dailyTarget;
+    if (target == null || target <= 0) {
+      return const SizedBox.shrink();
+    }
+    final ref = calendarDay(referenceDay);
+    final start = ref.subtract(const Duration(days: _lookbackDays - 1));
+    final endExclusive = ref.add(const Duration(days: 1));
+
+    return StreamBuilder<Map<DateTime, double>>(
+      stream: repo.watchDailyKcalTotals(
+        start: start,
+        endExclusive: endExclusive,
+      ),
+      builder: (context, snap) {
+        final theme = Theme.of(context);
+        final scheme = theme.colorScheme;
+        final totals = snap.data ?? const <DateTime, double>{};
+        final qualifying = <DateTime>{
+          for (final entry in totals.entries)
+            if (entry.value >= target * _adherenceFraction) entry.key,
+        };
+        final streak = computeDayStreak(
+          qualifyingDays: qualifying,
+          referenceDay: ref,
+        );
+
+        final headline = streak.current > 0
+            ? 'Logging streak: ${streak.current} '
+                '${streak.current == 1 ? "day" : "days"}'
+            : 'No active logging streak';
+        final sub =
+            'Days where you logged at least ${(_adherenceFraction * 100).round()}% '
+            'of your calorie target.${streak.best > 0 ? " Best: ${streak.best}." : ""}';
+
+        return Card(
+          child: ListTile(
+            leading: Icon(
+              Icons.local_fire_department_outlined,
+              color: streak.current > 0
+                  ? scheme.primary
+                  : scheme.onSurfaceVariant,
+            ),
+            title: Text(headline),
+            subtitle: Text(
+              sub,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

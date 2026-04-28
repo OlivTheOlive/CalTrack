@@ -34,7 +34,11 @@ GoRouter createRouter(ProfileController profileController) {
       ),
       GoRoute(
         path: '/log-weight',
-        builder: (context, state) => const LogWeightScreen(),
+        builder: (context, state) {
+          final raw = state.uri.queryParameters['id'];
+          final id = raw == null ? null : int.tryParse(raw);
+          return LogWeightScreen(editingEntryId: id);
+        },
       ),
       GoRoute(
         path: '/settings',
@@ -46,7 +50,11 @@ GoRouter createRouter(ProfileController profileController) {
       ),
       GoRoute(
         path: '/log-food',
-        builder: (context, state) => const LogFoodScreen(),
+        builder: (context, state) {
+          final dayParam = state.uri.queryParameters['day'];
+          final initialDay = _parseIsoDay(dayParam);
+          return LogFoodScreen(initialDay: initialDay);
+        },
       ),
       GoRoute(
         path: '/scan-barcode',
@@ -54,4 +62,17 @@ GoRouter createRouter(ProfileController profileController) {
       ),
     ],
   );
+}
+
+/// Parse a `YYYY-MM-DD` query value into a local-midnight DateTime.
+/// Returns null on malformed/missing input.
+DateTime? _parseIsoDay(String? raw) {
+  if (raw == null || raw.isEmpty) return null;
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(raw);
+  if (m == null) return null;
+  final y = int.tryParse(m.group(1)!);
+  final mo = int.tryParse(m.group(2)!);
+  final d = int.tryParse(m.group(3)!);
+  if (y == null || mo == null || d == null) return null;
+  return DateTime(y, mo, d);
 }
