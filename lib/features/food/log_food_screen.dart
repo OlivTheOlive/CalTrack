@@ -1,11 +1,10 @@
 import 'dart:async';
 
-import 'package:caltrack/core/nutrition_scaling.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
+import 'package:caltrack/features/food/food_entry_sheet.dart';
 import 'package:caltrack/widgets/opennutrition_attribution.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -45,83 +44,60 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     }
   }
 
-  Future<void> _pickGramsAndLog({
-    required String displayName,
-    required String source,
-    String? catalogFoodId,
-    required ScaledNutrition Function(double grams) scale,
+  Future<void> _openCatalogFood(
+    CatalogFood food, {
     double initialGrams = 100,
   }) async {
-    final grams = await showGramPicker(context, initialGrams: initialGrams);
-    if (grams == null || !mounted) return;
-    final scaled = scale(grams);
-    final repo = context.read<CalTrackRepository>();
-    await repo.addFoodLog(
-      source: source,
-      catalogFoodId: catalogFoodId,
-      displayName: displayName,
-      grams: grams,
-      kcal: scaled.kcal,
-      proteinG: scaled.proteinG,
-      carbsG: scaled.carbsG,
-      fatG: scaled.fatG,
+    final action = await showFoodEntrySheet(
+      context,
+      FoodEntrySheetConfig(
+        displayName: food.name,
+        source: 'opennutrition',
+        catalogFoodId: food.id,
+        kcalPer100g: food.kcalPer100g,
+        proteinPer100g: food.proteinPer100g,
+        carbsPer100g: food.carbsPer100g,
+        fatPer100g: food.fatPer100g,
+        initialGrams: initialGrams,
+        showOpenNutritionAttribution: true,
+      ),
     );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Logged $displayName')),
-    );
+    if (!mounted || action == null) return;
+    if (action == FoodEntryAction.added) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Logged ${food.name}')),
+      );
+    }
   }
 
-  Future<void> _onCatalogFood(CatalogFood food) async {
-    await _pickGramsAndLog(
-      displayName: food.name,
-      source: 'opennutrition',
-      catalogFoodId: food.id,
-      scale: (g) => scaleFromPer100g(
-            grams: g,
-            kcalPer100g: food.kcalPer100g,
-            proteinPer100g: food.proteinPer100g,
-            carbsPer100g: food.carbsPer100g,
-            fatPer100g: food.fatPer100g,
-          ),
-    );
-  }
-
-  Future<void> _onRecentEntry(FoodLogEntry entry) async {
+  Future<void> _openRecentEntry(FoodLogEntry entry) async {
     final catalog = context.read<OpenNutritionCatalog>();
     final id = entry.catalogFoodId;
     if (id != null) {
       final food = await catalog.byId(id);
-      if (food != null && mounted) {
-        await _pickGramsAndLog(
-          displayName: food.name,
-          source: 'opennutrition',
-          catalogFoodId: food.id,
-          initialGrams: entry.grams,
-          scale: (g) => scaleFromPer100g(
-                grams: g,
-                kcalPer100g: food.kcalPer100g,
-                proteinPer100g: food.proteinPer100g,
-                carbsPer100g: food.carbsPer100g,
-                fatPer100g: food.fatPer100g,
-              ),
-        );
+      if (!mounted) return;
+      if (food != null) {
+        await _openCatalogFood(food, initialGrams: entry.grams);
         return;
       }
     }
-    await _pickGramsAndLog(
-      displayName: entry.displayName,
-      source: entry.source,
-      catalogFoodId: entry.catalogFoodId,
-      initialGrams: entry.grams,
-      scale: (g) => rescaleLoggedPortion(
-            previousGrams: entry.grams,
-            previousKcal: entry.kcal,
-            previousProteinG: entry.proteinG,
-            previousCarbsG: entry.carbsG,
-            previousFatG: entry.fatG,
-            newGrams: g,
-          ),
+    final per100Factor = entry.grams > 0 ? 100.0 / entry.grams : 1.0;
+    final action = await showFoodEntrySheet(
+      context,
+      FoodEntrySheetConfig(
+        displayName: entry.displayName,
+        source: entry.source,
+        catalogFoodId: entry.catalogFoodId,
+        kcalPer100g: entry.kcal * per100Factor,
+        proteinPer100g: entry.proteinG * per100Factor,
+        carbsPer100g: entry.carbsG * per100Factor,
+        fatPer100g: entry.fatG * per100Factor,
+        initialGrams: entry.grams,
+      ),
+    );
+    if (!mounted || action != FoodEntryAction.added) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Logged ${entry.displayName}')),
     );
   }
 
@@ -139,7 +115,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
             onPressed: () async {
               final food = await context.push<CatalogFood>('/scan-barcode');
               if (food != null && mounted) {
-                await _onCatalogFood(food);
+                await _openCatalogFood(food);
               }
             },
           ),
@@ -191,10 +167,12 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                   builder: (context, snap) {
                     final recent = snap.data;
                     if (recent == null) {
-                      return const Center(child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: CircularProgressIndicator(),
-                      ));
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
                     }
                     if (recent.isEmpty) {
                       return const Padding(
@@ -208,10 +186,9 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                             (e) => ListTile(
                               title: Text(e.displayName),
                               subtitle: Text(
-                                '${e.grams.round()} g · '
-                                '${e.kcal.round()} kcal',
+                                '${e.grams.round()} g · ${e.kcal.round()} kcal',
                               ),
-                              onTap: () => _onRecentEntry(e),
+                              onTap: () => _openRecentEntry(e),
                             ),
                           )
                           .toList(),
@@ -226,7 +203,9 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
-                if (_results.isEmpty && _search.text.trim().length >= 2 && !_searching)
+                if (_results.isEmpty &&
+                    _search.text.trim().length >= 2 &&
+                    !_searching)
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 24),
                     child: Text('No matches.'),
@@ -234,10 +213,8 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                 ..._results.map(
                   (f) => ListTile(
                     title: Text(f.name),
-                    subtitle: Text(
-                      '${f.kcalPer100g.round()} kcal / 100 g',
-                    ),
-                    onTap: () => _onCatalogFood(f),
+                    subtitle: Text('${f.kcalPer100g.round()} kcal / 100 g'),
+                    onTap: () => _openCatalogFood(f),
                   ),
                 ),
               ],
@@ -251,65 +228,4 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
       ),
     );
   }
-}
-
-Future<double?> showGramPicker(
-  BuildContext context, {
-  double initialGrams = 100,
-}) async {
-  final controller = TextEditingController(
-    text: initialGrams.toStringAsFixed(
-      initialGrams == initialGrams.roundToDouble() ? 0 : 1,
-    ),
-  );
-  final result = await showModalBottomSheet<double>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (ctx) {
-      return Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(ctx).bottom + 16,
-          left: 24,
-          right: 24,
-          top: 8,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Amount (grams)',
-              style: Theme.of(ctx).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              autofocus: true,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-              ],
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                suffixText: 'g',
-              ),
-              onSubmitted: (_) => FocusScope.of(ctx).unfocus(),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () {
-                final raw = controller.text.trim().replaceAll(',', '.');
-                final g = double.tryParse(raw);
-                if (g == null || g <= 0 || g > 100000) return;
-                Navigator.pop(ctx, g);
-              },
-              child: const Text('Add to diary'),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-  return result;
 }

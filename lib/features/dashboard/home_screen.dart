@@ -1,6 +1,8 @@
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
+import 'package:caltrack/data/opennutrition_catalog.dart';
+import 'package:caltrack/features/food/food_entry_sheet.dart';
 import 'package:caltrack/widgets/goal_choice_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -488,6 +490,42 @@ class _FoodLogTile extends StatelessWidget {
   final FoodLogEntry entry;
   final CalTrackRepository repo;
 
+  Future<void> _openEdit(BuildContext context) async {
+    double kcal100 = entry.grams > 0 ? entry.kcal * 100 / entry.grams : 0;
+    double p100 = entry.grams > 0 ? entry.proteinG * 100 / entry.grams : 0;
+    double c100 = entry.grams > 0 ? entry.carbsG * 100 / entry.grams : 0;
+    double f100 = entry.grams > 0 ? entry.fatG * 100 / entry.grams : 0;
+
+    final id = entry.catalogFoodId;
+    if (id != null) {
+      final catalog = context.read<OpenNutritionCatalog>();
+      final food = await catalog.byId(id);
+      if (food != null) {
+        kcal100 = food.kcalPer100g;
+        p100 = food.proteinPer100g;
+        c100 = food.carbsPer100g;
+        f100 = food.fatPer100g;
+      }
+    }
+
+    if (!context.mounted) return;
+    await showFoodEntrySheet(
+      context,
+      FoodEntrySheetConfig(
+        displayName: entry.displayName,
+        source: entry.source,
+        catalogFoodId: entry.catalogFoodId,
+        kcalPer100g: kcal100,
+        proteinPer100g: p100,
+        carbsPer100g: c100,
+        fatPer100g: f100,
+        initialGrams: entry.grams,
+        editingEntryId: entry.id,
+        loggedAtForEdit: entry.loggedAt,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -544,6 +582,7 @@ class _FoodLogTile extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+        onTap: () => _openEdit(context),
       ),
     );
   }

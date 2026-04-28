@@ -373,6 +373,25 @@ class CalTrackRepository {
     await (_db.delete(_db.foodLogEntries)..where((t) => t.id.equals(id))).go();
   }
 
+  Future<void> updateFoodLog({
+    required int id,
+    required double grams,
+    required double kcal,
+    required double proteinG,
+    required double carbsG,
+    required double fatG,
+  }) async {
+    await (_db.update(_db.foodLogEntries)..where((t) => t.id.equals(id))).write(
+      FoodLogEntriesCompanion(
+        grams: Value(grams),
+        kcal: Value(kcal),
+        proteinG: Value(proteinG),
+        carbsG: Value(carbsG),
+        fatG: Value(fatG),
+      ),
+    );
+  }
+
   Future<int> addFoodLogReturnId({
     required String source,
     String? catalogFoodId,
