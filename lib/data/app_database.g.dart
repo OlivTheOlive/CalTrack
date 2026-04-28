@@ -1451,6 +1451,712 @@ class WeightEntriesCompanion extends UpdateCompanion<WeightEntry> {
   }
 }
 
+class $CustomFoodsTable extends CustomFoods
+    with TableInfo<$CustomFoodsTable, CustomFood> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CustomFoodsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _brandMeta = const VerificationMeta('brand');
+  @override
+  late final GeneratedColumn<String> brand = GeneratedColumn<String>(
+    'brand',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _barcodeMeta = const VerificationMeta(
+    'barcode',
+  );
+  @override
+  late final GeneratedColumn<String> barcode = GeneratedColumn<String>(
+    'barcode',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _servingSizeMeta = const VerificationMeta(
+    'servingSize',
+  );
+  @override
+  late final GeneratedColumn<double> servingSize = GeneratedColumn<double>(
+    'serving_size',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _servingUnitMeta = const VerificationMeta(
+    'servingUnit',
+  );
+  @override
+  late final GeneratedColumn<String> servingUnit = GeneratedColumn<String>(
+    'serving_unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _caloriesMeta = const VerificationMeta(
+    'calories',
+  );
+  @override
+  late final GeneratedColumn<double> calories = GeneratedColumn<double>(
+    'calories',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fatGMeta = const VerificationMeta('fatG');
+  @override
+  late final GeneratedColumn<double> fatG = GeneratedColumn<double>(
+    'fat_g',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _carbsGMeta = const VerificationMeta('carbsG');
+  @override
+  late final GeneratedColumn<double> carbsG = GeneratedColumn<double>(
+    'carbs_g',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sugarGMeta = const VerificationMeta('sugarG');
+  @override
+  late final GeneratedColumn<double> sugarG = GeneratedColumn<double>(
+    'sugar_g',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fiberGMeta = const VerificationMeta('fiberG');
+  @override
+  late final GeneratedColumn<double> fiberG = GeneratedColumn<double>(
+    'fiber_g',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _proteinGMeta = const VerificationMeta(
+    'proteinG',
+  );
+  @override
+  late final GeneratedColumn<double> proteinG = GeneratedColumn<double>(
+    'protein_g',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    brand,
+    barcode,
+    servingSize,
+    servingUnit,
+    calories,
+    fatG,
+    carbsG,
+    sugarG,
+    fiberG,
+    proteinG,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'custom_foods';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CustomFood> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('brand')) {
+      context.handle(
+        _brandMeta,
+        brand.isAcceptableOrUnknown(data['brand']!, _brandMeta),
+      );
+    }
+    if (data.containsKey('barcode')) {
+      context.handle(
+        _barcodeMeta,
+        barcode.isAcceptableOrUnknown(data['barcode']!, _barcodeMeta),
+      );
+    }
+    if (data.containsKey('serving_size')) {
+      context.handle(
+        _servingSizeMeta,
+        servingSize.isAcceptableOrUnknown(
+          data['serving_size']!,
+          _servingSizeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_servingSizeMeta);
+    }
+    if (data.containsKey('serving_unit')) {
+      context.handle(
+        _servingUnitMeta,
+        servingUnit.isAcceptableOrUnknown(
+          data['serving_unit']!,
+          _servingUnitMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_servingUnitMeta);
+    }
+    if (data.containsKey('calories')) {
+      context.handle(
+        _caloriesMeta,
+        calories.isAcceptableOrUnknown(data['calories']!, _caloriesMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_caloriesMeta);
+    }
+    if (data.containsKey('fat_g')) {
+      context.handle(
+        _fatGMeta,
+        fatG.isAcceptableOrUnknown(data['fat_g']!, _fatGMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fatGMeta);
+    }
+    if (data.containsKey('carbs_g')) {
+      context.handle(
+        _carbsGMeta,
+        carbsG.isAcceptableOrUnknown(data['carbs_g']!, _carbsGMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_carbsGMeta);
+    }
+    if (data.containsKey('sugar_g')) {
+      context.handle(
+        _sugarGMeta,
+        sugarG.isAcceptableOrUnknown(data['sugar_g']!, _sugarGMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sugarGMeta);
+    }
+    if (data.containsKey('fiber_g')) {
+      context.handle(
+        _fiberGMeta,
+        fiberG.isAcceptableOrUnknown(data['fiber_g']!, _fiberGMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fiberGMeta);
+    }
+    if (data.containsKey('protein_g')) {
+      context.handle(
+        _proteinGMeta,
+        proteinG.isAcceptableOrUnknown(data['protein_g']!, _proteinGMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_proteinGMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CustomFood map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CustomFood(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      brand: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}brand'],
+      ),
+      barcode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}barcode'],
+      ),
+      servingSize: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}serving_size'],
+      )!,
+      servingUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}serving_unit'],
+      )!,
+      calories: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}calories'],
+      )!,
+      fatG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fat_g'],
+      )!,
+      carbsG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}carbs_g'],
+      )!,
+      sugarG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}sugar_g'],
+      )!,
+      fiberG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fiber_g'],
+      )!,
+      proteinG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}protein_g'],
+      )!,
+    );
+  }
+
+  @override
+  $CustomFoodsTable createAlias(String alias) {
+    return $CustomFoodsTable(attachedDatabase, alias);
+  }
+}
+
+class CustomFood extends DataClass implements Insertable<CustomFood> {
+  final int id;
+
+  /// Required display name, e.g. "Greek yogurt".
+  final String name;
+
+  /// Optional, e.g. "Chobani".
+  final String? brand;
+
+  /// Optional, normalized digits (EAN-13 if present).
+  final String? barcode;
+
+  /// Serving size amount (in [servingUnit]).
+  final double servingSize;
+
+  /// 'g' | 'ml'
+  final String servingUnit;
+
+  /// Nutrition per serving.
+  final double calories;
+  final double fatG;
+  final double carbsG;
+  final double sugarG;
+  final double fiberG;
+  final double proteinG;
+  const CustomFood({
+    required this.id,
+    required this.name,
+    this.brand,
+    this.barcode,
+    required this.servingSize,
+    required this.servingUnit,
+    required this.calories,
+    required this.fatG,
+    required this.carbsG,
+    required this.sugarG,
+    required this.fiberG,
+    required this.proteinG,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || brand != null) {
+      map['brand'] = Variable<String>(brand);
+    }
+    if (!nullToAbsent || barcode != null) {
+      map['barcode'] = Variable<String>(barcode);
+    }
+    map['serving_size'] = Variable<double>(servingSize);
+    map['serving_unit'] = Variable<String>(servingUnit);
+    map['calories'] = Variable<double>(calories);
+    map['fat_g'] = Variable<double>(fatG);
+    map['carbs_g'] = Variable<double>(carbsG);
+    map['sugar_g'] = Variable<double>(sugarG);
+    map['fiber_g'] = Variable<double>(fiberG);
+    map['protein_g'] = Variable<double>(proteinG);
+    return map;
+  }
+
+  CustomFoodsCompanion toCompanion(bool nullToAbsent) {
+    return CustomFoodsCompanion(
+      id: Value(id),
+      name: Value(name),
+      brand: brand == null && nullToAbsent
+          ? const Value.absent()
+          : Value(brand),
+      barcode: barcode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(barcode),
+      servingSize: Value(servingSize),
+      servingUnit: Value(servingUnit),
+      calories: Value(calories),
+      fatG: Value(fatG),
+      carbsG: Value(carbsG),
+      sugarG: Value(sugarG),
+      fiberG: Value(fiberG),
+      proteinG: Value(proteinG),
+    );
+  }
+
+  factory CustomFood.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CustomFood(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      brand: serializer.fromJson<String?>(json['brand']),
+      barcode: serializer.fromJson<String?>(json['barcode']),
+      servingSize: serializer.fromJson<double>(json['servingSize']),
+      servingUnit: serializer.fromJson<String>(json['servingUnit']),
+      calories: serializer.fromJson<double>(json['calories']),
+      fatG: serializer.fromJson<double>(json['fatG']),
+      carbsG: serializer.fromJson<double>(json['carbsG']),
+      sugarG: serializer.fromJson<double>(json['sugarG']),
+      fiberG: serializer.fromJson<double>(json['fiberG']),
+      proteinG: serializer.fromJson<double>(json['proteinG']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'brand': serializer.toJson<String?>(brand),
+      'barcode': serializer.toJson<String?>(barcode),
+      'servingSize': serializer.toJson<double>(servingSize),
+      'servingUnit': serializer.toJson<String>(servingUnit),
+      'calories': serializer.toJson<double>(calories),
+      'fatG': serializer.toJson<double>(fatG),
+      'carbsG': serializer.toJson<double>(carbsG),
+      'sugarG': serializer.toJson<double>(sugarG),
+      'fiberG': serializer.toJson<double>(fiberG),
+      'proteinG': serializer.toJson<double>(proteinG),
+    };
+  }
+
+  CustomFood copyWith({
+    int? id,
+    String? name,
+    Value<String?> brand = const Value.absent(),
+    Value<String?> barcode = const Value.absent(),
+    double? servingSize,
+    String? servingUnit,
+    double? calories,
+    double? fatG,
+    double? carbsG,
+    double? sugarG,
+    double? fiberG,
+    double? proteinG,
+  }) => CustomFood(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    brand: brand.present ? brand.value : this.brand,
+    barcode: barcode.present ? barcode.value : this.barcode,
+    servingSize: servingSize ?? this.servingSize,
+    servingUnit: servingUnit ?? this.servingUnit,
+    calories: calories ?? this.calories,
+    fatG: fatG ?? this.fatG,
+    carbsG: carbsG ?? this.carbsG,
+    sugarG: sugarG ?? this.sugarG,
+    fiberG: fiberG ?? this.fiberG,
+    proteinG: proteinG ?? this.proteinG,
+  );
+  CustomFood copyWithCompanion(CustomFoodsCompanion data) {
+    return CustomFood(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      brand: data.brand.present ? data.brand.value : this.brand,
+      barcode: data.barcode.present ? data.barcode.value : this.barcode,
+      servingSize: data.servingSize.present
+          ? data.servingSize.value
+          : this.servingSize,
+      servingUnit: data.servingUnit.present
+          ? data.servingUnit.value
+          : this.servingUnit,
+      calories: data.calories.present ? data.calories.value : this.calories,
+      fatG: data.fatG.present ? data.fatG.value : this.fatG,
+      carbsG: data.carbsG.present ? data.carbsG.value : this.carbsG,
+      sugarG: data.sugarG.present ? data.sugarG.value : this.sugarG,
+      fiberG: data.fiberG.present ? data.fiberG.value : this.fiberG,
+      proteinG: data.proteinG.present ? data.proteinG.value : this.proteinG,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomFood(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('brand: $brand, ')
+          ..write('barcode: $barcode, ')
+          ..write('servingSize: $servingSize, ')
+          ..write('servingUnit: $servingUnit, ')
+          ..write('calories: $calories, ')
+          ..write('fatG: $fatG, ')
+          ..write('carbsG: $carbsG, ')
+          ..write('sugarG: $sugarG, ')
+          ..write('fiberG: $fiberG, ')
+          ..write('proteinG: $proteinG')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    brand,
+    barcode,
+    servingSize,
+    servingUnit,
+    calories,
+    fatG,
+    carbsG,
+    sugarG,
+    fiberG,
+    proteinG,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CustomFood &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.brand == this.brand &&
+          other.barcode == this.barcode &&
+          other.servingSize == this.servingSize &&
+          other.servingUnit == this.servingUnit &&
+          other.calories == this.calories &&
+          other.fatG == this.fatG &&
+          other.carbsG == this.carbsG &&
+          other.sugarG == this.sugarG &&
+          other.fiberG == this.fiberG &&
+          other.proteinG == this.proteinG);
+}
+
+class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<String?> brand;
+  final Value<String?> barcode;
+  final Value<double> servingSize;
+  final Value<String> servingUnit;
+  final Value<double> calories;
+  final Value<double> fatG;
+  final Value<double> carbsG;
+  final Value<double> sugarG;
+  final Value<double> fiberG;
+  final Value<double> proteinG;
+  const CustomFoodsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.brand = const Value.absent(),
+    this.barcode = const Value.absent(),
+    this.servingSize = const Value.absent(),
+    this.servingUnit = const Value.absent(),
+    this.calories = const Value.absent(),
+    this.fatG = const Value.absent(),
+    this.carbsG = const Value.absent(),
+    this.sugarG = const Value.absent(),
+    this.fiberG = const Value.absent(),
+    this.proteinG = const Value.absent(),
+  });
+  CustomFoodsCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.brand = const Value.absent(),
+    this.barcode = const Value.absent(),
+    required double servingSize,
+    required String servingUnit,
+    required double calories,
+    required double fatG,
+    required double carbsG,
+    required double sugarG,
+    required double fiberG,
+    required double proteinG,
+  }) : name = Value(name),
+       servingSize = Value(servingSize),
+       servingUnit = Value(servingUnit),
+       calories = Value(calories),
+       fatG = Value(fatG),
+       carbsG = Value(carbsG),
+       sugarG = Value(sugarG),
+       fiberG = Value(fiberG),
+       proteinG = Value(proteinG);
+  static Insertable<CustomFood> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<String>? brand,
+    Expression<String>? barcode,
+    Expression<double>? servingSize,
+    Expression<String>? servingUnit,
+    Expression<double>? calories,
+    Expression<double>? fatG,
+    Expression<double>? carbsG,
+    Expression<double>? sugarG,
+    Expression<double>? fiberG,
+    Expression<double>? proteinG,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (brand != null) 'brand': brand,
+      if (barcode != null) 'barcode': barcode,
+      if (servingSize != null) 'serving_size': servingSize,
+      if (servingUnit != null) 'serving_unit': servingUnit,
+      if (calories != null) 'calories': calories,
+      if (fatG != null) 'fat_g': fatG,
+      if (carbsG != null) 'carbs_g': carbsG,
+      if (sugarG != null) 'sugar_g': sugarG,
+      if (fiberG != null) 'fiber_g': fiberG,
+      if (proteinG != null) 'protein_g': proteinG,
+    });
+  }
+
+  CustomFoodsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<String?>? brand,
+    Value<String?>? barcode,
+    Value<double>? servingSize,
+    Value<String>? servingUnit,
+    Value<double>? calories,
+    Value<double>? fatG,
+    Value<double>? carbsG,
+    Value<double>? sugarG,
+    Value<double>? fiberG,
+    Value<double>? proteinG,
+  }) {
+    return CustomFoodsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      brand: brand ?? this.brand,
+      barcode: barcode ?? this.barcode,
+      servingSize: servingSize ?? this.servingSize,
+      servingUnit: servingUnit ?? this.servingUnit,
+      calories: calories ?? this.calories,
+      fatG: fatG ?? this.fatG,
+      carbsG: carbsG ?? this.carbsG,
+      sugarG: sugarG ?? this.sugarG,
+      fiberG: fiberG ?? this.fiberG,
+      proteinG: proteinG ?? this.proteinG,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (brand.present) {
+      map['brand'] = Variable<String>(brand.value);
+    }
+    if (barcode.present) {
+      map['barcode'] = Variable<String>(barcode.value);
+    }
+    if (servingSize.present) {
+      map['serving_size'] = Variable<double>(servingSize.value);
+    }
+    if (servingUnit.present) {
+      map['serving_unit'] = Variable<String>(servingUnit.value);
+    }
+    if (calories.present) {
+      map['calories'] = Variable<double>(calories.value);
+    }
+    if (fatG.present) {
+      map['fat_g'] = Variable<double>(fatG.value);
+    }
+    if (carbsG.present) {
+      map['carbs_g'] = Variable<double>(carbsG.value);
+    }
+    if (sugarG.present) {
+      map['sugar_g'] = Variable<double>(sugarG.value);
+    }
+    if (fiberG.present) {
+      map['fiber_g'] = Variable<double>(fiberG.value);
+    }
+    if (proteinG.present) {
+      map['protein_g'] = Variable<double>(proteinG.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomFoodsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('brand: $brand, ')
+          ..write('barcode: $barcode, ')
+          ..write('servingSize: $servingSize, ')
+          ..write('servingUnit: $servingUnit, ')
+          ..write('calories: $calories, ')
+          ..write('fatG: $fatG, ')
+          ..write('carbsG: $carbsG, ')
+          ..write('sugarG: $sugarG, ')
+          ..write('fiberG: $fiberG, ')
+          ..write('proteinG: $proteinG')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $FoodLogEntriesTable extends FoodLogEntries
     with TableInfo<$FoodLogEntriesTable, FoodLogEntry> {
   @override
@@ -1499,6 +2205,17 @@ class $FoodLogEntriesTable extends FoodLogEntries
     aliasedName,
     true,
     type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _customFoodIdMeta = const VerificationMeta(
+    'customFoodId',
+  );
+  @override
+  late final GeneratedColumn<int> customFoodId = GeneratedColumn<int>(
+    'custom_food_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _displayNameMeta = const VerificationMeta(
@@ -1550,6 +2267,26 @@ class $FoodLogEntriesTable extends FoodLogEntries
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sugarGMeta = const VerificationMeta('sugarG');
+  @override
+  late final GeneratedColumn<double> sugarG = GeneratedColumn<double>(
+    'sugar_g',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _fiberGMeta = const VerificationMeta('fiberG');
+  @override
+  late final GeneratedColumn<double> fiberG = GeneratedColumn<double>(
+    'fiber_g',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _fatGMeta = const VerificationMeta('fatG');
   @override
   late final GeneratedColumn<double> fatG = GeneratedColumn<double>(
@@ -1565,11 +2302,14 @@ class $FoodLogEntriesTable extends FoodLogEntries
     loggedAt,
     source,
     catalogFoodId,
+    customFoodId,
     displayName,
     grams,
     kcal,
     proteinG,
     carbsG,
+    sugarG,
+    fiberG,
     fatG,
   ];
   @override
@@ -1609,6 +2349,15 @@ class $FoodLogEntriesTable extends FoodLogEntries
         catalogFoodId.isAcceptableOrUnknown(
           data['catalog_food_id']!,
           _catalogFoodIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_food_id')) {
+      context.handle(
+        _customFoodIdMeta,
+        customFoodId.isAcceptableOrUnknown(
+          data['custom_food_id']!,
+          _customFoodIdMeta,
         ),
       );
     }
@@ -1655,6 +2404,18 @@ class $FoodLogEntriesTable extends FoodLogEntries
     } else if (isInserting) {
       context.missing(_carbsGMeta);
     }
+    if (data.containsKey('sugar_g')) {
+      context.handle(
+        _sugarGMeta,
+        sugarG.isAcceptableOrUnknown(data['sugar_g']!, _sugarGMeta),
+      );
+    }
+    if (data.containsKey('fiber_g')) {
+      context.handle(
+        _fiberGMeta,
+        fiberG.isAcceptableOrUnknown(data['fiber_g']!, _fiberGMeta),
+      );
+    }
     if (data.containsKey('fat_g')) {
       context.handle(
         _fatGMeta,
@@ -1688,6 +2449,10 @@ class $FoodLogEntriesTable extends FoodLogEntries
         DriftSqlType.string,
         data['${effectivePrefix}catalog_food_id'],
       ),
+      customFoodId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}custom_food_id'],
+      ),
       displayName: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}display_name'],
@@ -1708,6 +2473,14 @@ class $FoodLogEntriesTable extends FoodLogEntries
         DriftSqlType.double,
         data['${effectivePrefix}carbs_g'],
       )!,
+      sugarG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}sugar_g'],
+      )!,
+      fiberG: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}fiber_g'],
+      )!,
       fatG: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}fat_g'],
@@ -1726,22 +2499,28 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
   final DateTime loggedAt;
   final String source;
   final String? catalogFoodId;
+  final int? customFoodId;
   final String displayName;
   final double grams;
   final double kcal;
   final double proteinG;
   final double carbsG;
+  final double sugarG;
+  final double fiberG;
   final double fatG;
   const FoodLogEntry({
     required this.id,
     required this.loggedAt,
     required this.source,
     this.catalogFoodId,
+    this.customFoodId,
     required this.displayName,
     required this.grams,
     required this.kcal,
     required this.proteinG,
     required this.carbsG,
+    required this.sugarG,
+    required this.fiberG,
     required this.fatG,
   });
   @override
@@ -1753,11 +2532,16 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     if (!nullToAbsent || catalogFoodId != null) {
       map['catalog_food_id'] = Variable<String>(catalogFoodId);
     }
+    if (!nullToAbsent || customFoodId != null) {
+      map['custom_food_id'] = Variable<int>(customFoodId);
+    }
     map['display_name'] = Variable<String>(displayName);
     map['grams'] = Variable<double>(grams);
     map['kcal'] = Variable<double>(kcal);
     map['protein_g'] = Variable<double>(proteinG);
     map['carbs_g'] = Variable<double>(carbsG);
+    map['sugar_g'] = Variable<double>(sugarG);
+    map['fiber_g'] = Variable<double>(fiberG);
     map['fat_g'] = Variable<double>(fatG);
     return map;
   }
@@ -1770,11 +2554,16 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       catalogFoodId: catalogFoodId == null && nullToAbsent
           ? const Value.absent()
           : Value(catalogFoodId),
+      customFoodId: customFoodId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customFoodId),
       displayName: Value(displayName),
       grams: Value(grams),
       kcal: Value(kcal),
       proteinG: Value(proteinG),
       carbsG: Value(carbsG),
+      sugarG: Value(sugarG),
+      fiberG: Value(fiberG),
       fatG: Value(fatG),
     );
   }
@@ -1789,11 +2578,14 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       loggedAt: serializer.fromJson<DateTime>(json['loggedAt']),
       source: serializer.fromJson<String>(json['source']),
       catalogFoodId: serializer.fromJson<String?>(json['catalogFoodId']),
+      customFoodId: serializer.fromJson<int?>(json['customFoodId']),
       displayName: serializer.fromJson<String>(json['displayName']),
       grams: serializer.fromJson<double>(json['grams']),
       kcal: serializer.fromJson<double>(json['kcal']),
       proteinG: serializer.fromJson<double>(json['proteinG']),
       carbsG: serializer.fromJson<double>(json['carbsG']),
+      sugarG: serializer.fromJson<double>(json['sugarG']),
+      fiberG: serializer.fromJson<double>(json['fiberG']),
       fatG: serializer.fromJson<double>(json['fatG']),
     );
   }
@@ -1805,11 +2597,14 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       'loggedAt': serializer.toJson<DateTime>(loggedAt),
       'source': serializer.toJson<String>(source),
       'catalogFoodId': serializer.toJson<String?>(catalogFoodId),
+      'customFoodId': serializer.toJson<int?>(customFoodId),
       'displayName': serializer.toJson<String>(displayName),
       'grams': serializer.toJson<double>(grams),
       'kcal': serializer.toJson<double>(kcal),
       'proteinG': serializer.toJson<double>(proteinG),
       'carbsG': serializer.toJson<double>(carbsG),
+      'sugarG': serializer.toJson<double>(sugarG),
+      'fiberG': serializer.toJson<double>(fiberG),
       'fatG': serializer.toJson<double>(fatG),
     };
   }
@@ -1819,11 +2614,14 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     DateTime? loggedAt,
     String? source,
     Value<String?> catalogFoodId = const Value.absent(),
+    Value<int?> customFoodId = const Value.absent(),
     String? displayName,
     double? grams,
     double? kcal,
     double? proteinG,
     double? carbsG,
+    double? sugarG,
+    double? fiberG,
     double? fatG,
   }) => FoodLogEntry(
     id: id ?? this.id,
@@ -1832,11 +2630,14 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     catalogFoodId: catalogFoodId.present
         ? catalogFoodId.value
         : this.catalogFoodId,
+    customFoodId: customFoodId.present ? customFoodId.value : this.customFoodId,
     displayName: displayName ?? this.displayName,
     grams: grams ?? this.grams,
     kcal: kcal ?? this.kcal,
     proteinG: proteinG ?? this.proteinG,
     carbsG: carbsG ?? this.carbsG,
+    sugarG: sugarG ?? this.sugarG,
+    fiberG: fiberG ?? this.fiberG,
     fatG: fatG ?? this.fatG,
   );
   FoodLogEntry copyWithCompanion(FoodLogEntriesCompanion data) {
@@ -1847,6 +2648,9 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       catalogFoodId: data.catalogFoodId.present
           ? data.catalogFoodId.value
           : this.catalogFoodId,
+      customFoodId: data.customFoodId.present
+          ? data.customFoodId.value
+          : this.customFoodId,
       displayName: data.displayName.present
           ? data.displayName.value
           : this.displayName,
@@ -1854,6 +2658,8 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       kcal: data.kcal.present ? data.kcal.value : this.kcal,
       proteinG: data.proteinG.present ? data.proteinG.value : this.proteinG,
       carbsG: data.carbsG.present ? data.carbsG.value : this.carbsG,
+      sugarG: data.sugarG.present ? data.sugarG.value : this.sugarG,
+      fiberG: data.fiberG.present ? data.fiberG.value : this.fiberG,
       fatG: data.fatG.present ? data.fatG.value : this.fatG,
     );
   }
@@ -1865,11 +2671,14 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
           ..write('loggedAt: $loggedAt, ')
           ..write('source: $source, ')
           ..write('catalogFoodId: $catalogFoodId, ')
+          ..write('customFoodId: $customFoodId, ')
           ..write('displayName: $displayName, ')
           ..write('grams: $grams, ')
           ..write('kcal: $kcal, ')
           ..write('proteinG: $proteinG, ')
           ..write('carbsG: $carbsG, ')
+          ..write('sugarG: $sugarG, ')
+          ..write('fiberG: $fiberG, ')
           ..write('fatG: $fatG')
           ..write(')'))
         .toString();
@@ -1881,11 +2690,14 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     loggedAt,
     source,
     catalogFoodId,
+    customFoodId,
     displayName,
     grams,
     kcal,
     proteinG,
     carbsG,
+    sugarG,
+    fiberG,
     fatG,
   );
   @override
@@ -1896,11 +2708,14 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
           other.loggedAt == this.loggedAt &&
           other.source == this.source &&
           other.catalogFoodId == this.catalogFoodId &&
+          other.customFoodId == this.customFoodId &&
           other.displayName == this.displayName &&
           other.grams == this.grams &&
           other.kcal == this.kcal &&
           other.proteinG == this.proteinG &&
           other.carbsG == this.carbsG &&
+          other.sugarG == this.sugarG &&
+          other.fiberG == this.fiberG &&
           other.fatG == this.fatG);
 }
 
@@ -1909,22 +2724,28 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
   final Value<DateTime> loggedAt;
   final Value<String> source;
   final Value<String?> catalogFoodId;
+  final Value<int?> customFoodId;
   final Value<String> displayName;
   final Value<double> grams;
   final Value<double> kcal;
   final Value<double> proteinG;
   final Value<double> carbsG;
+  final Value<double> sugarG;
+  final Value<double> fiberG;
   final Value<double> fatG;
   const FoodLogEntriesCompanion({
     this.id = const Value.absent(),
     this.loggedAt = const Value.absent(),
     this.source = const Value.absent(),
     this.catalogFoodId = const Value.absent(),
+    this.customFoodId = const Value.absent(),
     this.displayName = const Value.absent(),
     this.grams = const Value.absent(),
     this.kcal = const Value.absent(),
     this.proteinG = const Value.absent(),
     this.carbsG = const Value.absent(),
+    this.sugarG = const Value.absent(),
+    this.fiberG = const Value.absent(),
     this.fatG = const Value.absent(),
   });
   FoodLogEntriesCompanion.insert({
@@ -1932,11 +2753,14 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     required DateTime loggedAt,
     required String source,
     this.catalogFoodId = const Value.absent(),
+    this.customFoodId = const Value.absent(),
     required String displayName,
     required double grams,
     required double kcal,
     required double proteinG,
     required double carbsG,
+    this.sugarG = const Value.absent(),
+    this.fiberG = const Value.absent(),
     required double fatG,
   }) : loggedAt = Value(loggedAt),
        source = Value(source),
@@ -1951,11 +2775,14 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     Expression<DateTime>? loggedAt,
     Expression<String>? source,
     Expression<String>? catalogFoodId,
+    Expression<int>? customFoodId,
     Expression<String>? displayName,
     Expression<double>? grams,
     Expression<double>? kcal,
     Expression<double>? proteinG,
     Expression<double>? carbsG,
+    Expression<double>? sugarG,
+    Expression<double>? fiberG,
     Expression<double>? fatG,
   }) {
     return RawValuesInsertable({
@@ -1963,11 +2790,14 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
       if (loggedAt != null) 'logged_at': loggedAt,
       if (source != null) 'source': source,
       if (catalogFoodId != null) 'catalog_food_id': catalogFoodId,
+      if (customFoodId != null) 'custom_food_id': customFoodId,
       if (displayName != null) 'display_name': displayName,
       if (grams != null) 'grams': grams,
       if (kcal != null) 'kcal': kcal,
       if (proteinG != null) 'protein_g': proteinG,
       if (carbsG != null) 'carbs_g': carbsG,
+      if (sugarG != null) 'sugar_g': sugarG,
+      if (fiberG != null) 'fiber_g': fiberG,
       if (fatG != null) 'fat_g': fatG,
     });
   }
@@ -1977,11 +2807,14 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     Value<DateTime>? loggedAt,
     Value<String>? source,
     Value<String?>? catalogFoodId,
+    Value<int?>? customFoodId,
     Value<String>? displayName,
     Value<double>? grams,
     Value<double>? kcal,
     Value<double>? proteinG,
     Value<double>? carbsG,
+    Value<double>? sugarG,
+    Value<double>? fiberG,
     Value<double>? fatG,
   }) {
     return FoodLogEntriesCompanion(
@@ -1989,11 +2822,14 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
       loggedAt: loggedAt ?? this.loggedAt,
       source: source ?? this.source,
       catalogFoodId: catalogFoodId ?? this.catalogFoodId,
+      customFoodId: customFoodId ?? this.customFoodId,
       displayName: displayName ?? this.displayName,
       grams: grams ?? this.grams,
       kcal: kcal ?? this.kcal,
       proteinG: proteinG ?? this.proteinG,
       carbsG: carbsG ?? this.carbsG,
+      sugarG: sugarG ?? this.sugarG,
+      fiberG: fiberG ?? this.fiberG,
       fatG: fatG ?? this.fatG,
     );
   }
@@ -2013,6 +2849,9 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     if (catalogFoodId.present) {
       map['catalog_food_id'] = Variable<String>(catalogFoodId.value);
     }
+    if (customFoodId.present) {
+      map['custom_food_id'] = Variable<int>(customFoodId.value);
+    }
     if (displayName.present) {
       map['display_name'] = Variable<String>(displayName.value);
     }
@@ -2028,6 +2867,12 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     if (carbsG.present) {
       map['carbs_g'] = Variable<double>(carbsG.value);
     }
+    if (sugarG.present) {
+      map['sugar_g'] = Variable<double>(sugarG.value);
+    }
+    if (fiberG.present) {
+      map['fiber_g'] = Variable<double>(fiberG.value);
+    }
     if (fatG.present) {
       map['fat_g'] = Variable<double>(fatG.value);
     }
@@ -2041,11 +2886,14 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
           ..write('loggedAt: $loggedAt, ')
           ..write('source: $source, ')
           ..write('catalogFoodId: $catalogFoodId, ')
+          ..write('customFoodId: $customFoodId, ')
           ..write('displayName: $displayName, ')
           ..write('grams: $grams, ')
           ..write('kcal: $kcal, ')
           ..write('proteinG: $proteinG, ')
           ..write('carbsG: $carbsG, ')
+          ..write('sugarG: $sugarG, ')
+          ..write('fiberG: $fiberG, ')
           ..write('fatG: $fatG')
           ..write(')'))
         .toString();
@@ -2058,6 +2906,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ProfilesTable profiles = $ProfilesTable(this);
   late final $GoalsTable goals = $GoalsTable(this);
   late final $WeightEntriesTable weightEntries = $WeightEntriesTable(this);
+  late final $CustomFoodsTable customFoods = $CustomFoodsTable(this);
   late final $FoodLogEntriesTable foodLogEntries = $FoodLogEntriesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -2067,6 +2916,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     profiles,
     goals,
     weightEntries,
+    customFoods,
     foodLogEntries,
   ];
 }
@@ -2797,17 +3647,351 @@ typedef $$WeightEntriesTableProcessedTableManager =
       WeightEntry,
       PrefetchHooks Function()
     >;
+typedef $$CustomFoodsTableCreateCompanionBuilder =
+    CustomFoodsCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<String?> brand,
+      Value<String?> barcode,
+      required double servingSize,
+      required String servingUnit,
+      required double calories,
+      required double fatG,
+      required double carbsG,
+      required double sugarG,
+      required double fiberG,
+      required double proteinG,
+    });
+typedef $$CustomFoodsTableUpdateCompanionBuilder =
+    CustomFoodsCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<String?> brand,
+      Value<String?> barcode,
+      Value<double> servingSize,
+      Value<String> servingUnit,
+      Value<double> calories,
+      Value<double> fatG,
+      Value<double> carbsG,
+      Value<double> sugarG,
+      Value<double> fiberG,
+      Value<double> proteinG,
+    });
+
+class $$CustomFoodsTableFilterComposer
+    extends Composer<_$AppDatabase, $CustomFoodsTable> {
+  $$CustomFoodsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get brand => $composableBuilder(
+    column: $table.brand,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get barcode => $composableBuilder(
+    column: $table.barcode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get servingSize => $composableBuilder(
+    column: $table.servingSize,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get servingUnit => $composableBuilder(
+    column: $table.servingUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get calories => $composableBuilder(
+    column: $table.calories,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fatG => $composableBuilder(
+    column: $table.fatG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get carbsG => $composableBuilder(
+    column: $table.carbsG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get sugarG => $composableBuilder(
+    column: $table.sugarG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fiberG => $composableBuilder(
+    column: $table.fiberG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get proteinG => $composableBuilder(
+    column: $table.proteinG,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CustomFoodsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CustomFoodsTable> {
+  $$CustomFoodsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get brand => $composableBuilder(
+    column: $table.brand,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get barcode => $composableBuilder(
+    column: $table.barcode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get servingSize => $composableBuilder(
+    column: $table.servingSize,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get servingUnit => $composableBuilder(
+    column: $table.servingUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get calories => $composableBuilder(
+    column: $table.calories,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fatG => $composableBuilder(
+    column: $table.fatG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get carbsG => $composableBuilder(
+    column: $table.carbsG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get sugarG => $composableBuilder(
+    column: $table.sugarG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fiberG => $composableBuilder(
+    column: $table.fiberG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get proteinG => $composableBuilder(
+    column: $table.proteinG,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CustomFoodsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CustomFoodsTable> {
+  $$CustomFoodsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get brand =>
+      $composableBuilder(column: $table.brand, builder: (column) => column);
+
+  GeneratedColumn<String> get barcode =>
+      $composableBuilder(column: $table.barcode, builder: (column) => column);
+
+  GeneratedColumn<double> get servingSize => $composableBuilder(
+    column: $table.servingSize,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get servingUnit => $composableBuilder(
+    column: $table.servingUnit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get calories =>
+      $composableBuilder(column: $table.calories, builder: (column) => column);
+
+  GeneratedColumn<double> get fatG =>
+      $composableBuilder(column: $table.fatG, builder: (column) => column);
+
+  GeneratedColumn<double> get carbsG =>
+      $composableBuilder(column: $table.carbsG, builder: (column) => column);
+
+  GeneratedColumn<double> get sugarG =>
+      $composableBuilder(column: $table.sugarG, builder: (column) => column);
+
+  GeneratedColumn<double> get fiberG =>
+      $composableBuilder(column: $table.fiberG, builder: (column) => column);
+
+  GeneratedColumn<double> get proteinG =>
+      $composableBuilder(column: $table.proteinG, builder: (column) => column);
+}
+
+class $$CustomFoodsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CustomFoodsTable,
+          CustomFood,
+          $$CustomFoodsTableFilterComposer,
+          $$CustomFoodsTableOrderingComposer,
+          $$CustomFoodsTableAnnotationComposer,
+          $$CustomFoodsTableCreateCompanionBuilder,
+          $$CustomFoodsTableUpdateCompanionBuilder,
+          (
+            CustomFood,
+            BaseReferences<_$AppDatabase, $CustomFoodsTable, CustomFood>,
+          ),
+          CustomFood,
+          PrefetchHooks Function()
+        > {
+  $$CustomFoodsTableTableManager(_$AppDatabase db, $CustomFoodsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CustomFoodsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CustomFoodsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CustomFoodsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> brand = const Value.absent(),
+                Value<String?> barcode = const Value.absent(),
+                Value<double> servingSize = const Value.absent(),
+                Value<String> servingUnit = const Value.absent(),
+                Value<double> calories = const Value.absent(),
+                Value<double> fatG = const Value.absent(),
+                Value<double> carbsG = const Value.absent(),
+                Value<double> sugarG = const Value.absent(),
+                Value<double> fiberG = const Value.absent(),
+                Value<double> proteinG = const Value.absent(),
+              }) => CustomFoodsCompanion(
+                id: id,
+                name: name,
+                brand: brand,
+                barcode: barcode,
+                servingSize: servingSize,
+                servingUnit: servingUnit,
+                calories: calories,
+                fatG: fatG,
+                carbsG: carbsG,
+                sugarG: sugarG,
+                fiberG: fiberG,
+                proteinG: proteinG,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<String?> brand = const Value.absent(),
+                Value<String?> barcode = const Value.absent(),
+                required double servingSize,
+                required String servingUnit,
+                required double calories,
+                required double fatG,
+                required double carbsG,
+                required double sugarG,
+                required double fiberG,
+                required double proteinG,
+              }) => CustomFoodsCompanion.insert(
+                id: id,
+                name: name,
+                brand: brand,
+                barcode: barcode,
+                servingSize: servingSize,
+                servingUnit: servingUnit,
+                calories: calories,
+                fatG: fatG,
+                carbsG: carbsG,
+                sugarG: sugarG,
+                fiberG: fiberG,
+                proteinG: proteinG,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CustomFoodsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CustomFoodsTable,
+      CustomFood,
+      $$CustomFoodsTableFilterComposer,
+      $$CustomFoodsTableOrderingComposer,
+      $$CustomFoodsTableAnnotationComposer,
+      $$CustomFoodsTableCreateCompanionBuilder,
+      $$CustomFoodsTableUpdateCompanionBuilder,
+      (
+        CustomFood,
+        BaseReferences<_$AppDatabase, $CustomFoodsTable, CustomFood>,
+      ),
+      CustomFood,
+      PrefetchHooks Function()
+    >;
 typedef $$FoodLogEntriesTableCreateCompanionBuilder =
     FoodLogEntriesCompanion Function({
       Value<int> id,
       required DateTime loggedAt,
       required String source,
       Value<String?> catalogFoodId,
+      Value<int?> customFoodId,
       required String displayName,
       required double grams,
       required double kcal,
       required double proteinG,
       required double carbsG,
+      Value<double> sugarG,
+      Value<double> fiberG,
       required double fatG,
     });
 typedef $$FoodLogEntriesTableUpdateCompanionBuilder =
@@ -2816,11 +4000,14 @@ typedef $$FoodLogEntriesTableUpdateCompanionBuilder =
       Value<DateTime> loggedAt,
       Value<String> source,
       Value<String?> catalogFoodId,
+      Value<int?> customFoodId,
       Value<String> displayName,
       Value<double> grams,
       Value<double> kcal,
       Value<double> proteinG,
       Value<double> carbsG,
+      Value<double> sugarG,
+      Value<double> fiberG,
       Value<double> fatG,
     });
 
@@ -2853,6 +4040,11 @@ class $$FoodLogEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get customFoodId => $composableBuilder(
+    column: $table.customFoodId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get displayName => $composableBuilder(
     column: $table.displayName,
     builder: (column) => ColumnFilters(column),
@@ -2875,6 +4067,16 @@ class $$FoodLogEntriesTableFilterComposer
 
   ColumnFilters<double> get carbsG => $composableBuilder(
     column: $table.carbsG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get sugarG => $composableBuilder(
+    column: $table.sugarG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fiberG => $composableBuilder(
+    column: $table.fiberG,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2913,6 +4115,11 @@ class $$FoodLogEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get customFoodId => $composableBuilder(
+    column: $table.customFoodId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get displayName => $composableBuilder(
     column: $table.displayName,
     builder: (column) => ColumnOrderings(column),
@@ -2935,6 +4142,16 @@ class $$FoodLogEntriesTableOrderingComposer
 
   ColumnOrderings<double> get carbsG => $composableBuilder(
     column: $table.carbsG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get sugarG => $composableBuilder(
+    column: $table.sugarG,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fiberG => $composableBuilder(
+    column: $table.fiberG,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -2967,6 +4184,11 @@ class $$FoodLogEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get customFoodId => $composableBuilder(
+    column: $table.customFoodId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get displayName => $composableBuilder(
     column: $table.displayName,
     builder: (column) => column,
@@ -2983,6 +4205,12 @@ class $$FoodLogEntriesTableAnnotationComposer
 
   GeneratedColumn<double> get carbsG =>
       $composableBuilder(column: $table.carbsG, builder: (column) => column);
+
+  GeneratedColumn<double> get sugarG =>
+      $composableBuilder(column: $table.sugarG, builder: (column) => column);
+
+  GeneratedColumn<double> get fiberG =>
+      $composableBuilder(column: $table.fiberG, builder: (column) => column);
 
   GeneratedColumn<double> get fatG =>
       $composableBuilder(column: $table.fatG, builder: (column) => column);
@@ -3025,22 +4253,28 @@ class $$FoodLogEntriesTableTableManager
                 Value<DateTime> loggedAt = const Value.absent(),
                 Value<String> source = const Value.absent(),
                 Value<String?> catalogFoodId = const Value.absent(),
+                Value<int?> customFoodId = const Value.absent(),
                 Value<String> displayName = const Value.absent(),
                 Value<double> grams = const Value.absent(),
                 Value<double> kcal = const Value.absent(),
                 Value<double> proteinG = const Value.absent(),
                 Value<double> carbsG = const Value.absent(),
+                Value<double> sugarG = const Value.absent(),
+                Value<double> fiberG = const Value.absent(),
                 Value<double> fatG = const Value.absent(),
               }) => FoodLogEntriesCompanion(
                 id: id,
                 loggedAt: loggedAt,
                 source: source,
                 catalogFoodId: catalogFoodId,
+                customFoodId: customFoodId,
                 displayName: displayName,
                 grams: grams,
                 kcal: kcal,
                 proteinG: proteinG,
                 carbsG: carbsG,
+                sugarG: sugarG,
+                fiberG: fiberG,
                 fatG: fatG,
               ),
           createCompanionCallback:
@@ -3049,22 +4283,28 @@ class $$FoodLogEntriesTableTableManager
                 required DateTime loggedAt,
                 required String source,
                 Value<String?> catalogFoodId = const Value.absent(),
+                Value<int?> customFoodId = const Value.absent(),
                 required String displayName,
                 required double grams,
                 required double kcal,
                 required double proteinG,
                 required double carbsG,
+                Value<double> sugarG = const Value.absent(),
+                Value<double> fiberG = const Value.absent(),
                 required double fatG,
               }) => FoodLogEntriesCompanion.insert(
                 id: id,
                 loggedAt: loggedAt,
                 source: source,
                 catalogFoodId: catalogFoodId,
+                customFoodId: customFoodId,
                 displayName: displayName,
                 grams: grams,
                 kcal: kcal,
                 proteinG: proteinG,
                 carbsG: carbsG,
+                sugarG: sugarG,
+                fiberG: fiberG,
                 fatG: fatG,
               ),
           withReferenceMapper: (p0) => p0
@@ -3102,6 +4342,8 @@ class $AppDatabaseManager {
       $$GoalsTableTableManager(_db, _db.goals);
   $$WeightEntriesTableTableManager get weightEntries =>
       $$WeightEntriesTableTableManager(_db, _db.weightEntries);
+  $$CustomFoodsTableTableManager get customFoods =>
+      $$CustomFoodsTableTableManager(_db, _db.customFoods);
   $$FoodLogEntriesTableTableManager get foodLogEntries =>
       $$FoodLogEntriesTableTableManager(_db, _db.foodLogEntries);
 }

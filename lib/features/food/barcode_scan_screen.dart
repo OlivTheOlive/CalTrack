@@ -1,10 +1,13 @@
+import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/widgets/opennutrition_attribution.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
-/// Scans barcodes and returns a single [CatalogFood] via [Navigator.pop], or nothing.
+/// Scans barcodes and returns either a [CatalogFood] or a [CustomFood] via
+/// [Navigator.pop], or redirects to the add-food form if not found.
 class BarcodeScanScreen extends StatefulWidget {
   const BarcodeScanScreen({super.key});
 
@@ -28,25 +31,33 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
   Future<void> _onBarcode(String? raw) async {
     if (_handled || raw == null || raw.isEmpty) return;
     final catalog = context.read<OpenNutritionCatalog>();
+    final repo = context.read<CalTrackRepository>();
     final normalized = OpenNutritionCatalog.normalizeEan(raw);
     if (normalized == null) return;
 
     setState(() => _handled = true);
     await _controller.stop();
+
+    final custom = await repo.customFoodByBarcode(normalized);
+    if (!mounted) return;
+    if (custom != null) {
+      Navigator.of(context).pop(custom);
+      return;
+    }
+
     final foods = await catalog.byEan(normalized);
     if (!mounted) return;
 
     if (foods.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No match in offline catalog for this barcode.')),
+      context.pushReplacement(
+        '/add-custom-food',
+        extra: {'barcode': normalized},
       );
-      setState(() => _handled = false);
-      await _controller.start();
       return;
     }
 
     if (foods.length == 1) {
-      Navigator.of(context).pop<CatalogFood>(foods.first);
+      Navigator.of(context).pop(foods.first);
       return;
     }
 
@@ -93,7 +104,7 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
 
     if (!mounted) return;
     if (picked != null) {
-      Navigator.of(context).pop<CatalogFood>(picked);
+      Navigator.of(context).pop(picked);
     } else {
       setState(() => _handled = false);
       await _controller.start();

@@ -13,23 +13,30 @@ class FoodEntrySheetConfig {
     required this.displayName,
     required this.source,
     this.catalogFoodId,
+    this.customFoodId,
     required this.kcalPer100g,
     required this.proteinPer100g,
     required this.carbsPer100g,
+    this.sugarPer100g = 0,
+    this.fiberPer100g = 0,
     required this.fatPer100g,
     this.initialGrams = 100,
     this.editingEntryId,
     this.loggedAtForEdit,
     this.subtitle,
+    this.unitLabel = 'g',
     this.showOpenNutritionAttribution = false,
   });
 
   final String displayName;
   final String source;
   final String? catalogFoodId;
+  final int? customFoodId;
   final double kcalPer100g;
   final double proteinPer100g;
   final double carbsPer100g;
+  final double sugarPer100g;
+  final double fiberPer100g;
   final double fatPer100g;
   final double initialGrams;
 
@@ -38,6 +45,7 @@ class FoodEntrySheetConfig {
   final DateTime? loggedAtForEdit;
 
   final String? subtitle;
+  final String unitLabel;
   final bool showOpenNutritionAttribution;
 
   bool get isEdit => editingEntryId != null;
@@ -101,6 +109,9 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
     final grams = _parseGrams();
     if (grams == null) return;
     final scaled = _scale(grams);
+    final factor = grams / 100.0;
+    final sugar = widget.config.sugarPer100g * factor;
+    final fiber = widget.config.fiberPer100g * factor;
     final repo = context.read<CalTrackRepository>();
     setState(() => _busy = true);
     try {
@@ -111,6 +122,8 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
           kcal: scaled.kcal,
           proteinG: scaled.proteinG,
           carbsG: scaled.carbsG,
+          sugarG: sugar,
+          fiberG: fiber,
           fatG: scaled.fatG,
         );
         if (!mounted) return;
@@ -119,11 +132,14 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
         await repo.addFoodLogReturnId(
           source: widget.config.source,
           catalogFoodId: widget.config.catalogFoodId,
+          customFoodId: widget.config.customFoodId,
           displayName: widget.config.displayName,
           grams: grams,
           kcal: scaled.kcal,
           proteinG: scaled.proteinG,
           carbsG: scaled.carbsG,
+          sugarG: sugar,
+          fiberG: fiber,
           fatG: scaled.fatG,
           loggedAt: widget.config.loggedAtForEdit,
         );
@@ -203,10 +219,10 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
               ],
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 border: OutlineInputBorder(),
                 labelText: 'Amount',
-                suffixText: 'g',
+                suffixText: cfg.unitLabel,
               ),
               onChanged: (_) => setState(() {}),
               onSubmitted: (_) => FocusScope.of(context).unfocus(),

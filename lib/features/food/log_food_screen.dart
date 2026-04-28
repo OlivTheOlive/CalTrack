@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:caltrack/data/app_database.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/features/food/food_entry_sheet.dart';
@@ -19,6 +20,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
   final TextEditingController _search = TextEditingController();
   Timer? _debounce;
   List<CatalogFood> _results = [];
+  List<CustomFood> _customResults = [];
   bool _searching = false;
   String _lastQuery = '';
 
@@ -31,16 +33,53 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
 
   Future<void> _runSearch(String q) async {
     final catalog = context.read<OpenNutritionCatalog>();
+    final repo = context.read<CalTrackRepository>();
     setState(() {
       _searching = true;
       _lastQuery = q;
     });
     try {
-      final list = await catalog.search(q);
+      final res = await Future.wait([
+        catalog.search(q),
+        repo.searchCustomFoods(q),
+      ]);
       if (!mounted || _lastQuery != q) return;
-      setState(() => _results = list);
+      setState(() {
+        _results = res[0] as List<CatalogFood>;
+        _customResults = res[1] as List<CustomFood>;
+      });
     } finally {
       if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  Future<void> _openCustomFood(CustomFood food, {double? initialAmount}) async {
+    final serving = food.servingSize;
+    final factor = serving > 0 ? 100.0 / serving : 1.0;
+    final unit = ServingUnit.values.byName(food.servingUnit);
+
+    final action = await showFoodEntrySheet(
+      context,
+      FoodEntrySheetConfig(
+        displayName: food.name,
+        source: 'custom',
+        customFoodId: food.id,
+        kcalPer100g: food.calories * factor,
+        proteinPer100g: food.proteinG * factor,
+        carbsPer100g: food.carbsG * factor,
+        sugarPer100g: food.sugarG * factor,
+        fiberPer100g: food.fiberG * factor,
+        fatPer100g: food.fatG * factor,
+        initialGrams: initialAmount ?? serving,
+        subtitle: food.brand,
+        unitLabel: unit.name,
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == FoodEntryAction.added) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Logged ${food.name}')),
+      );
     }
   }
 
@@ -72,12 +111,22 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
 
   Future<void> _openRecentEntry(FoodLogEntry entry) async {
     final catalog = context.read<OpenNutritionCatalog>();
+    final repo = context.read<CalTrackRepository>();
     final id = entry.catalogFoodId;
     if (id != null) {
       final food = await catalog.byId(id);
       if (!mounted) return;
       if (food != null) {
         await _openCatalogFood(food, initialGrams: entry.grams);
+        return;
+      }
+    }
+    final customId = entry.customFoodId;
+    if (customId != null) {
+      final custom = await repo.customFoodById(customId);
+      if (!mounted) return;
+      if (custom != null) {
+        await _openCustomFood(custom, initialAmount: entry.grams);
         return;
       }
     }
@@ -91,6 +140,8 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
         kcalPer100g: entry.kcal * per100Factor,
         proteinPer100g: entry.proteinG * per100Factor,
         carbsPer100g: entry.carbsG * per100Factor,
+        sugarPer100g: entry.sugarG * per100Factor,
+        fiberPer100g: entry.fiberG * per100Factor,
         fatPer100g: entry.fatG * per100Factor,
         initialGrams: entry.grams,
       ),
@@ -113,9 +164,12 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
             tooltip: 'Scan barcode',
             icon: const Icon(Icons.qr_code_scanner_outlined),
             onPressed: () async {
-              final food = await context.push<CatalogFood>('/scan-barcode');
-              if (food != null && mounted) {
-                await _openCatalogFood(food);
+              final result = await context.push<Object?>('/scan-barcode');
+              if (!mounted || result == null) return;
+              if (result is CatalogFood) {
+                await _openCatalogFood(result);
+              } else if (result is CustomFood) {
+                await _openCustomFood(result);
               }
             },
           ),
@@ -138,7 +192,10 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                 _debounce?.cancel();
                 final q = text.trim();
                 if (q.length < 2) {
-                  setState(() => _results = []);
+                  setState(() {
+                    _results = [];
+                    _customResults = [];
+                  });
                   return;
                 }
                 _debounce = Timer(const Duration(milliseconds: 280), () {
@@ -199,6 +256,39 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Text(
+                    'Custom foods',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                if (_customResults.isEmpty &&
+                    _search.text.trim().length >= 2 &&
+                    !_searching)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24),
+                    child: Text('No custom matches.'),
+                  ),
+                ..._customResults.map(
+                  (f) => ListTile(
+                    title: Text(f.name),
+                    subtitle: Text(
+                      [
+                        if (f.brand != null && f.brand!.isNotEmpty) f.brand!,
+                        '${f.calories.round()} kcal / ${f.servingSize.round()} ${f.servingUnit}',
+                      ].join(' · '),
+                    ),
+                    onTap: () => _openCustomFood(f),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.add),
+                  title: const Text('Add a custom food'),
+                  subtitle: const Text('Create a food not in the offline catalog'),
+                  onTap: () => context.push('/add-custom-food'),
+                ),
+                const Divider(height: 32),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Text(
                     'Catalog results',
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
@@ -208,7 +298,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                     !_searching)
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: Text('No matches.'),
+                    child: Text('No catalog matches.'),
                   ),
                 ..._results.map(
                   (f) => ListTile(

@@ -13,3 +13,8 @@
 - Barcode “not found” fallback — open an add new food form which will be manually added. The user will be able to also add the macros via a nutritional bar scan from a picture.
 - Trend windows — 7 / 14 / 30-day chart filters and simple stats (rate of change, consistency).
 - Weigh-in streaks / reminders — You already have notifications; surfacing adherence in UI helps motivation without new data.
+
+## Data cleaning in opennutrition
+
+- create a script that will clean and remove any unwanted products. I only want to retain the whole none branded food from that database.
+- remove any duplicate.

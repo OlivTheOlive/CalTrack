@@ -5,7 +5,7 @@ import 'package:caltrack/data/app_database.dart';
 import 'package:drift/drift.dart';
 
 export 'package:caltrack/data/app_database.dart'
-    show Profile, Goal, WeightEntry, FoodLogEntry;
+    show Profile, Goal, WeightEntry, FoodLogEntry, CustomFood;
 
 /// Aggregated intake for a calendar day (sums logged portions).
 class DailyIntakeTotals {
@@ -13,30 +13,45 @@ class DailyIntakeTotals {
     required this.kcal,
     required this.proteinG,
     required this.carbsG,
+    required this.sugarG,
+    required this.fiberG,
     required this.fatG,
   });
 
   final double kcal;
   final double proteinG;
   final double carbsG;
+  final double sugarG;
+  final double fiberG;
   final double fatG;
 
   static DailyIntakeTotals fromEntries(Iterable<FoodLogEntry> rows) {
     var k = 0.0;
     var p = 0.0;
     var c = 0.0;
+    var s = 0.0;
+    var fi = 0.0;
     var f = 0.0;
     for (final e in rows) {
       k += e.kcal;
       p += e.proteinG;
       c += e.carbsG;
+      s += e.sugarG;
+      fi += e.fiberG;
       f += e.fatG;
     }
-    return DailyIntakeTotals(kcal: k, proteinG: p, carbsG: c, fatG: f);
+    return DailyIntakeTotals(
+      kcal: k,
+      proteinG: p,
+      carbsG: c,
+      sugarG: s,
+      fiberG: fi,
+      fatG: f,
+    );
   }
 
   static const zero =
-      DailyIntakeTotals(kcal: 0, proteinG: 0, carbsG: 0, fatG: 0);
+      DailyIntakeTotals(kcal: 0, proteinG: 0, carbsG: 0, sugarG: 0, fiberG: 0, fatG: 0);
 }
 
 class ComputedPlan {
@@ -55,6 +70,15 @@ class CalTrackRepository {
   CalTrackRepository(this._db);
 
   final AppDatabase _db;
+
+  static String? normalizeBarcode(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return null;
+    if (digits.length == 13) return digits;
+    if (digits.length == 12) return digits.padLeft(13, '0');
+    // Keep other lengths (e.g. UPC-E) as-is if user saved it.
+    return digits;
+  }
 
   Future<Profile> requireProfile() async {
     final rows = await _db.select(_db.profiles).get();
@@ -379,6 +403,8 @@ class CalTrackRepository {
     required double kcal,
     required double proteinG,
     required double carbsG,
+    double? sugarG,
+    double? fiberG,
     required double fatG,
   }) async {
     await (_db.update(_db.foodLogEntries)..where((t) => t.id.equals(id))).write(
@@ -387,6 +413,8 @@ class CalTrackRepository {
         kcal: Value(kcal),
         proteinG: Value(proteinG),
         carbsG: Value(carbsG),
+        sugarG: sugarG == null ? const Value.absent() : Value(sugarG),
+        fiberG: fiberG == null ? const Value.absent() : Value(fiberG),
         fatG: Value(fatG),
       ),
     );
@@ -395,11 +423,14 @@ class CalTrackRepository {
   Future<int> addFoodLogReturnId({
     required String source,
     String? catalogFoodId,
+    int? customFoodId,
     required String displayName,
     required double grams,
     required double kcal,
     required double proteinG,
     required double carbsG,
+    double sugarG = 0,
+    double fiberG = 0,
     required double fatG,
     DateTime? loggedAt,
   }) {
@@ -408,11 +439,14 @@ class CalTrackRepository {
             loggedAt: loggedAt ?? DateTime.now(),
             source: source,
             catalogFoodId: Value(catalogFoodId),
+            customFoodId: Value(customFoodId),
             displayName: displayName,
             grams: grams,
             kcal: kcal,
             proteinG: proteinG,
             carbsG: carbsG,
+            sugarG: Value(sugarG),
+            fiberG: Value(fiberG),
             fatG: fatG,
           ),
         );
@@ -421,11 +455,14 @@ class CalTrackRepository {
   Future<void> addFoodLog({
     required String source,
     String? catalogFoodId,
+    int? customFoodId,
     required String displayName,
     required double grams,
     required double kcal,
     required double proteinG,
     required double carbsG,
+    double sugarG = 0,
+    double fiberG = 0,
     required double fatG,
     DateTime? loggedAt,
   }) async {
@@ -434,11 +471,14 @@ class CalTrackRepository {
             loggedAt: loggedAt ?? DateTime.now(),
             source: source,
             catalogFoodId: Value(catalogFoodId),
+            customFoodId: Value(customFoodId),
             displayName: displayName,
             grams: grams,
             kcal: kcal,
             proteinG: proteinG,
             carbsG: carbsG,
+            sugarG: Value(sugarG),
+            fiberG: Value(fiberG),
             fatG: fatG,
           ),
         );
@@ -452,7 +492,7 @@ class CalTrackRepository {
     final seen = <String>{};
     final out = <FoodLogEntry>[];
     for (final r in rows) {
-      final key = r.catalogFoodId ?? r.displayName;
+      final key = r.catalogFoodId ?? (r.customFoodId?.toString() ?? r.displayName);
       if (seen.contains(key)) continue;
       seen.add(key);
       out.add(r);
@@ -461,8 +501,76 @@ class CalTrackRepository {
     return out;
   }
 
+  // ---- Custom foods ----
+
+  Future<CustomFood?> customFoodById(int id) {
+    return (_db.select(_db.customFoods)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+  }
+
+  Future<CustomFood?> customFoodByBarcode(String rawBarcode) async {
+    final b = normalizeBarcode(rawBarcode);
+    if (b == null) return null;
+    return (_db.select(_db.customFoods)..where((t) => t.barcode.equals(b)))
+        .getSingleOrNull();
+  }
+
+  Future<List<CustomFood>> searchCustomFoods(String query, {int limit = 30}) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+
+    final like = '%${q.replaceAll('%', r'\%').replaceAll('_', r'\_')}%';
+    final rows = await (_db.select(_db.customFoods)
+          ..where((t) => t.name.like(like) | t.brand.like(like))
+          ..orderBy([(t) => OrderingTerm.asc(t.name)])
+          ..limit(limit))
+        .get();
+    return rows;
+  }
+
+  Future<int> upsertCustomFood({
+    int? id,
+    required String name,
+    String? brand,
+    String? barcode,
+    required double servingSize,
+    required String servingUnit, // 'g' | 'ml'
+    required double calories,
+    required double fatG,
+    required double carbsG,
+    required double sugarG,
+    required double fiberG,
+    required double proteinG,
+  }) async {
+    final cleanedName = name.trim();
+    if (cleanedName.isEmpty) {
+      throw ArgumentError.value(name, 'name', 'must not be empty');
+    }
+    final b = barcode == null ? null : normalizeBarcode(barcode);
+    final companion = CustomFoodsCompanion(
+      id: id == null ? const Value.absent() : Value(id),
+      name: Value(cleanedName),
+      brand: Value(brand?.trim().isEmpty ?? true ? null : brand!.trim()),
+      barcode: Value(b),
+      servingSize: Value(servingSize),
+      servingUnit: Value(servingUnit),
+      calories: Value(calories),
+      fatG: Value(fatG),
+      carbsG: Value(carbsG),
+      sugarG: Value(sugarG),
+      fiberG: Value(fiberG),
+      proteinG: Value(proteinG),
+    );
+    return _db.into(_db.customFoods).insertOnConflictUpdate(companion);
+  }
+
+  Future<void> deleteCustomFood(int id) async {
+    await (_db.delete(_db.customFoods)..where((t) => t.id.equals(id))).go();
+  }
+
   Future<void> resetForTesting() async {
     await _db.delete(_db.foodLogEntries).go();
+    await _db.delete(_db.customFoods).go();
     await _db.delete(_db.weightEntries).go();
     await _db.delete(_db.goals).go();
     await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
