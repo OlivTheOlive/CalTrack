@@ -1510,6 +1510,365 @@ class WeightEntriesCompanion extends UpdateCompanion<WeightEntry> {
   }
 }
 
+class $FoodPrefsTable extends FoodPrefs
+    with TableInfo<$FoodPrefsTable, FoodPref> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FoodPrefsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _foodKeyMeta = const VerificationMeta(
+    'foodKey',
+  );
+  @override
+  late final GeneratedColumn<String> foodKey = GeneratedColumn<String>(
+    'food_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _treatAsLiquidMeta = const VerificationMeta(
+    'treatAsLiquid',
+  );
+  @override
+  late final GeneratedColumn<bool> treatAsLiquid = GeneratedColumn<bool>(
+    'treat_as_liquid',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("treat_as_liquid" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _savedServingAmountMeta =
+      const VerificationMeta('savedServingAmount');
+  @override
+  late final GeneratedColumn<double> savedServingAmount =
+      GeneratedColumn<double>(
+        'saved_serving_amount',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _savedServingUnitMeta = const VerificationMeta(
+    'savedServingUnit',
+  );
+  @override
+  late final GeneratedColumn<String> savedServingUnit = GeneratedColumn<String>(
+    'saved_serving_unit',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    foodKey,
+    treatAsLiquid,
+    savedServingAmount,
+    savedServingUnit,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'food_prefs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FoodPref> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('food_key')) {
+      context.handle(
+        _foodKeyMeta,
+        foodKey.isAcceptableOrUnknown(data['food_key']!, _foodKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_foodKeyMeta);
+    }
+    if (data.containsKey('treat_as_liquid')) {
+      context.handle(
+        _treatAsLiquidMeta,
+        treatAsLiquid.isAcceptableOrUnknown(
+          data['treat_as_liquid']!,
+          _treatAsLiquidMeta,
+        ),
+      );
+    }
+    if (data.containsKey('saved_serving_amount')) {
+      context.handle(
+        _savedServingAmountMeta,
+        savedServingAmount.isAcceptableOrUnknown(
+          data['saved_serving_amount']!,
+          _savedServingAmountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('saved_serving_unit')) {
+      context.handle(
+        _savedServingUnitMeta,
+        savedServingUnit.isAcceptableOrUnknown(
+          data['saved_serving_unit']!,
+          _savedServingUnitMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {foodKey};
+  @override
+  FoodPref map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FoodPref(
+      foodKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}food_key'],
+      )!,
+      treatAsLiquid: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}treat_as_liquid'],
+      ),
+      savedServingAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}saved_serving_amount'],
+      ),
+      savedServingUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}saved_serving_unit'],
+      ),
+    );
+  }
+
+  @override
+  $FoodPrefsTable createAlias(String alias) {
+    return $FoodPrefsTable(attachedDatabase, alias);
+  }
+}
+
+class FoodPref extends DataClass implements Insertable<FoodPref> {
+  /// Stable key for a food. For catalog foods: `cat:<id>`. For custom:
+  /// `cus:<id>`. Fallback: `name:<lowercased name>`.
+  final String foodKey;
+
+  /// If null, use the catalog's default; otherwise override.
+  final bool? treatAsLiquid;
+
+  /// Saved “serving” quick-select amount.
+  final double? savedServingAmount;
+
+  /// 'g' | 'ml'
+  final String? savedServingUnit;
+  const FoodPref({
+    required this.foodKey,
+    this.treatAsLiquid,
+    this.savedServingAmount,
+    this.savedServingUnit,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['food_key'] = Variable<String>(foodKey);
+    if (!nullToAbsent || treatAsLiquid != null) {
+      map['treat_as_liquid'] = Variable<bool>(treatAsLiquid);
+    }
+    if (!nullToAbsent || savedServingAmount != null) {
+      map['saved_serving_amount'] = Variable<double>(savedServingAmount);
+    }
+    if (!nullToAbsent || savedServingUnit != null) {
+      map['saved_serving_unit'] = Variable<String>(savedServingUnit);
+    }
+    return map;
+  }
+
+  FoodPrefsCompanion toCompanion(bool nullToAbsent) {
+    return FoodPrefsCompanion(
+      foodKey: Value(foodKey),
+      treatAsLiquid: treatAsLiquid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(treatAsLiquid),
+      savedServingAmount: savedServingAmount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(savedServingAmount),
+      savedServingUnit: savedServingUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(savedServingUnit),
+    );
+  }
+
+  factory FoodPref.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FoodPref(
+      foodKey: serializer.fromJson<String>(json['foodKey']),
+      treatAsLiquid: serializer.fromJson<bool?>(json['treatAsLiquid']),
+      savedServingAmount: serializer.fromJson<double?>(
+        json['savedServingAmount'],
+      ),
+      savedServingUnit: serializer.fromJson<String?>(json['savedServingUnit']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'foodKey': serializer.toJson<String>(foodKey),
+      'treatAsLiquid': serializer.toJson<bool?>(treatAsLiquid),
+      'savedServingAmount': serializer.toJson<double?>(savedServingAmount),
+      'savedServingUnit': serializer.toJson<String?>(savedServingUnit),
+    };
+  }
+
+  FoodPref copyWith({
+    String? foodKey,
+    Value<bool?> treatAsLiquid = const Value.absent(),
+    Value<double?> savedServingAmount = const Value.absent(),
+    Value<String?> savedServingUnit = const Value.absent(),
+  }) => FoodPref(
+    foodKey: foodKey ?? this.foodKey,
+    treatAsLiquid: treatAsLiquid.present
+        ? treatAsLiquid.value
+        : this.treatAsLiquid,
+    savedServingAmount: savedServingAmount.present
+        ? savedServingAmount.value
+        : this.savedServingAmount,
+    savedServingUnit: savedServingUnit.present
+        ? savedServingUnit.value
+        : this.savedServingUnit,
+  );
+  FoodPref copyWithCompanion(FoodPrefsCompanion data) {
+    return FoodPref(
+      foodKey: data.foodKey.present ? data.foodKey.value : this.foodKey,
+      treatAsLiquid: data.treatAsLiquid.present
+          ? data.treatAsLiquid.value
+          : this.treatAsLiquid,
+      savedServingAmount: data.savedServingAmount.present
+          ? data.savedServingAmount.value
+          : this.savedServingAmount,
+      savedServingUnit: data.savedServingUnit.present
+          ? data.savedServingUnit.value
+          : this.savedServingUnit,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FoodPref(')
+          ..write('foodKey: $foodKey, ')
+          ..write('treatAsLiquid: $treatAsLiquid, ')
+          ..write('savedServingAmount: $savedServingAmount, ')
+          ..write('savedServingUnit: $savedServingUnit')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(foodKey, treatAsLiquid, savedServingAmount, savedServingUnit);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FoodPref &&
+          other.foodKey == this.foodKey &&
+          other.treatAsLiquid == this.treatAsLiquid &&
+          other.savedServingAmount == this.savedServingAmount &&
+          other.savedServingUnit == this.savedServingUnit);
+}
+
+class FoodPrefsCompanion extends UpdateCompanion<FoodPref> {
+  final Value<String> foodKey;
+  final Value<bool?> treatAsLiquid;
+  final Value<double?> savedServingAmount;
+  final Value<String?> savedServingUnit;
+  final Value<int> rowid;
+  const FoodPrefsCompanion({
+    this.foodKey = const Value.absent(),
+    this.treatAsLiquid = const Value.absent(),
+    this.savedServingAmount = const Value.absent(),
+    this.savedServingUnit = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FoodPrefsCompanion.insert({
+    required String foodKey,
+    this.treatAsLiquid = const Value.absent(),
+    this.savedServingAmount = const Value.absent(),
+    this.savedServingUnit = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : foodKey = Value(foodKey);
+  static Insertable<FoodPref> custom({
+    Expression<String>? foodKey,
+    Expression<bool>? treatAsLiquid,
+    Expression<double>? savedServingAmount,
+    Expression<String>? savedServingUnit,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (foodKey != null) 'food_key': foodKey,
+      if (treatAsLiquid != null) 'treat_as_liquid': treatAsLiquid,
+      if (savedServingAmount != null)
+        'saved_serving_amount': savedServingAmount,
+      if (savedServingUnit != null) 'saved_serving_unit': savedServingUnit,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FoodPrefsCompanion copyWith({
+    Value<String>? foodKey,
+    Value<bool?>? treatAsLiquid,
+    Value<double?>? savedServingAmount,
+    Value<String?>? savedServingUnit,
+    Value<int>? rowid,
+  }) {
+    return FoodPrefsCompanion(
+      foodKey: foodKey ?? this.foodKey,
+      treatAsLiquid: treatAsLiquid ?? this.treatAsLiquid,
+      savedServingAmount: savedServingAmount ?? this.savedServingAmount,
+      savedServingUnit: savedServingUnit ?? this.savedServingUnit,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (foodKey.present) {
+      map['food_key'] = Variable<String>(foodKey.value);
+    }
+    if (treatAsLiquid.present) {
+      map['treat_as_liquid'] = Variable<bool>(treatAsLiquid.value);
+    }
+    if (savedServingAmount.present) {
+      map['saved_serving_amount'] = Variable<double>(savedServingAmount.value);
+    }
+    if (savedServingUnit.present) {
+      map['saved_serving_unit'] = Variable<String>(savedServingUnit.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FoodPrefsCompanion(')
+          ..write('foodKey: $foodKey, ')
+          ..write('treatAsLiquid: $treatAsLiquid, ')
+          ..write('savedServingAmount: $savedServingAmount, ')
+          ..write('savedServingUnit: $savedServingUnit, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CustomFoodsTable extends CustomFoods
     with TableInfo<$CustomFoodsTable, CustomFood> {
   @override
@@ -2965,6 +3324,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ProfilesTable profiles = $ProfilesTable(this);
   late final $GoalsTable goals = $GoalsTable(this);
   late final $WeightEntriesTable weightEntries = $WeightEntriesTable(this);
+  late final $FoodPrefsTable foodPrefs = $FoodPrefsTable(this);
   late final $CustomFoodsTable customFoods = $CustomFoodsTable(this);
   late final $FoodLogEntriesTable foodLogEntries = $FoodLogEntriesTable(this);
   @override
@@ -2975,6 +3335,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     profiles,
     goals,
     weightEntries,
+    foodPrefs,
     customFoods,
     foodLogEntries,
   ];
@@ -3727,6 +4088,187 @@ typedef $$WeightEntriesTableProcessedTableManager =
       WeightEntry,
       PrefetchHooks Function()
     >;
+typedef $$FoodPrefsTableCreateCompanionBuilder =
+    FoodPrefsCompanion Function({
+      required String foodKey,
+      Value<bool?> treatAsLiquid,
+      Value<double?> savedServingAmount,
+      Value<String?> savedServingUnit,
+      Value<int> rowid,
+    });
+typedef $$FoodPrefsTableUpdateCompanionBuilder =
+    FoodPrefsCompanion Function({
+      Value<String> foodKey,
+      Value<bool?> treatAsLiquid,
+      Value<double?> savedServingAmount,
+      Value<String?> savedServingUnit,
+      Value<int> rowid,
+    });
+
+class $$FoodPrefsTableFilterComposer
+    extends Composer<_$AppDatabase, $FoodPrefsTable> {
+  $$FoodPrefsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get foodKey => $composableBuilder(
+    column: $table.foodKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get treatAsLiquid => $composableBuilder(
+    column: $table.treatAsLiquid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get savedServingAmount => $composableBuilder(
+    column: $table.savedServingAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get savedServingUnit => $composableBuilder(
+    column: $table.savedServingUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FoodPrefsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FoodPrefsTable> {
+  $$FoodPrefsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get foodKey => $composableBuilder(
+    column: $table.foodKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get treatAsLiquid => $composableBuilder(
+    column: $table.treatAsLiquid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get savedServingAmount => $composableBuilder(
+    column: $table.savedServingAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get savedServingUnit => $composableBuilder(
+    column: $table.savedServingUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FoodPrefsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FoodPrefsTable> {
+  $$FoodPrefsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get foodKey =>
+      $composableBuilder(column: $table.foodKey, builder: (column) => column);
+
+  GeneratedColumn<bool> get treatAsLiquid => $composableBuilder(
+    column: $table.treatAsLiquid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get savedServingAmount => $composableBuilder(
+    column: $table.savedServingAmount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get savedServingUnit => $composableBuilder(
+    column: $table.savedServingUnit,
+    builder: (column) => column,
+  );
+}
+
+class $$FoodPrefsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FoodPrefsTable,
+          FoodPref,
+          $$FoodPrefsTableFilterComposer,
+          $$FoodPrefsTableOrderingComposer,
+          $$FoodPrefsTableAnnotationComposer,
+          $$FoodPrefsTableCreateCompanionBuilder,
+          $$FoodPrefsTableUpdateCompanionBuilder,
+          (FoodPref, BaseReferences<_$AppDatabase, $FoodPrefsTable, FoodPref>),
+          FoodPref,
+          PrefetchHooks Function()
+        > {
+  $$FoodPrefsTableTableManager(_$AppDatabase db, $FoodPrefsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FoodPrefsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FoodPrefsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FoodPrefsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> foodKey = const Value.absent(),
+                Value<bool?> treatAsLiquid = const Value.absent(),
+                Value<double?> savedServingAmount = const Value.absent(),
+                Value<String?> savedServingUnit = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FoodPrefsCompanion(
+                foodKey: foodKey,
+                treatAsLiquid: treatAsLiquid,
+                savedServingAmount: savedServingAmount,
+                savedServingUnit: savedServingUnit,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String foodKey,
+                Value<bool?> treatAsLiquid = const Value.absent(),
+                Value<double?> savedServingAmount = const Value.absent(),
+                Value<String?> savedServingUnit = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FoodPrefsCompanion.insert(
+                foodKey: foodKey,
+                treatAsLiquid: treatAsLiquid,
+                savedServingAmount: savedServingAmount,
+                savedServingUnit: savedServingUnit,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FoodPrefsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FoodPrefsTable,
+      FoodPref,
+      $$FoodPrefsTableFilterComposer,
+      $$FoodPrefsTableOrderingComposer,
+      $$FoodPrefsTableAnnotationComposer,
+      $$FoodPrefsTableCreateCompanionBuilder,
+      $$FoodPrefsTableUpdateCompanionBuilder,
+      (FoodPref, BaseReferences<_$AppDatabase, $FoodPrefsTable, FoodPref>),
+      FoodPref,
+      PrefetchHooks Function()
+    >;
 typedef $$CustomFoodsTableCreateCompanionBuilder =
     CustomFoodsCompanion Function({
       Value<int> id,
@@ -4422,6 +4964,8 @@ class $AppDatabaseManager {
       $$GoalsTableTableManager(_db, _db.goals);
   $$WeightEntriesTableTableManager get weightEntries =>
       $$WeightEntriesTableTableManager(_db, _db.weightEntries);
+  $$FoodPrefsTableTableManager get foodPrefs =>
+      $$FoodPrefsTableTableManager(_db, _db.foodPrefs);
   $$CustomFoodsTableTableManager get customFoods =>
       $$CustomFoodsTableTableManager(_db, _db.customFoods);
   $$FoodLogEntriesTableTableManager get foodLogEntries =>

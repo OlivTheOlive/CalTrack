@@ -15,6 +15,7 @@ class CatalogFood {
     required this.proteinPer100g,
     required this.carbsPer100g,
     required this.fatPer100g,
+    required this.isLiquid,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class CatalogFood {
   final double proteinPer100g;
   final double carbsPer100g;
   final double fatPer100g;
+  final bool isLiquid;
 }
 
 /// Offline search + barcode lookup against [assets/opennutrition.sqlite].
@@ -41,7 +43,8 @@ class OpenNutritionCatalog {
   /// * `v1` – initial import (had `fat_100g = 0` for every row because
   ///   the importer read the wrong JSON key).
   /// * `v2` – fixed `total_fat` extraction; full catalog rebuilt.
-  static const _catalogVersion = 'v2';
+  /// * `v3` – added `is_liquid` column for ml-first UI defaults.
+  static const _catalogVersion = 'v3';
 
   Database? _db;
 
@@ -103,7 +106,7 @@ class OpenNutritionCatalog {
     final db = await _ensureOpen();
     final result = db.select(
       '''
-      SELECT f.id, f.name, f.ean, f.kcal_100g, f.protein_100g, f.carbs_100g, f.fat_100g
+      SELECT f.id, f.name, f.ean, f.kcal_100g, f.protein_100g, f.carbs_100g, f.fat_100g, f.is_liquid
       FROM foods_fts
       JOIN foods f ON f.id = foods_fts.food_id
       WHERE foods_fts MATCH ?
@@ -120,7 +123,7 @@ class OpenNutritionCatalog {
     final db = await _ensureOpen();
     final result = db.select(
       '''
-      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g
+      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, is_liquid
       FROM foods
       WHERE id = ?
       LIMIT 1
@@ -138,7 +141,7 @@ class OpenNutritionCatalog {
     final db = await _ensureOpen();
     final result = db.select(
       '''
-      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g
+      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, is_liquid
       FROM foods
       WHERE ean = ?
       LIMIT 50
@@ -168,6 +171,7 @@ class OpenNutritionCatalog {
       proteinPer100g: (row['protein_100g'] as num).toDouble(),
       carbsPer100g: (row['carbs_100g'] as num).toDouble(),
       fatPer100g: (row['fat_100g'] as num).toDouble(),
+      isLiquid: (row['is_liquid'] as int) != 0,
     );
   }
 

@@ -5,7 +5,7 @@ import 'package:caltrack/data/app_database.dart';
 import 'package:drift/drift.dart';
 
 export 'package:caltrack/data/app_database.dart'
-    show Profile, Goal, WeightEntry, FoodLogEntry, CustomFood;
+    show Profile, Goal, WeightEntry, FoodLogEntry, CustomFood, FoodPref;
 
 /// Aggregated intake for a calendar day (sums logged portions).
 class DailyIntakeTotals {
@@ -137,6 +137,50 @@ class CalTrackRepository {
       final sorted = [...all]..sort((a, b) => b.id.compareTo(a.id));
       return sorted.first;
     });
+  }
+
+  // ---- Food prefs (liquid override + serving quick-select) ----
+
+  Future<FoodPref?> foodPrefByKey(String key) {
+    return (_db.select(_db.foodPrefs)..where((t) => t.foodKey.equals(key)))
+        .getSingleOrNull();
+  }
+
+  Stream<FoodPref?> watchFoodPrefByKey(String key) {
+    return (_db.select(_db.foodPrefs)..where((t) => t.foodKey.equals(key)))
+        .watchSingleOrNull();
+  }
+
+  Future<void> setTreatAsLiquid({
+    required String foodKey,
+    required bool? treatAsLiquid,
+  }) async {
+    await _db
+        .into(_db.foodPrefs)
+        .insertOnConflictUpdate(
+          FoodPrefsCompanion(
+            foodKey: Value(foodKey),
+            treatAsLiquid: treatAsLiquid == null
+                ? const Value.absent()
+                : Value(treatAsLiquid),
+          ),
+        );
+  }
+
+  Future<void> setSavedServing({
+    required String foodKey,
+    required double? amount,
+    required String? unit, // 'g' | 'ml'
+  }) async {
+    await _db.into(_db.foodPrefs).insertOnConflictUpdate(
+          FoodPrefsCompanion(
+            foodKey: Value(foodKey),
+            savedServingAmount:
+                amount == null ? const Value.absent() : Value(amount),
+            savedServingUnit:
+                unit == null ? const Value.absent() : Value(unit),
+          ),
+        );
   }
 
   Stream<List<WeightEntry>> watchWeightEntries() {
@@ -787,11 +831,167 @@ class CalTrackRepository {
     await _db.delete(_db.customFoods).go();
     await _db.delete(_db.weightEntries).go();
     await _db.delete(_db.goals).go();
+    await _db.delete(_db.foodPrefs).go();
     await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
       const ProfilesCompanion(
         onboardingCompleted: Value(false),
         dailyCalorieTarget: Value.absent(),
       ),
     );
+  }
+
+  // ---- Backup / export / import ----
+
+  Future<Map<String, Object?>> exportJson() async {
+    final profile = await requireProfile();
+    final goals = await _db.select(_db.goals).get();
+    final weights = await _db.select(_db.weightEntries).get();
+    final custom = await _db.select(_db.customFoods).get();
+    final foodLogs = await _db.select(_db.foodLogEntries).get();
+    final prefs = await _db.select(_db.foodPrefs).get();
+
+    return <String, Object?>{
+      'version': 1,
+      'exportedAt': DateTime.now().toIso8601String(),
+      'profile': profile.toJson(),
+      'goals': goals.map((g) => g.toJson()).toList(),
+      'weightEntries': weights.map((w) => w.toJson()).toList(),
+      'customFoods': custom.map((c) => c.toJson()).toList(),
+      'foodLogEntries': foodLogs.map((e) => e.toJson()).toList(),
+      'foodPrefs': prefs.map((p) => p.toJson()).toList(),
+    };
+  }
+
+  Future<void> importJson(
+    Map<String, Object?> json, {
+    required bool overwrite,
+  }) async {
+    final v = json['version'];
+    if (v is! int || v != 1) {
+      throw ArgumentError.value(v, 'version', 'Unsupported export version');
+    }
+    final profileJson = json['profile'];
+    if (profileJson is! Map<String, Object?>) {
+      throw ArgumentError('Missing/invalid profile');
+    }
+
+    List<Map<String, Object?>> list(String key) {
+      final raw = json[key];
+      if (raw == null) return const [];
+      if (raw is! List) throw ArgumentError('Invalid list for $key');
+      return raw.cast<Map>().map((e) => e.cast<String, Object?>()).toList();
+    }
+
+    final goals = list('goals').map((m) => Goal.fromJson(m)).toList();
+    final weights =
+        list('weightEntries').map((m) => WeightEntry.fromJson(m)).toList();
+    final custom =
+        list('customFoods').map((m) => CustomFood.fromJson(m)).toList();
+    final foodLogs = list('foodLogEntries')
+        .map((m) => FoodLogEntry.fromJson(m))
+        .toList();
+    final prefs = list('foodPrefs').map((m) => FoodPref.fromJson(m)).toList();
+
+    final profile = Profile.fromJson(profileJson);
+
+    await _db.transaction(() async {
+      if (overwrite) {
+        await _db.delete(_db.foodLogEntries).go();
+        await _db.delete(_db.customFoods).go();
+        await _db.delete(_db.weightEntries).go();
+        await _db.delete(_db.goals).go();
+        await _db.delete(_db.foodPrefs).go();
+      }
+
+      await _db.into(_db.profiles).insertOnConflictUpdate(
+            ProfilesCompanion(
+              id: Value(profile.id),
+              sex: Value(profile.sex),
+              birthDateMillis: Value(profile.birthDateMillis),
+              ageBandMaxYears: Value(profile.ageBandMaxYears),
+              heightCm: Value(profile.heightCm),
+              activityLevel: Value(profile.activityLevel),
+              weightUnit: Value(profile.weightUnit),
+              proteinPct: Value(profile.proteinPct),
+              carbsPct: Value(profile.carbsPct),
+              fatPct: Value(profile.fatPct),
+              reminderWeekday: Value(profile.reminderWeekday),
+              reminderHour: Value(profile.reminderHour),
+              reminderMinute: Value(profile.reminderMinute),
+              onboardingCompleted: Value(profile.onboardingCompleted),
+              dailyCalorieTarget: profile.dailyCalorieTarget == null
+                  ? const Value.absent()
+                  : Value(profile.dailyCalorieTarget),
+            ),
+          );
+
+      for (final g in goals) {
+        await _db.into(_db.goals).insertOnConflictUpdate(
+              GoalsCompanion(
+                id: Value(g.id),
+                targetWeightKg: Value(g.targetWeightKg),
+                weeklyChangeKgPerWeek: Value(g.weeklyChangeKgPerWeek),
+                status: Value(g.status),
+              ),
+            );
+      }
+      for (final w in weights) {
+        await _db.into(_db.weightEntries).insertOnConflictUpdate(
+              WeightEntriesCompanion(
+                id: Value(w.id),
+                recordedAt: Value(w.recordedAt),
+                weightKg: Value(w.weightKg),
+                note: Value(w.note),
+              ),
+            );
+      }
+      for (final c in custom) {
+        await _db.into(_db.customFoods).insertOnConflictUpdate(
+              CustomFoodsCompanion(
+                id: Value(c.id),
+                name: Value(c.name),
+                brand: Value(c.brand),
+                barcode: Value(c.barcode),
+                servingSize: Value(c.servingSize),
+                servingUnit: Value(c.servingUnit),
+                calories: Value(c.calories),
+                fatG: Value(c.fatG),
+                carbsG: Value(c.carbsG),
+                sugarG: Value(c.sugarG),
+                fiberG: Value(c.fiberG),
+                proteinG: Value(c.proteinG),
+              ),
+            );
+      }
+      for (final e in foodLogs) {
+        await _db.into(_db.foodLogEntries).insertOnConflictUpdate(
+              FoodLogEntriesCompanion(
+                id: Value(e.id),
+                loggedAt: Value(e.loggedAt),
+                source: Value(e.source),
+                catalogFoodId: Value(e.catalogFoodId),
+                customFoodId: Value(e.customFoodId),
+                displayName: Value(e.displayName),
+                grams: Value(e.grams),
+                kcal: Value(e.kcal),
+                proteinG: Value(e.proteinG),
+                carbsG: Value(e.carbsG),
+                sugarG: Value(e.sugarG),
+                fiberG: Value(e.fiberG),
+                fatG: Value(e.fatG),
+              ),
+            );
+      }
+      for (final p in prefs) {
+        await _db.into(_db.foodPrefs).insertOnConflictUpdate(
+              FoodPrefsCompanion(
+                foodKey: Value(p.foodKey),
+                treatAsLiquid: Value(p.treatAsLiquid),
+                savedServingAmount: Value(p.savedServingAmount),
+                savedServingUnit: Value(p.savedServingUnit),
+              ),
+            );
+      }
+    });
   }
 }

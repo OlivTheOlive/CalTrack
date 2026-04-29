@@ -342,6 +342,61 @@ def parse_llm_verdict(content: str) -> dict | None:
 # --keep-branded the script still requires usable nutrition.
 DEFAULT_KEEP_TYPES: frozenset[str] = frozenset({"everyday"})
 
+LIQUID_TOKENS: tuple[str, ...] = (
+    "water",
+    "sparkling water",
+    "soda water",
+    "juice",
+    "orange juice",
+    "apple juice",
+    "milk",
+    "almond milk",
+    "soy milk",
+    "oat milk",
+    "kefir",
+    "yogurt drink",
+    "coffee",
+    "espresso",
+    "tea",
+    "kombucha",
+    "soda",
+    "cola",
+    "beer",
+    "wine",
+    "cider",
+    "broth",
+    "stock",
+    "oil",
+    "olive oil",
+    "canola oil",
+    "sunflower oil",
+    "avocado oil",
+    "coconut oil",
+)
+
+LIQUID_REGEX = re.compile(
+    r"\b(" + "|".join(re.escape(tok) for tok in sorted(LIQUID_TOKENS, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_liquid_food(*, name: str, labels: list[str]) -> bool:
+    """Heuristic liquid classifier.
+
+    This is intentionally simple and deterministic. It exists to drive UI
+    defaults (ml input) and is user-overridable in-app.
+    """
+    nm = name.strip()
+    if not nm:
+        return False
+    if LIQUID_REGEX.search(nm):
+        return True
+    # Some datasets include labels/tags like "beverage" or "drink".
+    for lab in labels:
+        if lab in {"beverage", "drink", "liquid"}:
+            return True
+    return False
+
 
 def normalize_name_for_dedupe(s: str) -> str:
     s = s.lower().strip()
@@ -440,7 +495,8 @@ def main() -> int:
           kcal_100g REAL NOT NULL,
           protein_100g REAL NOT NULL,
           carbs_100g REAL NOT NULL,
-          fat_100g REAL NOT NULL
+          fat_100g REAL NOT NULL,
+          is_liquid INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE INDEX idx_foods_ean ON foods(ean) WHERE ean IS NOT NULL AND length(ean) > 0;
@@ -454,8 +510,8 @@ def main() -> int:
     )
 
     insert_food = (
-        "INSERT INTO foods (id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO foods (id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, is_liquid) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
     insert_fts = "INSERT INTO foods_fts (food_id, search_text) VALUES (?, ?)"
 
@@ -533,7 +589,9 @@ def main() -> int:
                 "deny_hits": deny_hits,
                 "allow_hits": allow_hits,
                 "labels": labels_list(row.get("labels") or ""),
+                "is_liquid": False,
             }
+            entry["is_liquid"] = is_liquid_food(name=name, labels=entry["labels"])
 
             if apply_rules and verdict == "borderline":
                 # Track for optional LLM audit; still keep them by default
@@ -602,7 +660,18 @@ def main() -> int:
     batch_size = 5000
     for entry in retained:
         kcal, p, c, fa = entry["nutrition"]
-        batch_foods.append((entry["id"], entry["name"], entry["ean"], kcal, p, c, fa))
+        batch_foods.append(
+            (
+                entry["id"],
+                entry["name"],
+                entry["ean"],
+                kcal,
+                p,
+                c,
+                fa,
+                1 if entry.get("is_liquid") else 0,
+            )
+        )
         batch_fts.append((entry["id"], entry["search"]))
         if len(batch_foods) >= batch_size:
             conn.executemany(insert_food, batch_foods)

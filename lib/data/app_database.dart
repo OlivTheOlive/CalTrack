@@ -51,6 +51,26 @@ class WeightEntries extends Table {
 
 enum ServingUnit { g, ml }
 
+/// Per-food user preferences that override catalog defaults and provide
+/// quick-select serving sizes.
+class FoodPrefs extends Table {
+  /// Stable key for a food. For catalog foods: `cat:<id>`. For custom:
+  /// `cus:<id>`. Fallback: `name:<lowercased name>`.
+  TextColumn get foodKey => text()();
+
+  /// If null, use the catalog's default; otherwise override.
+  BoolColumn get treatAsLiquid => boolean().nullable()();
+
+  /// Saved “serving” quick-select amount.
+  RealColumn get savedServingAmount => real().nullable()();
+
+  /// 'g' | 'ml'
+  TextColumn get savedServingUnit => text().nullable()();
+
+  @override
+  Set<Column<Object>>? get primaryKey => {foodKey};
+}
+
 /// User-created foods stored locally for fast re-use and barcode lookup.
 class CustomFoods extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -96,14 +116,23 @@ class FoodLogEntries extends Table {
   RealColumn get fatG => real()();
 }
 
-@DriftDatabase(tables: [Profiles, Goals, WeightEntries, CustomFoods, FoodLogEntries])
+@DriftDatabase(
+  tables: [
+    Profiles,
+    Goals,
+    WeightEntries,
+    FoodPrefs,
+    CustomFoods,
+    FoodLogEntries,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -133,6 +162,9 @@ class AppDatabase extends _$AppDatabase {
               await (update(profiles)..where((t) => t.id.equals(row.id)))
                   .write(ProfilesCompanion(ageBandMaxYears: Value(upper)));
             }
+          }
+          if (from < 5) {
+            await m.createTable(foodPrefs);
           }
         },
       );

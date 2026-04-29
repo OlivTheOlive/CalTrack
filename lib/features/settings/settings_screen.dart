@@ -51,7 +51,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Text('Weight display', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Profile',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Weight display',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
               SegmentedButton<WeightUnit>(
                 segments: const [
                   ButtonSegment(value: WeightUnit.kg, label: Text('kg')),
@@ -64,8 +73,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() {});
                 },
               ),
-              const SizedBox(height: 24),
-              Text('Macro percentages', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 20),
+              Text(
+                'Macro percentages',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
               Text(
                 'Total: $sum%',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -128,24 +141,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: const Text('Save macros'),
               ),
               const Divider(height: 40),
-              Text(
-                'Plan',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text('Plan', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              _GoalSettingsTile(unit: unit),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.tune),
                 title: const Text('Calorie bands'),
                 subtitle: const Text(
-                  'See your floor, maintenance and goal target, '
-                  'and try out what-if scenarios.',
+                  'Floor, maintenance and goal target, plus what-if sliders.',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/calorie-bands'),
               ),
-              _GoalSettingsTile(unit: unit),
               const Divider(height: 40),
-              Text('Weekly reminder', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Notifications',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
               ListTile(
                 title: const Text('Reschedule'),
                 subtitle: Text(
@@ -232,6 +246,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   }
                 },
                 child: const Text('Open Food Facts terms'),
+              ),
+              const Divider(height: 40),
+              Text('Data tools', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.import_export_outlined),
+                title: const Text('Backup / export / import'),
+                subtitle: const Text('Export your data or restore from a backup file.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/data-tools'),
               ),
             ],
           );
