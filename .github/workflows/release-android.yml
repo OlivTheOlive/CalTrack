@@ -1,20 +1,32 @@
 name: Release (Android)
 
+# Protected `main` rejects direct pushes from Actions. We open a version-bump PR on
+# substantive merges; merging that PR tags and publishes the APK.
 on:
   push:
+    branches: [main]
+    paths-ignore:
+      - "pubspec.yaml"
+  pull_request:
+    types: [closed]
     branches: [main]
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: release-android-main
   cancel-in-progress: false
 
 jobs:
-  bump_tag_build_release:
+  prepare_release_pr:
+    name: Open release PR (version bump)
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.head_commit.message, 'chore(release):') }}
+    if: |
+      github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
+      && !contains(github.event.head_commit.message, 'chore(release):')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,21 +63,6 @@ jobs:
             core.setOutput('head_ref', headRef);
             core.setOutput('bump', bump);
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
       - name: Bump version in pubspec.yaml
         id: bump
         run: |
@@ -84,32 +81,79 @@ jobs:
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "version_full=$VERSION_FULL" >> "$GITHUB_OUTPUT"
 
-      - name: Commit version bump
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore(release): v${{ steps.bump.outputs.version_name }} [skip ci]"
+          title: "chore(release): v${{ steps.bump.outputs.version_name }}"
+          body: |
+            Automated `pubspec.yaml` version bump.
+
+            **Merge this pull request** to create the release tag and publish the Android APK on GitHub Releases.
+          branch: chore/release-${{ steps.bump.outputs.version_name }}
+          delete-branch: true
+
+  publish_release:
+    name: Tag, build, publish APK
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request'
+      && github.event.pull_request.merged == true
+      && github.event.pull_request.base.ref == 'main'
+      && contains(github.event.pull_request.title, 'chore(release):')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Parse version from pubspec.yaml
+        id: ver
         run: |
           set -euo pipefail
-          git status --porcelain
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pubspec.yaml
-          git commit -m "chore(release): v${{ steps.bump.outputs.version_name }} [skip ci]"
-          git push origin HEAD:main
+          LINE="$(grep -E '^version:[[:space:]]*' pubspec.yaml | head -n1)"
+          FULL="${LINE#version:}"
+          FULL="$(echo "$FULL" | tr -d '[:space:]')"
+          NAME="${FULL%%+*}"
+          BUILD="${FULL##*+}"
+          echo "version_full=$FULL" >> "$GITHUB_OUTPUT"
+          echo "version_name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
 
       - name: Tag release
         run: |
           set -euo pipefail
-          git tag "v${{ steps.bump.outputs.version_name }}"
-          git push origin "v${{ steps.bump.outputs.version_name }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.ver.outputs.version_name }}"
+          git push origin "v${{ steps.ver.outputs.version_name }}"
 
       - name: Build release APK
         run: |
           flutter build apk --release \
-            --build-name "${{ steps.bump.outputs.version_name }}" \
-            --build-number "${{ github.run_number }}"
+            --build-name "${{ steps.ver.outputs.version_name }}" \
+            --build-number "${{ steps.ver.outputs.build_number }}"
 
       - name: Create GitHub Release and upload APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.bump.outputs.version_name }}
-          name: v${{ steps.bump.outputs.version_name }}
+          tag_name: v${{ steps.ver.outputs.version_name }}
+          name: v${{ steps.ver.outputs.version_name }}
           generate_release_notes: true
           files: build/app/outputs/flutter-apk/app-release.apk
