@@ -1,9 +1,4 @@
 name: Release (Android) — version bump PR
-
-# Runs after changes land on `main` (excluding pubspec-only merges). Opens a PR from
-# `release/v*` with an updated `pubspec.yaml`. Tag/APK publishing lives in
-# `release-android-publish.yml` (different trigger — merged PR, not this push).
-
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
