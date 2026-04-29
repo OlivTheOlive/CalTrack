@@ -1,11 +1,5 @@
 name: Release (Android) — tag, APK, GitHub Release
 
-# Runs when a PR **into `main`** is **merged**. Only release branches (`release/v*`)
-# trigger tag + build + publish — not feat/fix PRs.
-#
-# You will see this as a **separate** workflow run from "version bump PR" (push).
-# Open Actions → this workflow name → run triggered by `pull_request` when you merge the release PR.
-
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
