@@ -128,6 +128,17 @@ class OpenNutritionCatalog {
     return result.map(_rowToFood).toList();
   }
 
+  /// Total number of foods in the bundled OpenNutrition catalog.
+  Future<int> foodRowCount() async {
+    final db = await _ensureOpen();
+    final result = db.select('SELECT COUNT(*) AS n FROM foods');
+    if (result.isEmpty) return 0;
+    final n = result.first['n'];
+    if (n is int) return n;
+    if (n is num) return n.toInt();
+    return 0;
+  }
+
   CatalogFood _rowToFood(Row row) {
     return CatalogFood(
       id: row['id'] as String,

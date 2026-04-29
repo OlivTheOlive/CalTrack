@@ -140,6 +140,17 @@ void showDashboardInfoSheet(BuildContext context) {
                   context.push('/weekly-review');
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.tune),
+                title: const Text('Calorie bands'),
+                subtitle: const Text(
+                  'Floor, maintenance, and goal target side-by-side.',
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/calorie-bands');
+                },
+              ),
             ],
           ),
         ),

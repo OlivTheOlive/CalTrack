@@ -18,6 +18,7 @@ void main() {
             ProfilesCompanion.insert(
               sex: 'male',
               birthDateMillis: DateTime(1996, 1, 1).millisecondsSinceEpoch,
+              ageBandMaxYears: const Value(30),
               heightCm: 175,
               activityLevel: 2,
               weightUnit: 'kg',

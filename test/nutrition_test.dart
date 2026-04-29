@@ -231,4 +231,42 @@ void main() {
       );
     });
   });
+
+  group('age bands', () {
+    test('upper bound for known band', () {
+      expect(ageBandUpperBoundForYears(22), 25);
+      expect(ageBandUpperBoundForYears(25), 25);
+      expect(ageBandUpperBoundForYears(31), 35);
+    });
+
+    test('clamps to top band for very old ages', () {
+      expect(ageBandUpperBoundForYears(120), 90);
+    });
+
+    test('label uses previous bound as lower edge', () {
+      expect(ageBandLabel(25), '20–25');
+      expect(ageBandLabel(18), '14–18');
+      expect(ageBandLabel(90), '85+');
+    });
+  });
+
+  group('computeCalorieBands', () {
+    test('maintenance equals tdee, goal subtracts loss kcal', () {
+      final bands = computeCalorieBands(
+        tdee: 2500,
+        weeklyChangeKgPerWeek: -0.5,
+      );
+      expect(bands.maintenance, 2500);
+      expect(bands.goalDaily, closeTo(2500 - (0.5 * 7700 / 7), 1));
+      expect(bands.floor, defaultMinDailyCalories);
+    });
+  });
+
+  group('paceLevelForKgPerWeek', () {
+    test('bins by magnitude regardless of sign', () {
+      expect(paceLevelForKgPerWeek(0.2), PaceLevel.gentle);
+      expect(paceLevelForKgPerWeek(-0.5), PaceLevel.moderate);
+      expect(paceLevelForKgPerWeek(0.9), PaceLevel.aggressive);
+    });
+  });
 }

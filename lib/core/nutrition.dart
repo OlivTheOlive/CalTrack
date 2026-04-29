@@ -3,6 +3,23 @@ import 'dart:math' as math;
 /// ~7700 kcal per kg body fat change (approximation).
 const double kcalPerKgFat = 7700;
 
+/// Lower clamp shared between the calorie-band display and the weekly
+/// auto-adjust nudges. Picked as a conservative everyday-use floor; not
+/// medical advice.
+const double defaultMinDailyCalories = 1200;
+
+/// Upper clamp for auto-adjust nudges to avoid runaway escalation.
+const double defaultMaxDailyCalories = 6000;
+
+/// Tolerance band around the intended weekly weight change. While the
+/// actual weekly change stays within ±[defaultProgressBandKgPerWeek] of
+/// the intent, the calorie target is left untouched.
+const double defaultProgressBandKgPerWeek = 0.15;
+
+/// Step size used by the auto-adjust nudges when the actual weekly
+/// change is outside the tolerance band.
+const double defaultProgressStepKcal = 100;
+
 enum ActivityLevel {
   sedentary,
   light,
@@ -103,10 +120,10 @@ double adjustCaloriesForProgress({
   required double currentDailyTarget,
   required double intendedWeeklyChangeKg,
   required double actualWeeklyChangeKg,
-  double bandKgPerWeek = 0.15,
-  double stepKcal = 100,
-  double minCalories = 1200,
-  double maxCalories = 6000,
+  double bandKgPerWeek = defaultProgressBandKgPerWeek,
+  double stepKcal = defaultProgressStepKcal,
+  double minCalories = defaultMinDailyCalories,
+  double maxCalories = defaultMaxDailyCalories,
 }) {
   final delta = actualWeeklyChangeKg - intendedWeeklyChangeKg;
   if (delta.abs() <= bandKgPerWeek) {
@@ -124,6 +141,112 @@ int ageFromBirthDate(DateTime birthDate, DateTime today) {
       (today.month == birthDate.month && today.day >= birthDate.day);
   if (!hadBirthday) age--;
   return age.clamp(14, 120);
+}
+
+/// Upper bound (exclusive of next band) for each age band, in years.
+///
+/// Bands read as `lower–upper`, where `lower` is the previous band's upper
+/// bound (or 14 for the first band). The TDEE math uses the **upper bound**
+/// per Feature.md ("use the bigger number"), which yields the most
+/// conservative BMR for the band.
+const List<int> ageBandUpperBoundsYears = [
+  18,
+  20,
+  25,
+  30,
+  35,
+  40,
+  45,
+  50,
+  55,
+  60,
+  65,
+  70,
+  75,
+  80,
+  85,
+  90,
+];
+
+/// Inclusive lower bound paired with [ageBandUpperBoundsYears] entries.
+int ageBandLowerBound(int upperBound) {
+  final i = ageBandUpperBoundsYears.indexOf(upperBound);
+  if (i <= 0) return 14;
+  return ageBandUpperBoundsYears[i - 1];
+}
+
+/// Human label for an age band identified by its upper bound.
+String ageBandLabel(int upperBound) {
+  if (upperBound == ageBandUpperBoundsYears.last) {
+    final lower = ageBandUpperBoundsYears[ageBandUpperBoundsYears.length - 2];
+    return '$lower+';
+  }
+  return '${ageBandLowerBound(upperBound)}–$upperBound';
+}
+
+/// Snap an exact age in years to the upper bound of its age band.
+int ageBandUpperBoundForYears(int years) {
+  final clamped = years.clamp(14, 120);
+  for (final ub in ageBandUpperBoundsYears) {
+    if (clamped <= ub) return ub;
+  }
+  return ageBandUpperBoundsYears.last;
+}
+
+/// Three "calorie bands" surfaced to users so they can see how a daily
+/// goal target compares with their estimated maintenance and a sustainable
+/// floor. Floor is a product-side guardrail, not medical advice.
+class CalorieBands {
+  const CalorieBands({
+    required this.floor,
+    required this.maintenance,
+    required this.goalDaily,
+  });
+
+  /// Daily kcal floor: the lowest target we'd suggest sustaining day-to-day.
+  /// Mirrors the lower clamp used by auto-adjust nudges.
+  final double floor;
+
+  /// Daily kcal at which weight is expected to stay roughly stable
+  /// (= TDEE for the inputs supplied).
+  final double maintenance;
+
+  /// Daily kcal target that should yield the requested weekly pace.
+  final double goalDaily;
+}
+
+/// Compute the three calorie bands from a TDEE and signed weekly pace
+/// (negative = losing). [floorKcal] defaults to the same lower clamp used
+/// by the weekly auto-adjust ([defaultMinDailyCalories]).
+CalorieBands computeCalorieBands({
+  required double tdee,
+  required double weeklyChangeKgPerWeek,
+  double floorKcal = defaultMinDailyCalories,
+}) {
+  final goal = dailyCalorieTarget(
+    tdee: tdee,
+    weeklyWeightChangeKg: weeklyChangeKgPerWeek,
+  );
+  return CalorieBands(
+    floor: floorKcal,
+    maintenance: tdee,
+    goalDaily: goal,
+  );
+}
+
+/// Sustainability tier for a weekly weight-change magnitude (kg/week).
+/// Used to colour and annotate the pace slider.
+enum PaceLevel { gentle, moderate, aggressive }
+
+/// Map an absolute weekly pace magnitude (kg/week) to a [PaceLevel].
+/// Thresholds chosen to align with the slider range used in onboarding
+/// (0.1–1.0 kg/week): under 0.4 reads as easy/sustainable, 0.4–0.75 is
+/// the typical "noticeable but doable" range, and ≥0.75 is aggressive.
+PaceLevel paceLevelForKgPerWeek(double kgPerWeek) {
+  final mag = kgPerWeek.abs();
+  if (mag < 0.4) return PaceLevel.gentle;
+  if (mag < 0.75) return PaceLevel.moderate;
+  return PaceLevel.aggressive;
 }
 
 /// Simple 7-day moving average of weight entries (most recent day = last in list).
