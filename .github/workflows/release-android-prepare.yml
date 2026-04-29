@@ -1,0 +1,94 @@
+name: Release (Android) — version bump PR
+
+# Runs after changes land on `main` (excluding pubspec-only merges). Opens a PR from
+# `release/v*` with an updated `pubspec.yaml`. Tag/APK publishing lives in
+# `release-android-publish.yml` (different trigger — merged PR, not this push).
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "pubspec.yaml"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-android-prepare-main
+  cancel-in-progress: false
+
+jobs:
+  prepare_release_pr:
+    name: Open release PR (version bump)
+    runs-on: ubuntu-latest
+    if: |
+      !contains(github.event.head_commit.message, 'chore(release):')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve PR branch + bump type
+        id: pr
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const sha = context.sha;
+            const { owner, repo } = context.repo;
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner,
+              repo,
+              commit_sha: sha,
+            });
+
+            const pr = (prs.data || []).find(p => p.merged_at) || (prs.data || [])[0];
+            const headRef = pr?.head?.ref || '';
+
+            const isMinor =
+              headRef.startsWith('feat/') ||
+              headRef.startsWith('feature/');
+            const isPatch =
+              headRef.startsWith('fix/') ||
+              headRef.startsWith('bug/') ||
+              headRef.startsWith('chore/');
+
+            const bump = isMinor ? 'minor' : (isPatch ? 'patch' : 'patch');
+
+            core.setOutput('pr_number', pr?.number?.toString() || '');
+            core.setOutput('head_ref', headRef);
+            core.setOutput('bump', bump);
+
+      - name: Bump version in pubspec.yaml
+        id: bump
+        run: |
+          set -euo pipefail
+          OUT="$(python3 tool/bump_version.py --bump '${{ steps.pr.outputs.bump }}' --build-number '${{ github.run_number }}')"
+          echo "$OUT"
+
+          VERSION_NAME="$(echo "$OUT" | sed -n 's/^VERSION_NAME=//p')"
+          VERSION_FULL="$(echo "$OUT" | sed -n 's/^VERSION_FULL=//p')"
+
+          if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_FULL" ]; then
+            echo "Failed to parse version output from bump_version.py" >&2
+            exit 1
+          fi
+
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_full=$VERSION_FULL" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: "chore(release): v${{ steps.bump.outputs.version_name }} [skip ci]"
+          title: "chore(release): v${{ steps.bump.outputs.version_name }}"
+          body: |
+            Automated `pubspec.yaml` version bump.
+
+            **Merge this pull request** to create the release tag and publish the Android APK on GitHub Releases.
+          branch: release/v${{ steps.bump.outputs.version_name }}
+          delete-branch: true
