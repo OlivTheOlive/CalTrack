@@ -1,0 +1,115 @@
+name: Release (Android)
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-android-main
+  cancel-in-progress: false
+
+jobs:
+  bump_tag_build_release:
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.head_commit.message, 'chore(release):') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve PR branch + bump type
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.sha;
+            const { owner, repo } = context.repo;
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner,
+              repo,
+              commit_sha: sha,
+            });
+
+            const pr = (prs.data || []).find(p => p.merged_at) || (prs.data || [])[0];
+            const headRef = pr?.head?.ref || '';
+
+            const isMinor =
+              headRef.startsWith('feat/') ||
+              headRef.startsWith('feature/');
+            const isPatch =
+              headRef.startsWith('fix/') ||
+              headRef.startsWith('bug/') ||
+              headRef.startsWith('chore/');
+
+            const bump = isMinor ? 'minor' : (isPatch ? 'patch' : 'patch');
+
+            core.setOutput('pr_number', pr?.number?.toString() || '');
+            core.setOutput('head_ref', headRef);
+            core.setOutput('bump', bump);
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Bump version in pubspec.yaml
+        id: bump
+        run: |
+          set -euo pipefail
+          OUT="$(python3 tool/bump_version.py --bump '${{ steps.pr.outputs.bump }}' --build-number '${{ github.run_number }}')"
+          echo "$OUT"
+
+          VERSION_NAME="$(echo "$OUT" | sed -n 's/^VERSION_NAME=//p')"
+          VERSION_FULL="$(echo "$OUT" | sed -n 's/^VERSION_FULL=//p')"
+
+          if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_FULL" ]; then
+            echo "Failed to parse version output from bump_version.py" >&2
+            exit 1
+          fi
+
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_full=$VERSION_FULL" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version bump
+        run: |
+          set -euo pipefail
+          git status --porcelain
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git commit -m "chore(release): v${{ steps.bump.outputs.version_name }} [skip ci]"
+          git push origin HEAD:main
+
+      - name: Tag release
+        run: |
+          set -euo pipefail
+          git tag "v${{ steps.bump.outputs.version_name }}"
+          git push origin "v${{ steps.bump.outputs.version_name }}"
+
+      - name: Build release APK
+        run: |
+          flutter build apk --release \
+            --build-name "${{ steps.bump.outputs.version_name }}" \
+            --build-number "${{ github.run_number }}"
+
+      - name: Create GitHub Release and upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.bump.outputs.version_name }}
+          name: v${{ steps.bump.outputs.version_name }}
+          generate_release_notes: true
+          files: build/app/outputs/flutter-apk/app-release.apk
