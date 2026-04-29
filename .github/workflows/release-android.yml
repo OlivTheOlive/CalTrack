@@ -90,7 +90,7 @@ jobs:
             Automated `pubspec.yaml` version bump.
 
             **Merge this pull request** to create the release tag and publish the Android APK on GitHub Releases.
-          branch: chore/release-${{ steps.bump.outputs.version_name }}
+          branch: release/v${{ steps.bump.outputs.version_name }}
           delete-branch: true
 
   publish_release:
