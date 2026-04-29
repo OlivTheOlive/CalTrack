@@ -25,3 +25,12 @@
 - create a script that will clean the OpenNutrition data by removing any branded items and only retaining whole foods like fruits, vegies, meats, grains and others. (done)
 - remove any duplicate. (done)
 
+## QoL Improvements
+
+- abitity to change/edit/update the weight goal (done)
+- ability to give a timeline prediction (done)
+- refactor the look of the food logging card on the dashboard. (done)
+- refactor food selection to have emojis for food (like apple -> apple emoji)(done)
+- refactor the setting menu to look more organized 
+- have dynamic sizing/serving (need more info)
+

@@ -40,7 +40,14 @@ from pathlib import Path
 
 
 def nutrition_from_json(raw: str) -> tuple[float, float, float, float]:
-    """Returns (kcal, protein, carbs, fat) per 100g."""
+    """Returns (kcal, protein, carbs, fat) per 100g.
+
+    OpenNutrition stores total fat under the ``total_fat`` key (not ``fat``).
+    Earlier versions of this importer only looked at ``fat``, which silently
+    produced a database where every row had ``fat_100g = 0``. The
+    ``total_fat`` key now wins, with ``fat`` kept as a fallback for any
+    non-OpenNutrition shape we might import later.
+    """
     if not raw or not raw.strip():
         return (0.0, 0.0, 0.0, 0.0)
     try:
@@ -50,7 +57,7 @@ def nutrition_from_json(raw: str) -> tuple[float, float, float, float]:
     kcal = float(j.get("calories") or 0)
     protein = float(j.get("protein") or 0)
     carbs = float(j.get("carbohydrates") or j.get("carbs") or 0)
-    fat = float(j.get("fat") or 0)
+    fat = float(j.get("total_fat") or j.get("fat") or 0)
     return (kcal, protein, carbs, fat)
 
 

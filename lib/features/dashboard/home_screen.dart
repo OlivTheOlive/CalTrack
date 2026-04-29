@@ -1,10 +1,13 @@
 import 'package:caltrack/app/profile_controller.dart';
+import 'package:caltrack/core/food_emoji.dart';
+import 'package:caltrack/core/goal_eta.dart';
 import 'package:caltrack/core/nutrition.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/features/food/food_entry_sheet.dart';
 import 'package:caltrack/widgets/goal_choice_sheet.dart';
+import 'package:caltrack/widgets/goal_editor_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -467,15 +470,41 @@ class _GoalSummary extends StatelessWidget {
 
   final Goal goal;
 
+  Future<({Profile profile, double? latestKg, double? trendKgWeek})>
+      _loadDetails(CalTrackRepository repo) async {
+    final results = await Future.wait([
+      repo.requireProfile(),
+      repo.weightEntriesLimit(1),
+      repo.trendKgPerWeek(windowDays: 14),
+    ]);
+    final profile = results[0] as Profile;
+    final entries = results[1] as List<WeightEntry>;
+    final trend = results[2] as double?;
+    return (
+      profile: profile,
+      latestKg: entries.isEmpty ? null : entries.first.weightKg,
+      trendKgWeek: trend,
+    );
+  }
+
+  Future<void> _openEditor(BuildContext context) async {
+    final repo = context.read<CalTrackRepository>();
+    final profile = await repo.requireProfile();
+    if (!context.mounted) return;
+    await showGoalEditorSheet(context, repo: repo, profile: profile);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final repo = context.read<CalTrackRepository>();
-    return FutureBuilder<Profile>(
-      future: repo.requireProfile(),
+    return FutureBuilder<({Profile profile, double? latestKg, double? trendKgWeek})>(
+      future: _loadDetails(repo),
       builder: (context, snap) {
-        final profile = snap.data;
-        if (profile == null) return const SizedBox.shrink();
+        final data = snap.data;
+        if (data == null) return const SizedBox.shrink();
+        final profile = data.profile;
         final unit = WeightUnit.fromStored(profile.weightUnit);
         final target = unit == WeightUnit.kg
             ? '${goal.targetWeightKg.toStringAsFixed(1)} kg'
@@ -489,12 +518,49 @@ class _GoalSummary extends StatelessWidget {
         } else {
           pace = 'Gaining ~${rate.toStringAsFixed(2)} kg/week';
         }
+        final subtitleText =
+            goal.status == 'pending_choice' ? 'Choose next step' : pace;
+
         return Card(
-          child: ListTile(
-            title: Text('Goal: $target'),
-            subtitle: Text(
-              goal.status == 'pending_choice' ? 'Choose next step' : pace,
-              style: theme.textTheme.bodySmall,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 8, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Goal: $target',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitleText,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Edit goal',
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: () => _openEditor(context),
+                    ),
+                  ],
+                ),
+                if (goal.status != 'maintain' && goal.status != 'pending_choice')
+                  _GoalEtaSection(
+                    goal: goal,
+                    currentKg: data.latestKg,
+                    trendKgWeek: data.trendKgWeek,
+                  ),
+              ],
             ),
           ),
         );
@@ -503,8 +569,154 @@ class _GoalSummary extends StatelessWidget {
   }
 }
 
+/// Static + trend ETA rows under the dashboard goal card. Hidden when
+/// neither prediction is meaningful (no weigh-in, at-goal, etc.).
+class _GoalEtaSection extends StatelessWidget {
+  const _GoalEtaSection({
+    required this.goal,
+    required this.currentKg,
+    required this.trendKgWeek,
+  });
+
+  final Goal goal;
+  final double? currentKg;
+  final double? trendKgWeek;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final current = currentKg;
+    if (current == null) return const SizedBox.shrink();
+
+    final atGoal = atGoalWeight(
+      currentWeightKg: current,
+      targetWeightKg: goal.targetWeightKg,
+    );
+    if (atGoal) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12, right: 12),
+        child: Text(
+          'You are at your goal weight.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    final staticEta = estimateGoalEta(
+      currentWeightKg: current,
+      targetWeightKg: goal.targetWeightKg,
+      weeklyKg: goal.weeklyChangeKgPerWeek,
+    );
+    final trend = trendKgWeek;
+    final trendEta = trend == null
+        ? null
+        : estimateGoalEta(
+            currentWeightKg: current,
+            targetWeightKg: goal.targetWeightKg,
+            weeklyKg: trend,
+          );
+
+    if (staticEta == null && trendEta == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 14, right: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (staticEta != null)
+            _EtaRow(
+              icon: Icons.timer_outlined,
+              label: 'At your chosen pace',
+              eta: staticEta,
+              color: scheme.primary,
+            ),
+          if (trendEta != null) ...[
+            const SizedBox(height: 6),
+            _EtaRow(
+              icon: Icons.trending_flat,
+              label: 'At your recent trend',
+              eta: trendEta,
+              color: scheme.secondary,
+              trailingNote:
+                  'based on last ~14 days (${trendEta.weeklyKg.toStringAsFixed(2)} kg/wk)',
+            ),
+          ] else if (staticEta != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Trend ETA appears once you have a few weigh-ins.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EtaRow extends StatelessWidget {
+  const _EtaRow({
+    required this.icon,
+    required this.label,
+    required this.eta,
+    required this.color,
+    this.trailingNote,
+  });
+
+  final IconData icon;
+  final String label;
+  final GoalEta eta;
+  final Color color;
+  final String? trailingNote;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dateLabel = DateFormat.yMMMd().format(eta.eta);
+    final weeksLabel =
+        eta.weeks == 1 ? '~1 week' : '~${eta.weeks} weeks';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$label · $weeksLabel',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                'around $dateLabel'
+                '${trailingNote == null ? '' : ' · $trailingNote'}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Lists every food log entry for the selected calendar day, with
-/// swipe-to-delete and an undo SnackBar.
+/// swipe-to-delete and an undo SnackBar. Header shows total kcal +
+/// entry count and a quick-add button.
 class _TodayFoodLogCard extends StatelessWidget {
   const _TodayFoodLogCard({
     required this.repo,
@@ -526,39 +738,53 @@ class _TodayFoodLogCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final nf = NumberFormat.decimalPattern();
     return StreamBuilder<List<FoodLogEntry>>(
       stream: repo.watchFoodLogsForDay(selectedDay),
       builder: (context, snap) {
         final entries = snap.data ?? const <FoodLogEntry>[];
+        final totalKcal =
+            entries.fold<double>(0, (acc, e) => acc + e.kcal).round();
         final title = isToday
             ? "Today's food"
             : 'Food · ${DateFormat.MMMd().format(selectedDay)}';
         final emptyMsg = isToday
             ? 'Nothing logged yet today.'
             : 'Nothing logged on this day.';
+        final entriesLabel =
+            entries.length == 1 ? '1 entry' : '${entries.length} entries';
         return Card(
           clipBehavior: Clip.hardEdge,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: Text(
-                        title,
-                        style: theme.textTheme.titleMedium,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            entries.isEmpty
+                                ? 'No entries yet'
+                                : '$entriesLabel · ${nf.format(totalKcal)} kcal',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Text(
-                      entries.isEmpty ? '' : '${entries.length} entries',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton.icon(
+                    FilledButton.tonalIcon(
                       onPressed: () {
                         final path = isToday
                             ? '/log-food'
@@ -577,13 +803,19 @@ class _TodayFoodLogCard extends StatelessWidget {
                   child: Text(
                     emptyMsg,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
                 )
               else
                 for (var i = 0; i < entries.length; i++) ...[
-                  if (i > 0) const Divider(height: 1),
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      color: scheme.outlineVariant.withValues(alpha: 0.4),
+                      indent: 16,
+                      endIndent: 16,
+                    ),
                   _FoodLogTile(entry: entries[i], repo: repo),
                 ],
             ],
@@ -706,20 +938,72 @@ class _FoodLogTile extends StatelessWidget {
         );
       },
       child: ListTile(
+        leading: _FoodEmojiAvatar(name: entry.displayName),
         title: Text(
           entry.displayName,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text('${entry.grams.round()} g · $time'),
-        trailing: Text(
-          '${entry.kcal.round()} kcal',
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${entry.grams.round()} g · $time'),
+              const SizedBox(height: 2),
+              Text(
+                'P ${entry.proteinG.round()}g · '
+                'C ${entry.carbsG.round()}g · '
+                'F ${entry.fatG.round()}g',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        trailing: Text(
+          '${entry.kcal.round()} kcal',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.primary,
+          ),
+        ),
         onTap: () => _openEdit(context),
       ),
+    );
+  }
+}
+
+/// Round chip showing the food's emoji (or a fallback icon when no
+/// rule matches the name).
+class _FoodEmojiAvatar extends StatelessWidget {
+  const _FoodEmojiAvatar({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final emoji = emojiForFood(name);
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.7),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: emoji != null
+          ? Text(emoji, style: const TextStyle(fontSize: 20))
+          : Icon(
+              Icons.restaurant_outlined,
+              size: 18,
+              color: scheme.onSurfaceVariant,
+            ),
     );
   }
 }

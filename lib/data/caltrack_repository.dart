@@ -66,6 +66,28 @@ class ComputedPlan {
   final double tdee;
 }
 
+/// Canonical key used to deduplicate / rank food log entries by the
+/// underlying food. Prefers stable ids (catalog id, custom id) before
+/// falling back to a normalized display name.
+String foodLogKey(FoodLogEntry entry) {
+  final catalog = entry.catalogFoodId;
+  if (catalog != null && catalog.isNotEmpty) return 'cat:$catalog';
+  final custom = entry.customFoodId;
+  if (custom != null) return 'cus:$custom';
+  return 'name:${entry.displayName.trim().toLowerCase()}';
+}
+
+/// Same key namespace for catalog ids when the entry isn't yet a
+/// log row (e.g. ranking incoming search results).
+String foodLogKeyForCatalogId(String id) => 'cat:$id';
+
+/// Same key namespace for custom-food ids.
+String foodLogKeyForCustomId(int id) => 'cus:$id';
+
+/// Name-based fallback for keying foods that have no stable id.
+String foodLogKeyForName(String name) =>
+    'name:${name.trim().toLowerCase()}';
+
 /// Resolve the integer age (years) used by the TDEE math for a [Profile].
 /// Prefers the stored [Profile.ageBandMaxYears] (added with age bands);
 /// falls back to deriving it from the legacy birth date for older rows.
@@ -408,6 +430,34 @@ class CalTrackRepository {
     return latest.weightKg - anchor.weightKg;
   }
 
+  /// Average weight change per week over a recent window. Returns the
+  /// signed kg/week (negative = losing). The window grows from the
+  /// latest entry backward by [windowDays]; if there isn't enough
+  /// history we fall back to the oldest available anchor so users with
+  /// few weigh-ins still see an estimate.
+  ///
+  /// Returns null if fewer than two weigh-ins exist or the implied
+  /// time span is too short to be meaningful (< 2 days).
+  Future<double?> trendKgPerWeek({int windowDays = 14}) async {
+    final entries = await weightEntriesLimit(60);
+    if (entries.length < 2) return null;
+    final latest = entries.first;
+    final cutoff = latest.recordedAt.subtract(Duration(days: windowDays));
+    WeightEntry? anchor;
+    for (final e in entries) {
+      if (!e.recordedAt.isAfter(cutoff)) {
+        anchor = e;
+        break;
+      }
+    }
+    anchor ??= entries.last;
+    final spanDays =
+        latest.recordedAt.difference(anchor.recordedAt).inHours / 24.0;
+    if (spanDays < 2) return null;
+    final deltaKg = latest.weightKg - anchor.weightKg;
+    return deltaKg * 7.0 / spanDays;
+  }
+
   Future<void> applyWeeklyAdjustment() async {
     final profile = await requireProfile();
     final goal = await currentGoal();
@@ -627,11 +677,32 @@ class CalTrackRepository {
     final seen = <String>{};
     final out = <FoodLogEntry>[];
     for (final r in rows) {
-      final key = r.catalogFoodId ?? (r.customFoodId?.toString() ?? r.displayName);
+      final key = foodLogKey(r);
       if (seen.contains(key)) continue;
       seen.add(key);
       out.add(r);
       if (out.length >= limit) break;
+    }
+    return out;
+  }
+
+  /// Frequency map of food log keys over a recent window. Used to rank
+  /// search results so foods you log often surface first.
+  ///
+  /// Keys come from [foodLogKey] (catalog id, custom id, or name) so
+  /// callers can look up by [CatalogFood.id], [CustomFood.id] or the
+  /// food's display name.
+  Future<Map<String, int>> foodLogKeyFrequencies({
+    int windowDays = 60,
+  }) async {
+    final cutoff = DateTime.now().subtract(Duration(days: windowDays));
+    final rows = await (_db.select(_db.foodLogEntries)
+          ..where((t) => t.loggedAt.isBiggerOrEqualValue(cutoff)))
+        .get();
+    final out = <String, int>{};
+    for (final r in rows) {
+      final k = foodLogKey(r);
+      out.update(k, (v) => v + 1, ifAbsent: () => 1);
     }
     return out;
   }

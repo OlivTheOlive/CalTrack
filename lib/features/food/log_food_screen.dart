@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:caltrack/core/food_emoji.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
@@ -29,11 +30,65 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
   bool _searching = false;
   String _lastQuery = '';
 
+  /// Frequency of recent food-log keys. Loaded once at screen open and
+  /// used to bubble up foods the user logs often. See
+  /// [CalTrackRepository.foodLogKeyFrequencies].
+  Map<String, int> _foodFrequencies = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadFrequencies());
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
     _search.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadFrequencies() async {
+    final repo = context.read<CalTrackRepository>();
+    final freq = await repo.foodLogKeyFrequencies();
+    if (!mounted) return;
+    setState(() => _foodFrequencies = freq);
+  }
+
+  int _catalogScore(CatalogFood f) =>
+      _foodFrequencies[foodLogKeyForCatalogId(f.id)] ??
+      _foodFrequencies[foodLogKeyForName(f.name)] ??
+      0;
+
+  int _customScore(CustomFood f) =>
+      _foodFrequencies[foodLogKeyForCustomId(f.id)] ??
+      _foodFrequencies[foodLogKeyForName(f.name)] ??
+      0;
+
+  List<CatalogFood> _rankCatalog(List<CatalogFood> raw) {
+    if (_foodFrequencies.isEmpty) return raw;
+    final indexed = [
+      for (var i = 0; i < raw.length; i++) (i: i, food: raw[i]),
+    ];
+    indexed.sort((a, b) {
+      final scoreCmp = _catalogScore(b.food).compareTo(_catalogScore(a.food));
+      if (scoreCmp != 0) return scoreCmp;
+      return a.i.compareTo(b.i);
+    });
+    return [for (final r in indexed) r.food];
+  }
+
+  List<CustomFood> _rankCustom(List<CustomFood> raw) {
+    if (_foodFrequencies.isEmpty) return raw;
+    final indexed = [
+      for (var i = 0; i < raw.length; i++) (i: i, food: raw[i]),
+    ];
+    indexed.sort((a, b) {
+      final scoreCmp = _customScore(b.food).compareTo(_customScore(a.food));
+      if (scoreCmp != 0) return scoreCmp;
+      return a.i.compareTo(b.i);
+    });
+    return [for (final r in indexed) r.food];
   }
 
   /// Returns the timestamp to use for a new log entry. If we're targeting
@@ -72,9 +127,11 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
         repo.searchCustomFoods(q),
       ]);
       if (!mounted || _lastQuery != q) return;
+      final catalogRaw = res[0] as List<CatalogFood>;
+      final customRaw = res[1] as List<CustomFood>;
       setState(() {
-        _results = res[0] as List<CatalogFood>;
-        _customResults = res[1] as List<CustomFood>;
+        _results = _rankCatalog(catalogRaw);
+        _customResults = _rankCustom(customRaw);
       });
     } finally {
       if (mounted) setState(() => _searching = false);
@@ -305,6 +362,8 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                       children: recent
                           .map(
                             (e) => ListTile(
+                              leading:
+                                  _FoodEmojiAvatar(name: e.displayName),
                               title: Text(e.displayName),
                               subtitle: Text(
                                 '${e.grams.round()} g · ${e.kcal.round()} kcal',
@@ -333,6 +392,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                   ),
                 ..._customResults.map(
                   (f) => ListTile(
+                    leading: _FoodEmojiAvatar(name: f.name),
                     title: Text(f.name),
                     subtitle: Text(
                       [
@@ -366,6 +426,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                   ),
                 ..._results.map(
                   (f) => ListTile(
+                    leading: _FoodEmojiAvatar(name: f.name),
                     title: Text(f.name),
                     subtitle: Text('${f.kcalPer100g.round()} kcal / 100 g'),
                     onTap: () => _openCatalogFood(f),
@@ -380,6 +441,36 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Round chip showing the food's emoji (or a fallback icon when no
+/// rule matches the name). Mirrors the dashboard's tile avatar.
+class _FoodEmojiAvatar extends StatelessWidget {
+  const _FoodEmojiAvatar({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final emoji = emojiForFood(name);
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.7),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: emoji != null
+          ? Text(emoji, style: const TextStyle(fontSize: 18))
+          : Icon(
+              Icons.restaurant_outlined,
+              size: 18,
+              color: scheme.onSurfaceVariant,
+            ),
     );
   }
 }

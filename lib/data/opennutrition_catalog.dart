@@ -32,6 +32,17 @@ class OpenNutritionCatalog {
 
   static const _assetPath = 'assets/opennutrition.sqlite';
 
+  /// Bump whenever the bundled SQLite is regenerated so existing
+  /// installs replace their cached copy. The cache file in the
+  /// documents directory is keyed by this version, and a sentinel
+  /// `<file>.version` text file records the version that wrote it.
+  ///
+  /// History:
+  /// * `v1` – initial import (had `fat_100g = 0` for every row because
+  ///   the importer read the wrong JSON key).
+  /// * `v2` – fixed `total_fat` extraction; full catalog rebuilt.
+  static const _catalogVersion = 'v2';
+
   Database? _db;
 
   Future<Database> _ensureOpen() async {
@@ -40,10 +51,19 @@ class OpenNutritionCatalog {
 
     final dir = await getApplicationDocumentsDirectory();
     final path = p.join(dir.path, 'opennutrition.sqlite');
+    final versionPath = '$path.version';
     final file = File(path);
-    if (!file.existsSync()) {
+    final versionFile = File(versionPath);
+
+    final cachedVersion = versionFile.existsSync()
+        ? versionFile.readAsStringSync().trim()
+        : null;
+    final needsRefresh =
+        !file.existsSync() || cachedVersion != _catalogVersion;
+    if (needsRefresh) {
       final data = await rootBundle.load(_assetPath);
       await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      await versionFile.writeAsString(_catalogVersion, flush: true);
     }
 
     final db = sqlite3.open(path, mode: OpenMode.readOnly);

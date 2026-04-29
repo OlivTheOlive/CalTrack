@@ -3,6 +3,7 @@ import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/services/notification_service.dart';
+import 'package:caltrack/widgets/goal_editor_sheet.dart';
 import 'package:caltrack/widgets/opennutrition_attribution.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -142,6 +143,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/calorie-bands'),
               ),
+              _GoalSettingsTile(unit: unit),
               const Divider(height: 40),
               Text('Weekly reminder', style: Theme.of(context).textTheme.titleMedium),
               ListTile(
@@ -250,6 +252,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'Sunday',
     ];
     return names[weekday.clamp(1, 7)];
+  }
+}
+
+/// Tile showing the active goal weight + pace and opening the editor.
+/// Live-updates via [CalTrackRepository.watchCurrentGoal].
+class _GoalSettingsTile extends StatelessWidget {
+  const _GoalSettingsTile({required this.unit});
+
+  final WeightUnit unit;
+
+  String _formatTarget(double kg) {
+    final shown = unit == WeightUnit.kg ? kg : kgToLb(kg);
+    return '${shown.toStringAsFixed(1)} ${unit.shortLabel}';
+  }
+
+  String _paceDescription(Goal goal) {
+    final rate = goal.weeklyChangeKgPerWeek;
+    if (goal.status == 'maintain' || rate.abs() < 0.001) {
+      return 'Maintenance — calories match your TDEE.';
+    }
+    final dir = rate < 0 ? 'Losing' : 'Gaining';
+    return '$dir ~${rate.abs().toStringAsFixed(2)} kg/week';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repo = context.read<CalTrackRepository>();
+    return StreamBuilder<Goal?>(
+      stream: repo.watchCurrentGoal(),
+      builder: (context, snap) {
+        final goal = snap.data;
+        final title = goal == null
+            ? 'Set a weight goal'
+            : 'Goal: ${_formatTarget(goal.targetWeightKg)}';
+        final subtitle = goal == null
+            ? 'Pick a target weight and weekly pace.'
+            : _paceDescription(goal);
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.flag_outlined),
+          title: Text(title),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final profile = await repo.requireProfile();
+            if (!context.mounted) return;
+            await showGoalEditorSheet(
+              context,
+              repo: repo,
+              profile: profile,
+            );
+          },
+        );
+      },
+    );
   }
 }
 
