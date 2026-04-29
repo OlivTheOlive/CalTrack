@@ -79,10 +79,7 @@ jobs:
       - name: Create pull request
         uses: peter-evans/create-pull-request@v8
         with:
-          # Do not add [skip ci] here: GitHub skips workflows for *pull_request* events
-          # when the PR contains such commits, so the release publish job would never run
-          # on merge. Merges that only touch pubspec are ignored by paths-ignore on this file.
-          commit-message: "chore(release): v${{ steps.bump.outputs.version_name }}"
+          commit-message: "chore(release): v${{ steps.bump.outputs.version_name }} [skip ci]"
           title: "chore(release): v${{ steps.bump.outputs.version_name }}"
           body: |
             Automated `pubspec.yaml` version bump.
