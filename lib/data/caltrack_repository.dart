@@ -5,7 +5,7 @@ import 'package:caltrack/data/app_database.dart';
 import 'package:drift/drift.dart';
 
 export 'package:caltrack/data/app_database.dart'
-    show Profile, Goal, WeightEntry, FoodLogEntry, CustomFood;
+    show Profile, Goal, WeightEntry, FoodLogEntry, CustomFood, FoodPref;
 
 /// Aggregated intake for a calendar day (sums logged portions).
 class DailyIntakeTotals {
@@ -66,6 +66,28 @@ class ComputedPlan {
   final double tdee;
 }
 
+/// Canonical key used to deduplicate / rank food log entries by the
+/// underlying food. Prefers stable ids (catalog id, custom id) before
+/// falling back to a normalized display name.
+String foodLogKey(FoodLogEntry entry) {
+  final catalog = entry.catalogFoodId;
+  if (catalog != null && catalog.isNotEmpty) return 'cat:$catalog';
+  final custom = entry.customFoodId;
+  if (custom != null) return 'cus:$custom';
+  return 'name:${entry.displayName.trim().toLowerCase()}';
+}
+
+/// Same key namespace for catalog ids when the entry isn't yet a
+/// log row (e.g. ranking incoming search results).
+String foodLogKeyForCatalogId(String id) => 'cat:$id';
+
+/// Same key namespace for custom-food ids.
+String foodLogKeyForCustomId(int id) => 'cus:$id';
+
+/// Name-based fallback for keying foods that have no stable id.
+String foodLogKeyForName(String name) =>
+    'name:${name.trim().toLowerCase()}';
+
 /// Resolve the integer age (years) used by the TDEE math for a [Profile].
 /// Prefers the stored [Profile.ageBandMaxYears] (added with age bands);
 /// falls back to deriving it from the legacy birth date for older rows.
@@ -115,6 +137,50 @@ class CalTrackRepository {
       final sorted = [...all]..sort((a, b) => b.id.compareTo(a.id));
       return sorted.first;
     });
+  }
+
+  // ---- Food prefs (liquid override + serving quick-select) ----
+
+  Future<FoodPref?> foodPrefByKey(String key) {
+    return (_db.select(_db.foodPrefs)..where((t) => t.foodKey.equals(key)))
+        .getSingleOrNull();
+  }
+
+  Stream<FoodPref?> watchFoodPrefByKey(String key) {
+    return (_db.select(_db.foodPrefs)..where((t) => t.foodKey.equals(key)))
+        .watchSingleOrNull();
+  }
+
+  Future<void> setTreatAsLiquid({
+    required String foodKey,
+    required bool? treatAsLiquid,
+  }) async {
+    await _db
+        .into(_db.foodPrefs)
+        .insertOnConflictUpdate(
+          FoodPrefsCompanion(
+            foodKey: Value(foodKey),
+            treatAsLiquid: treatAsLiquid == null
+                ? const Value.absent()
+                : Value(treatAsLiquid),
+          ),
+        );
+  }
+
+  Future<void> setSavedServing({
+    required String foodKey,
+    required double? amount,
+    required String? unit, // 'g' | 'ml'
+  }) async {
+    await _db.into(_db.foodPrefs).insertOnConflictUpdate(
+          FoodPrefsCompanion(
+            foodKey: Value(foodKey),
+            savedServingAmount:
+                amount == null ? const Value.absent() : Value(amount),
+            savedServingUnit:
+                unit == null ? const Value.absent() : Value(unit),
+          ),
+        );
   }
 
   Stream<List<WeightEntry>> watchWeightEntries() {
@@ -408,6 +474,34 @@ class CalTrackRepository {
     return latest.weightKg - anchor.weightKg;
   }
 
+  /// Average weight change per week over a recent window. Returns the
+  /// signed kg/week (negative = losing). The window grows from the
+  /// latest entry backward by [windowDays]; if there isn't enough
+  /// history we fall back to the oldest available anchor so users with
+  /// few weigh-ins still see an estimate.
+  ///
+  /// Returns null if fewer than two weigh-ins exist or the implied
+  /// time span is too short to be meaningful (< 2 days).
+  Future<double?> trendKgPerWeek({int windowDays = 14}) async {
+    final entries = await weightEntriesLimit(60);
+    if (entries.length < 2) return null;
+    final latest = entries.first;
+    final cutoff = latest.recordedAt.subtract(Duration(days: windowDays));
+    WeightEntry? anchor;
+    for (final e in entries) {
+      if (!e.recordedAt.isAfter(cutoff)) {
+        anchor = e;
+        break;
+      }
+    }
+    anchor ??= entries.last;
+    final spanDays =
+        latest.recordedAt.difference(anchor.recordedAt).inHours / 24.0;
+    if (spanDays < 2) return null;
+    final deltaKg = latest.weightKg - anchor.weightKg;
+    return deltaKg * 7.0 / spanDays;
+  }
+
   Future<void> applyWeeklyAdjustment() async {
     final profile = await requireProfile();
     final goal = await currentGoal();
@@ -627,11 +721,32 @@ class CalTrackRepository {
     final seen = <String>{};
     final out = <FoodLogEntry>[];
     for (final r in rows) {
-      final key = r.catalogFoodId ?? (r.customFoodId?.toString() ?? r.displayName);
+      final key = foodLogKey(r);
       if (seen.contains(key)) continue;
       seen.add(key);
       out.add(r);
       if (out.length >= limit) break;
+    }
+    return out;
+  }
+
+  /// Frequency map of food log keys over a recent window. Used to rank
+  /// search results so foods you log often surface first.
+  ///
+  /// Keys come from [foodLogKey] (catalog id, custom id, or name) so
+  /// callers can look up by [CatalogFood.id], [CustomFood.id] or the
+  /// food's display name.
+  Future<Map<String, int>> foodLogKeyFrequencies({
+    int windowDays = 60,
+  }) async {
+    final cutoff = DateTime.now().subtract(Duration(days: windowDays));
+    final rows = await (_db.select(_db.foodLogEntries)
+          ..where((t) => t.loggedAt.isBiggerOrEqualValue(cutoff)))
+        .get();
+    final out = <String, int>{};
+    for (final r in rows) {
+      final k = foodLogKey(r);
+      out.update(k, (v) => v + 1, ifAbsent: () => 1);
     }
     return out;
   }
@@ -716,11 +831,167 @@ class CalTrackRepository {
     await _db.delete(_db.customFoods).go();
     await _db.delete(_db.weightEntries).go();
     await _db.delete(_db.goals).go();
+    await _db.delete(_db.foodPrefs).go();
     await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
       const ProfilesCompanion(
         onboardingCompleted: Value(false),
         dailyCalorieTarget: Value.absent(),
       ),
     );
+  }
+
+  // ---- Backup / export / import ----
+
+  Future<Map<String, Object?>> exportJson() async {
+    final profile = await requireProfile();
+    final goals = await _db.select(_db.goals).get();
+    final weights = await _db.select(_db.weightEntries).get();
+    final custom = await _db.select(_db.customFoods).get();
+    final foodLogs = await _db.select(_db.foodLogEntries).get();
+    final prefs = await _db.select(_db.foodPrefs).get();
+
+    return <String, Object?>{
+      'version': 1,
+      'exportedAt': DateTime.now().toIso8601String(),
+      'profile': profile.toJson(),
+      'goals': goals.map((g) => g.toJson()).toList(),
+      'weightEntries': weights.map((w) => w.toJson()).toList(),
+      'customFoods': custom.map((c) => c.toJson()).toList(),
+      'foodLogEntries': foodLogs.map((e) => e.toJson()).toList(),
+      'foodPrefs': prefs.map((p) => p.toJson()).toList(),
+    };
+  }
+
+  Future<void> importJson(
+    Map<String, Object?> json, {
+    required bool overwrite,
+  }) async {
+    final v = json['version'];
+    if (v is! int || v != 1) {
+      throw ArgumentError.value(v, 'version', 'Unsupported export version');
+    }
+    final profileJson = json['profile'];
+    if (profileJson is! Map<String, Object?>) {
+      throw ArgumentError('Missing/invalid profile');
+    }
+
+    List<Map<String, Object?>> list(String key) {
+      final raw = json[key];
+      if (raw == null) return const [];
+      if (raw is! List) throw ArgumentError('Invalid list for $key');
+      return raw.cast<Map>().map((e) => e.cast<String, Object?>()).toList();
+    }
+
+    final goals = list('goals').map((m) => Goal.fromJson(m)).toList();
+    final weights =
+        list('weightEntries').map((m) => WeightEntry.fromJson(m)).toList();
+    final custom =
+        list('customFoods').map((m) => CustomFood.fromJson(m)).toList();
+    final foodLogs = list('foodLogEntries')
+        .map((m) => FoodLogEntry.fromJson(m))
+        .toList();
+    final prefs = list('foodPrefs').map((m) => FoodPref.fromJson(m)).toList();
+
+    final profile = Profile.fromJson(profileJson);
+
+    await _db.transaction(() async {
+      if (overwrite) {
+        await _db.delete(_db.foodLogEntries).go();
+        await _db.delete(_db.customFoods).go();
+        await _db.delete(_db.weightEntries).go();
+        await _db.delete(_db.goals).go();
+        await _db.delete(_db.foodPrefs).go();
+      }
+
+      await _db.into(_db.profiles).insertOnConflictUpdate(
+            ProfilesCompanion(
+              id: Value(profile.id),
+              sex: Value(profile.sex),
+              birthDateMillis: Value(profile.birthDateMillis),
+              ageBandMaxYears: Value(profile.ageBandMaxYears),
+              heightCm: Value(profile.heightCm),
+              activityLevel: Value(profile.activityLevel),
+              weightUnit: Value(profile.weightUnit),
+              proteinPct: Value(profile.proteinPct),
+              carbsPct: Value(profile.carbsPct),
+              fatPct: Value(profile.fatPct),
+              reminderWeekday: Value(profile.reminderWeekday),
+              reminderHour: Value(profile.reminderHour),
+              reminderMinute: Value(profile.reminderMinute),
+              onboardingCompleted: Value(profile.onboardingCompleted),
+              dailyCalorieTarget: profile.dailyCalorieTarget == null
+                  ? const Value.absent()
+                  : Value(profile.dailyCalorieTarget),
+            ),
+          );
+
+      for (final g in goals) {
+        await _db.into(_db.goals).insertOnConflictUpdate(
+              GoalsCompanion(
+                id: Value(g.id),
+                targetWeightKg: Value(g.targetWeightKg),
+                weeklyChangeKgPerWeek: Value(g.weeklyChangeKgPerWeek),
+                status: Value(g.status),
+              ),
+            );
+      }
+      for (final w in weights) {
+        await _db.into(_db.weightEntries).insertOnConflictUpdate(
+              WeightEntriesCompanion(
+                id: Value(w.id),
+                recordedAt: Value(w.recordedAt),
+                weightKg: Value(w.weightKg),
+                note: Value(w.note),
+              ),
+            );
+      }
+      for (final c in custom) {
+        await _db.into(_db.customFoods).insertOnConflictUpdate(
+              CustomFoodsCompanion(
+                id: Value(c.id),
+                name: Value(c.name),
+                brand: Value(c.brand),
+                barcode: Value(c.barcode),
+                servingSize: Value(c.servingSize),
+                servingUnit: Value(c.servingUnit),
+                calories: Value(c.calories),
+                fatG: Value(c.fatG),
+                carbsG: Value(c.carbsG),
+                sugarG: Value(c.sugarG),
+                fiberG: Value(c.fiberG),
+                proteinG: Value(c.proteinG),
+              ),
+            );
+      }
+      for (final e in foodLogs) {
+        await _db.into(_db.foodLogEntries).insertOnConflictUpdate(
+              FoodLogEntriesCompanion(
+                id: Value(e.id),
+                loggedAt: Value(e.loggedAt),
+                source: Value(e.source),
+                catalogFoodId: Value(e.catalogFoodId),
+                customFoodId: Value(e.customFoodId),
+                displayName: Value(e.displayName),
+                grams: Value(e.grams),
+                kcal: Value(e.kcal),
+                proteinG: Value(e.proteinG),
+                carbsG: Value(e.carbsG),
+                sugarG: Value(e.sugarG),
+                fiberG: Value(e.fiberG),
+                fatG: Value(e.fatG),
+              ),
+            );
+      }
+      for (final p in prefs) {
+        await _db.into(_db.foodPrefs).insertOnConflictUpdate(
+              FoodPrefsCompanion(
+                foodKey: Value(p.foodKey),
+                treatAsLiquid: Value(p.treatAsLiquid),
+                savedServingAmount: Value(p.savedServingAmount),
+                savedServingUnit: Value(p.savedServingUnit),
+              ),
+            );
+      }
+    });
   }
 }

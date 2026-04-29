@@ -207,6 +207,98 @@ void main() {
       expect(updated!.weightKg, 79.8);
       expect(updated.note, 'after');
     });
+
+    test('exportJson includes foodPrefs', () async {
+      await repo.setTreatAsLiquid(foodKey: 'cat:abc', treatAsLiquid: true);
+      await repo.setSavedServing(foodKey: 'cat:abc', amount: 250, unit: 'ml');
+
+      final out = await repo.exportJson();
+      expect(out['version'], 1);
+      final prefs = out['foodPrefs'] as List;
+      expect(prefs, isNotEmpty);
+    });
+
+    test('importJson overwrite clears existing data first', () async {
+      // Prepare an export payload that does NOT include the row we will add
+      // later. (This simulates restoring from an older backup.)
+      await repo.setTreatAsLiquid(foodKey: 'cat:x', treatAsLiquid: true);
+      final exportPayload = await repo.exportJson();
+
+      // Seed some data that should be wiped by overwrite import.
+      await repo.addFoodLog(
+        source: 'custom',
+        displayName: 'Old',
+        grams: 100,
+        kcal: 123,
+        proteinG: 1,
+        carbsG: 2,
+        fatG: 3,
+        loggedAt: DateTime(2026, 4, 28, 8),
+      );
+      await repo.setTreatAsLiquid(foodKey: 'name:old', treatAsLiquid: true);
+
+      await repo.importJson(exportPayload, overwrite: true);
+
+      final logs = await db.select(db.foodLogEntries).get();
+      final fp = await db.select(db.foodPrefs).get();
+      // After overwrite import, rows should match the import payload; in
+      // particular, we should no longer have the original 'Old' log.
+      expect(logs.where((e) => e.displayName == 'Old'), isEmpty);
+      // And prefs table should be populated from import.
+      expect(fp, isNotEmpty);
+    });
+
+    test('importJson merge upserts by id without duplicating', () async {
+      // Create a custom food and a pref row.
+      final customId = await repo.upsertCustomFood(
+        name: 'MyFood',
+        brand: null,
+        barcode: null,
+        servingSize: 100,
+        servingUnit: 'g',
+        calories: 100,
+        fatG: 1,
+        carbsG: 2,
+        sugarG: 0,
+        fiberG: 0,
+        proteinG: 3,
+      );
+      await repo.setSavedServing(
+        foodKey: foodLogKeyForCustomId(customId),
+        amount: 42,
+        unit: 'g',
+      );
+
+      final export = await repo.exportJson();
+
+      // Mutate existing pref to a different value, then merge import.
+      await repo.setSavedServing(
+        foodKey: foodLogKeyForCustomId(customId),
+        amount: 99,
+        unit: 'g',
+      );
+
+      await repo.importJson(export, overwrite: false);
+
+      final pref = await repo.foodPrefByKey(foodLogKeyForCustomId(customId));
+      expect(pref, isNotNull);
+      // Should match the imported value (42), not duplicate rows.
+      expect(pref!.savedServingAmount, 42);
+      final allPrefs = await db.select(db.foodPrefs).get();
+      expect(
+        allPrefs.where((p) => p.foodKey == foodLogKeyForCustomId(customId)),
+        hasLength(1),
+      );
+    });
+
+    test('schema contains food_prefs table', () async {
+      final rows = await db
+          .customSelect(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='food_prefs'",
+          )
+          .get();
+      expect(rows, isNotEmpty);
+    });
   });
 }
 

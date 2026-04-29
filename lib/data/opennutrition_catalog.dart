@@ -15,6 +15,7 @@ class CatalogFood {
     required this.proteinPer100g,
     required this.carbsPer100g,
     required this.fatPer100g,
+    required this.isLiquid,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class CatalogFood {
   final double proteinPer100g;
   final double carbsPer100g;
   final double fatPer100g;
+  final bool isLiquid;
 }
 
 /// Offline search + barcode lookup against [assets/opennutrition.sqlite].
@@ -31,6 +33,18 @@ class OpenNutritionCatalog {
   OpenNutritionCatalog();
 
   static const _assetPath = 'assets/opennutrition.sqlite';
+
+  /// Bump whenever the bundled SQLite is regenerated so existing
+  /// installs replace their cached copy. The cache file in the
+  /// documents directory is keyed by this version, and a sentinel
+  /// `<file>.version` text file records the version that wrote it.
+  ///
+  /// History:
+  /// * `v1` – initial import (had `fat_100g = 0` for every row because
+  ///   the importer read the wrong JSON key).
+  /// * `v2` – fixed `total_fat` extraction; full catalog rebuilt.
+  /// * `v3` – added `is_liquid` column for ml-first UI defaults.
+  static const _catalogVersion = 'v3';
 
   Database? _db;
 
@@ -40,10 +54,19 @@ class OpenNutritionCatalog {
 
     final dir = await getApplicationDocumentsDirectory();
     final path = p.join(dir.path, 'opennutrition.sqlite');
+    final versionPath = '$path.version';
     final file = File(path);
-    if (!file.existsSync()) {
+    final versionFile = File(versionPath);
+
+    final cachedVersion = versionFile.existsSync()
+        ? versionFile.readAsStringSync().trim()
+        : null;
+    final needsRefresh =
+        !file.existsSync() || cachedVersion != _catalogVersion;
+    if (needsRefresh) {
       final data = await rootBundle.load(_assetPath);
       await file.writeAsBytes(data.buffer.asUint8List(), flush: true);
+      await versionFile.writeAsString(_catalogVersion, flush: true);
     }
 
     final db = sqlite3.open(path, mode: OpenMode.readOnly);
@@ -83,7 +106,7 @@ class OpenNutritionCatalog {
     final db = await _ensureOpen();
     final result = db.select(
       '''
-      SELECT f.id, f.name, f.ean, f.kcal_100g, f.protein_100g, f.carbs_100g, f.fat_100g
+      SELECT f.id, f.name, f.ean, f.kcal_100g, f.protein_100g, f.carbs_100g, f.fat_100g, f.is_liquid
       FROM foods_fts
       JOIN foods f ON f.id = foods_fts.food_id
       WHERE foods_fts MATCH ?
@@ -100,7 +123,7 @@ class OpenNutritionCatalog {
     final db = await _ensureOpen();
     final result = db.select(
       '''
-      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g
+      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, is_liquid
       FROM foods
       WHERE id = ?
       LIMIT 1
@@ -118,7 +141,7 @@ class OpenNutritionCatalog {
     final db = await _ensureOpen();
     final result = db.select(
       '''
-      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g
+      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, is_liquid
       FROM foods
       WHERE ean = ?
       LIMIT 50
@@ -148,6 +171,7 @@ class OpenNutritionCatalog {
       proteinPer100g: (row['protein_100g'] as num).toDouble(),
       carbsPer100g: (row['carbs_100g'] as num).toDouble(),
       fatPer100g: (row['fat_100g'] as num).toDouble(),
+      isLiquid: (row['is_liquid'] as int) != 0,
     );
   }
 

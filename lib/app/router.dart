@@ -5,6 +5,7 @@ import 'package:caltrack/features/food/barcode_scan_screen.dart';
 import 'package:caltrack/features/food/log_food_screen.dart';
 import 'package:caltrack/features/food/nutrition_label_scan_screen.dart';
 import 'package:caltrack/features/onboarding/onboarding_screen.dart';
+import 'package:caltrack/features/settings/data_tools_screen.dart';
 import 'package:caltrack/features/settings/settings_screen.dart';
 import 'package:caltrack/features/shell/root_shell.dart';
 import 'package:caltrack/features/weight/log_weight_screen.dart';
@@ -46,6 +47,10 @@ GoRouter createRouter(ProfileController profileController) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/data-tools',
+        builder: (context, state) => const DataToolsScreen(),
       ),
       GoRoute(
         path: '/weekly-review',

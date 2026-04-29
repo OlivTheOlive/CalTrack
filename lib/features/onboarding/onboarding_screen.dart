@@ -1,6 +1,7 @@
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/nutrition.dart';
 import 'package:caltrack/core/units.dart';
+import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/services/notification_service.dart';
 import 'package:flutter/material.dart';
@@ -56,15 +57,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   double _parseWeightKg() {
-    final raw = _weightController.text.trim().replaceAll(',', '.');
-    final v = double.tryParse(raw);
+    final v = parseDouble(_weightController.text);
     if (v == null || v <= 0) return -1;
     return _unit == WeightUnit.kg ? v : lbToKg(v);
   }
 
   double _parseGoalKg() {
-    final raw = _goalWeightController.text.trim().replaceAll(',', '.');
-    final v = double.tryParse(raw);
+    final v = parseDouble(_goalWeightController.text);
     if (v == null || v <= 0) return -1;
     return _unit == WeightUnit.kg ? v : lbToKg(v);
   }
@@ -109,9 +108,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final cw = _parseWeightKg();
     final gw = _parseGoalKg();
     _normalizeMacrosForSubmit();
-    if (cw <= 0 || gw <= 0 || !_macroValid()) {
+    final heightErr = validatePositiveDouble(
+      _heightCmController.text,
+      fieldLabel: 'Height (cm)',
+      min: 50,
+      max: 280,
+    );
+    final weightErr = validatePositiveDouble(
+      _weightController.text,
+      fieldLabel: 'Current weight',
+      min: 20,
+      max: 500,
+    );
+    final goalErr = validatePositiveDouble(
+      _goalWeightController.text,
+      fieldLabel: 'Goal weight',
+      min: 20,
+      max: 500,
+    );
+    if (heightErr != null || weightErr != null || goalErr != null || cw <= 0 || gw <= 0 || !_macroValid()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Check all fields and macro percentages (100%).')),
+        SnackBar(
+          content: Text(
+            heightErr ??
+                weightErr ??
+                goalErr ??
+                'Check all fields and macro percentages (100%).',
+          ),
+        ),
       );
       return;
     }

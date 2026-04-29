@@ -25,3 +25,16 @@
 - create a script that will clean the OpenNutrition data by removing any branded items and only retaining whole foods like fruits, vegies, meats, grains and others. (done)
 - remove any duplicate. (done)
 
+## QoL Improvements
+
+- abitity to change/edit/update the weight goal (done)
+- ability to give a timeline prediction (done)
+- refactor the look of the food logging card on the dashboard. (done)
+- refactor food selection to have emojis for food (like apple -> apple emoji) (done)
+- refactor the setting menu to look more organized (done)
+- have dynamic sizing/serving (need more info)  (done)
+  - currently we have a database that is currated per 100g portions. this is for all type of food, liquid and solids. This does not translate well for food that are typacally in mesured in ml like juice. (done)
+  - we should refactor the opennutrition.sqlite database to have a column for liquid (true or false) and if true it reads as a liquid.  (done)
+  - from the nutritional scan, we should save the serving size as a quick select for the food meaning when the user access a food they want to log, the user will be able to select a per serving or a per gram selection. (done)
+- have a backup/import and export data option (done)
+

@@ -3,6 +3,7 @@ import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/services/notification_service.dart';
+import 'package:caltrack/widgets/goal_editor_sheet.dart';
 import 'package:caltrack/widgets/opennutrition_attribution.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -50,7 +51,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Text('Weight display', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Profile',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Weight display',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
               SegmentedButton<WeightUnit>(
                 segments: const [
                   ButtonSegment(value: WeightUnit.kg, label: Text('kg')),
@@ -63,8 +73,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() {});
                 },
               ),
-              const SizedBox(height: 24),
-              Text('Macro percentages', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 20),
+              Text(
+                'Macro percentages',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
               Text(
                 'Total: $sum%',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -127,23 +141,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: const Text('Save macros'),
               ),
               const Divider(height: 40),
-              Text(
-                'Plan',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text('Plan', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              _GoalSettingsTile(unit: unit),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.tune),
                 title: const Text('Calorie bands'),
                 subtitle: const Text(
-                  'See your floor, maintenance and goal target, '
-                  'and try out what-if scenarios.',
+                  'Floor, maintenance and goal target, plus what-if sliders.',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/calorie-bands'),
               ),
               const Divider(height: 40),
-              Text('Weekly reminder', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Notifications',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
               ListTile(
                 title: const Text('Reschedule'),
                 subtitle: Text(
@@ -231,6 +247,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 child: const Text('Open Food Facts terms'),
               ),
+              const Divider(height: 40),
+              Text('Data tools', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.import_export_outlined),
+                title: const Text('Backup / export / import'),
+                subtitle: const Text('Export your data or restore from a backup file.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/data-tools'),
+              ),
             ],
           );
         },
@@ -250,6 +277,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
       'Sunday',
     ];
     return names[weekday.clamp(1, 7)];
+  }
+}
+
+/// Tile showing the active goal weight + pace and opening the editor.
+/// Live-updates via [CalTrackRepository.watchCurrentGoal].
+class _GoalSettingsTile extends StatelessWidget {
+  const _GoalSettingsTile({required this.unit});
+
+  final WeightUnit unit;
+
+  String _formatTarget(double kg) {
+    final shown = unit == WeightUnit.kg ? kg : kgToLb(kg);
+    return '${shown.toStringAsFixed(1)} ${unit.shortLabel}';
+  }
+
+  String _paceDescription(Goal goal) {
+    final rate = goal.weeklyChangeKgPerWeek;
+    if (goal.status == 'maintain' || rate.abs() < 0.001) {
+      return 'Maintenance — calories match your TDEE.';
+    }
+    final dir = rate < 0 ? 'Losing' : 'Gaining';
+    return '$dir ~${rate.abs().toStringAsFixed(2)} kg/week';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repo = context.read<CalTrackRepository>();
+    return StreamBuilder<Goal?>(
+      stream: repo.watchCurrentGoal(),
+      builder: (context, snap) {
+        final goal = snap.data;
+        final title = goal == null
+            ? 'Set a weight goal'
+            : 'Goal: ${_formatTarget(goal.targetWeightKg)}';
+        final subtitle = goal == null
+            ? 'Pick a target weight and weekly pace.'
+            : _paceDescription(goal);
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.flag_outlined),
+          title: Text(title),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final profile = await repo.requireProfile();
+            if (!context.mounted) return;
+            await showGoalEditorSheet(
+              context,
+              repo: repo,
+              profile: profile,
+            );
+          },
+        );
+      },
+    );
   }
 }
 

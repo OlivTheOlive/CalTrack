@@ -1,5 +1,6 @@
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/units.dart';
+import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +19,7 @@ class LogWeightScreen extends StatefulWidget {
 }
 
 class _LogWeightScreenState extends State<LogWeightScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _controller = TextEditingController();
   final _noteController = TextEditingController();
 
@@ -65,8 +67,7 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
       v == v.roundToDouble() ? v.toStringAsFixed(1) : v.toStringAsFixed(1);
 
   double? _parseWeightKg() {
-    final raw = _controller.text.trim().replaceAll(',', '.');
-    final v = double.tryParse(raw);
+    final v = parseDouble(_controller.text);
     if (v == null || v <= 0) return null;
     return _unit == WeightUnit.kg ? v : lbToKg(v);
   }
@@ -76,7 +77,24 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
     return n.isEmpty ? null : n;
   }
 
+  String? _validateWeight(String? raw) {
+    final label = 'Weight (${_unit.shortLabel})';
+    final err = validatePositiveDouble(
+      raw ?? '',
+      fieldLabel: label,
+      min: _unit == WeightUnit.kg ? 20 : 44,
+      max: _unit == WeightUnit.kg ? 500 : 1100,
+    );
+    return err;
+  }
+
+  String? _validateNote(String? raw) =>
+      validateOptionalNote(raw ?? '', maxLen: 140);
+
   Future<void> _submit() async {
+    final valid = _formKey.currentState?.validate() ?? false;
+    if (!valid) return;
+
     final repo = context.read<CalTrackRepository>();
     final profileCtl = context.read<ProfileController>();
     final kg = _parseWeightKg();
@@ -209,34 +227,40 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
     final suffix = _unit.shortLabel;
     return Padding(
       padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            decoration: InputDecoration(
-              labelText: 'Weight ($suffix)',
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Weight ($suffix)',
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+              ],
+              validator: _validateWeight,
             ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-            ],
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _noteController,
-            decoration: const InputDecoration(
-              labelText: 'Note (optional)',
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _noteController,
+              decoration: const InputDecoration(
+                labelText: 'Note (optional)',
+              ),
+              maxLines: 2,
+              validator: _validateNote,
             ),
-            maxLines: 2,
-          ),
-          const Spacer(),
-          FilledButton(
-            onPressed: _saving ? null : _submit,
-            child: Text(_editingEntry != null ? 'Save changes' : 'Save'),
-          ),
-        ],
+            const Spacer(),
+            FilledButton(
+              onPressed: _saving ? null : _submit,
+              child: Text(_editingEntry != null ? 'Save changes' : 'Save'),
+            ),
+          ],
+        ),
       ),
     );
   }

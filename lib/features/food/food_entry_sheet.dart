@@ -1,5 +1,7 @@
 import 'package:caltrack/core/nutrition_scaling.dart';
+import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
+import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/widgets/opennutrition_attribution.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -81,6 +83,53 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   );
   bool _busy = false;
 
+  String? _foodKey;
+  bool _loadingPrefs = true;
+  bool _catalogLiquidDefault = false;
+  bool? _treatAsLiquidOverride;
+  double? _savedServingAmount;
+  String? _savedServingUnit; // 'g' | 'ml'
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPrefs());
+  }
+
+  Future<void> _loadPrefs() async {
+    final repo = context.read<CalTrackRepository>();
+    final cfg = widget.config;
+    final key = cfg.catalogFoodId != null
+        ? foodLogKeyForCatalogId(cfg.catalogFoodId!)
+        : (cfg.customFoodId != null
+            ? foodLogKeyForCustomId(cfg.customFoodId!)
+            : foodLogKeyForName(cfg.displayName));
+    bool catalogDefault = false;
+    if (cfg.catalogFoodId != null) {
+      final catalog = context.read<OpenNutritionCatalog>();
+      final food = await catalog.byId(cfg.catalogFoodId!);
+      catalogDefault = food?.isLiquid ?? false;
+    }
+    final pref = await repo.foodPrefByKey(key);
+    if (!mounted) return;
+    setState(() {
+      _foodKey = key;
+      _catalogLiquidDefault = catalogDefault;
+      _treatAsLiquidOverride = pref?.treatAsLiquid;
+      _savedServingAmount = pref?.savedServingAmount;
+      _savedServingUnit = pref?.savedServingUnit;
+      _loadingPrefs = false;
+    });
+  }
+
+  bool get _treatAsLiquidEffective =>
+      _treatAsLiquidOverride ?? _catalogLiquidDefault;
+
+  String get _effectiveUnitLabel {
+    if (_treatAsLiquidEffective) return 'ml';
+    return widget.config.unitLabel;
+  }
+
   @override
   void dispose() {
     _grams.dispose();
@@ -91,10 +140,13 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
       g == g.roundToDouble() ? g.round().toString() : g.toStringAsFixed(1);
 
   double? _parseGrams() {
-    final raw = _grams.text.trim().replaceAll(',', '.');
-    final g = double.tryParse(raw);
-    if (g == null || g <= 0 || g > 100000) return null;
-    return g;
+    final err = validatePositiveDouble(
+      _grams.text,
+      fieldLabel: 'Amount',
+      max: 100000,
+    );
+    if (err != null) return null;
+    return parseDouble(_grams.text);
   }
 
   ScaledNutrition _scale(double grams) => scaleFromPer100g(
@@ -104,6 +156,49 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
         carbsPer100g: widget.config.carbsPer100g,
         fatPer100g: widget.config.fatPer100g,
       );
+
+  Future<void> _setTreatAsLiquid(bool value) async {
+    final key = _foodKey;
+    if (key == null) return;
+    final repo = context.read<CalTrackRepository>();
+    await repo.setTreatAsLiquid(foodKey: key, treatAsLiquid: value);
+    if (!mounted) return;
+    setState(() => _treatAsLiquidOverride = value);
+  }
+
+  Future<void> _clearTreatAsLiquidOverride() async {
+    final key = _foodKey;
+    if (key == null) return;
+    final repo = context.read<CalTrackRepository>();
+    await repo.setTreatAsLiquid(foodKey: key, treatAsLiquid: null);
+    if (!mounted) return;
+    setState(() => _treatAsLiquidOverride = null);
+  }
+
+  Future<void> _saveServing() async {
+    final key = _foodKey;
+    if (key == null) return;
+    final amount = _parseGrams();
+    if (amount == null) return;
+    final unit = _effectiveUnitLabel;
+    final repo = context.read<CalTrackRepository>();
+    await repo.setSavedServing(foodKey: key, amount: amount, unit: unit);
+    if (!mounted) return;
+    setState(() {
+      _savedServingAmount = amount;
+      _savedServingUnit = unit;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Saved serving: ${amount.round()} $unit')),
+    );
+  }
+
+  void _applyServing() {
+    final a = _savedServingAmount;
+    if (a == null) return;
+    _grams.text = _formatGrams(a);
+    setState(() {});
+  }
 
   Future<void> _save() async {
     final grams = _parseGrams();
@@ -170,6 +265,12 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
     final cfg = widget.config;
     final grams = _parseGrams() ?? 0;
     final scaled = _scale(grams);
+    final unitLabel = _effectiveUnitLabel;
+    final amountError = validatePositiveDouble(
+      _grams.text,
+      fieldLabel: 'Amount',
+      max: 100000,
+    );
 
     return Padding(
       padding: EdgeInsets.only(
@@ -222,18 +323,59 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
               decoration: InputDecoration(
                 border: OutlineInputBorder(),
                 labelText: 'Amount',
-                suffixText: cfg.unitLabel,
+                suffixText: unitLabel,
+                errorText: amountError,
               ),
               onChanged: (_) => setState(() {}),
               onSubmitted: (_) => FocusScope.of(context).unfocus(),
             ),
+            if (!_loadingPrefs) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Treat as liquid (ml)'),
+                      subtitle: Text(
+                        _treatAsLiquidOverride == null
+                            ? 'Default: ${_catalogLiquidDefault ? "liquid" : "solid"}'
+                            : 'Override saved',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      value: _treatAsLiquidEffective,
+                      onChanged: _busy ? null : _setTreatAsLiquid,
+                    ),
+                  ),
+                  if (_treatAsLiquidOverride != null) ...[
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: _busy ? null : _clearTreatAsLiquidOverride,
+                      child: const Text('Use default'),
+                    ),
+                  ],
+                ],
+              ),
+              if (_treatAsLiquidEffective)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    'Approx: assumes 1 ml ≈ 1 g for nutrition scaling.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+            ],
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               children: [
                 for (final g in const [25.0, 50.0, 100.0, 200.0, 250.0])
                   ActionChip(
-                    label: Text('${g.round()} g'),
+                    label: Text('${g.round()} $unitLabel'),
                     onPressed: () {
                       _grams.text = _formatGrams(g);
                       setState(() {});
@@ -241,6 +383,31 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
                   ),
               ],
             ),
+            if (!_loadingPrefs) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text('Serving', style: theme.textTheme.titleSmall),
+                  if (_savedServingAmount != null && _savedServingUnit != null)
+                    ActionChip(
+                      avatar: const Icon(Icons.restaurant_menu, size: 18),
+                      label: Text(
+                        '1 serving (${_savedServingAmount!.round()} ${_savedServingUnit!})',
+                      ),
+                      onPressed: _applyServing,
+                    ),
+                  ActionChip(
+                    avatar: const Icon(Icons.bookmark_add_outlined, size: 18),
+                    label: const Text('Save current as serving'),
+                    onPressed:
+                        _busy || _parseGrams() == null ? null : _saveServing,
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             _NutritionPreviewCard(scaled: scaled, grams: grams),
             if (cfg.showOpenNutritionAttribution) ...[
