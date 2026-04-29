@@ -1,4 +1,5 @@
 import 'package:caltrack/core/nutrition_scaling.dart';
+import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/widgets/opennutrition_attribution.dart';
@@ -139,10 +140,13 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
       g == g.roundToDouble() ? g.round().toString() : g.toStringAsFixed(1);
 
   double? _parseGrams() {
-    final raw = _grams.text.trim().replaceAll(',', '.');
-    final g = double.tryParse(raw);
-    if (g == null || g <= 0 || g > 100000) return null;
-    return g;
+    final err = validatePositiveDouble(
+      _grams.text,
+      fieldLabel: 'Amount',
+      max: 100000,
+    );
+    if (err != null) return null;
+    return parseDouble(_grams.text);
   }
 
   ScaledNutrition _scale(double grams) => scaleFromPer100g(
@@ -262,6 +266,11 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
     final grams = _parseGrams() ?? 0;
     final scaled = _scale(grams);
     final unitLabel = _effectiveUnitLabel;
+    final amountError = validatePositiveDouble(
+      _grams.text,
+      fieldLabel: 'Amount',
+      max: 100000,
+    );
 
     return Padding(
       padding: EdgeInsets.only(
@@ -315,6 +324,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
                 border: OutlineInputBorder(),
                 labelText: 'Amount',
                 suffixText: unitLabel,
+                errorText: amountError,
               ),
               onChanged: (_) => setState(() {}),
               onSubmitted: (_) => FocusScope.of(context).unfocus(),

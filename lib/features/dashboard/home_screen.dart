@@ -13,6 +13,14 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+// Intl formatters are relatively expensive to construct; reuse them.
+final _nfDecimal = NumberFormat.decimalPattern();
+final _fmtDayShort = DateFormat.MMMd();
+final _fmtDayLong = DateFormat.yMMMEd();
+final _fmtTime = DateFormat.jm();
+final _fmtMonthDay = DateFormat.MMMEd();
+final _fmtYmd = DateFormat.yMMMd();
+
 /// Dashboard tab body. Owns the goal-completion celebration sheet and
 /// the scrolling cards. Pure body content — the surrounding shell
 /// provides the [AppBar], [FloatingActionButton], and [NavigationBar].
@@ -55,6 +63,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
   @override
   Widget build(BuildContext context) {
+    final sw = Stopwatch()..start();
     final repo = context.read<CalTrackRepository>();
     final profileCtl = context.watch<ProfileController>();
 
@@ -82,7 +91,7 @@ class _DashboardTabState extends State<DashboardTab> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        return RefreshIndicator(
+        final out = RefreshIndicator(
           onRefresh: () async {
             await profileCtl.refresh();
           },
@@ -98,6 +107,14 @@ class _DashboardTabState extends State<DashboardTab> {
             onResetToday: _resetToToday,
           ),
         );
+        assert(() {
+          // Debug-only: helps spot unexpected rebuild churn during scroll.
+          sw.stop();
+          // ignore: avoid_print
+          print('DashboardTab.build ${sw.elapsedMilliseconds}ms');
+          return true;
+        }());
+        return out;
       },
     );
   }
@@ -191,6 +208,7 @@ class _DashboardListView extends StatelessWidget {
     final today = calendarDay(DateTime.now());
     final isToday = selectedDay == today;
     final canGoForward = selectedDay.isBefore(today);
+    final profile = profileCtl.profile!;
 
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
@@ -242,7 +260,7 @@ class _DashboardListView extends StatelessWidget {
         const SizedBox(height: 16),
         _TodayFoodLogCard(repo: repo, selectedDay: selectedDay, isToday: isToday),
         const SizedBox(height: 16),
-        if (currentGoal != null) _GoalSummary(goal: currentGoal),
+        if (currentGoal != null) _GoalSummary(goal: currentGoal, profile: profile),
         const SizedBox(height: 16),
         FutureBuilder<List<WeightEntry>>(
           future: repo.weightEntriesLimit(1),
@@ -265,7 +283,7 @@ class _DashboardListView extends StatelessWidget {
                   child: ListTile(
                     title: const Text('Weigh-in overdue'),
                     subtitle: Text(
-                      'Last entry ${DateFormat.yMMMd().format(last.recordedAt)}. '
+                      'Last entry ${_fmtYmd.format(last.recordedAt)}. '
                       'Weekly check-ins help adjust your plan.',
                     ),
                     trailing: TextButton(
@@ -303,7 +321,7 @@ class _TodaySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final nf = NumberFormat.decimalPattern();
+    final nf = _nfDecimal;
 
     final consumed = intake.kcal;
     final target = plan.dailyCalories;
@@ -330,7 +348,7 @@ class _TodaySummaryCard extends StatelessWidget {
                   child: Text(
                     isToday
                         ? 'Today'
-                        : DateFormat.MMMEd().format(selectedDay),
+                        : _fmtMonthDay.format(selectedDay),
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
@@ -466,22 +484,21 @@ class _MacroIntakeProgressLinear extends StatelessWidget {
 }
 
 class _GoalSummary extends StatelessWidget {
-  const _GoalSummary({required this.goal});
+  const _GoalSummary({required this.goal, required this.profile});
 
   final Goal goal;
+  final Profile profile;
 
-  Future<({Profile profile, double? latestKg, double? trendKgWeek})>
-      _loadDetails(CalTrackRepository repo) async {
+  Future<({double? latestKg, double? trendKgWeek})> _loadDetails(
+    CalTrackRepository repo,
+  ) async {
     final results = await Future.wait([
-      repo.requireProfile(),
       repo.weightEntriesLimit(1),
       repo.trendKgPerWeek(windowDays: 14),
     ]);
-    final profile = results[0] as Profile;
-    final entries = results[1] as List<WeightEntry>;
-    final trend = results[2] as double?;
+    final entries = results[0] as List<WeightEntry>;
+    final trend = results[1] as double?;
     return (
-      profile: profile,
       latestKg: entries.isEmpty ? null : entries.first.weightKg,
       trendKgWeek: trend,
     );
@@ -499,12 +516,11 @@ class _GoalSummary extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final repo = context.read<CalTrackRepository>();
-    return FutureBuilder<({Profile profile, double? latestKg, double? trendKgWeek})>(
+    return FutureBuilder<({double? latestKg, double? trendKgWeek})>(
       future: _loadDetails(repo),
       builder: (context, snap) {
         final data = snap.data;
         if (data == null) return const SizedBox.shrink();
-        final profile = data.profile;
         final unit = WeightUnit.fromStored(profile.weightUnit);
         final target = unit == WeightUnit.kg
             ? '${goal.targetWeightKg.toStringAsFixed(1)} kg'
@@ -681,7 +697,7 @@ class _EtaRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final dateLabel = DateFormat.yMMMd().format(eta.eta);
+    final dateLabel = _fmtYmd.format(eta.eta);
     final weeksLabel =
         eta.weeks == 1 ? '~1 week' : '~${eta.weeks} weeks';
     return Row(
@@ -739,7 +755,7 @@ class _TodayFoodLogCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final nf = NumberFormat.decimalPattern();
+    final nf = _nfDecimal;
     return StreamBuilder<List<FoodLogEntry>>(
       stream: repo.watchFoodLogsForDay(selectedDay),
       builder: (context, snap) {
@@ -748,7 +764,7 @@ class _TodayFoodLogCard extends StatelessWidget {
             entries.fold<double>(0, (acc, e) => acc + e.kcal).round();
         final title = isToday
             ? "Today's food"
-            : 'Food · ${DateFormat.MMMd().format(selectedDay)}';
+            : 'Food · ${_fmtDayShort.format(selectedDay)}';
         final emptyMsg = isToday
             ? 'Nothing logged yet today.'
             : 'Nothing logged on this day.';
@@ -894,7 +910,7 @@ class _FoodLogTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final time = DateFormat.jm().format(entry.loggedAt);
+    final time = _fmtTime.format(entry.loggedAt);
     return Dismissible(
       key: ValueKey('food-${entry.id}'),
       direction: DismissDirection.endToStart,
@@ -1042,7 +1058,7 @@ class _DayNavigator extends StatelessWidget {
     } else if (selectedDay == yesterday) {
       label = 'Yesterday';
     } else {
-      label = DateFormat.yMMMEd().format(selectedDay);
+      label = _fmtDayLong.format(selectedDay);
     }
 
     return Card(

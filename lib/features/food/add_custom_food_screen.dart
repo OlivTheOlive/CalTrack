@@ -1,5 +1,6 @@
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/app_database.dart';
+import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/features/food/food_entry_sheet.dart';
 import 'package:caltrack/features/food/nutrition_label_scan_screen.dart';
 import 'package:flutter/material.dart';
@@ -53,7 +54,7 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
   }
 
   static double? _parseNum(String raw, {bool allowZero = true}) {
-    final v = double.tryParse(raw.trim().replaceAll(',', '.'));
+    final v = parseDouble(raw);
     if (v == null) return null;
     if (!allowZero && v <= 0) return null;
     if (v < 0) return null;
@@ -200,7 +201,7 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
                   labelText: 'Food name',
                 ),
                 validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Required' : null,
+                    v == null || v.trim().isEmpty ? 'Food name is required.' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -239,10 +240,12 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
                         labelText: 'Serving size',
                       ),
                       validator: (v) {
-                        final parsed = v == null ? null : _parseNum(v, allowZero: false);
-                        if (parsed == null) return 'Enter a number';
-                        if (parsed <= 0) return 'Must be > 0';
-                        return null;
+                        return validatePositiveDouble(
+                          v ?? '',
+                          fieldLabel: 'Serving size',
+                          min: 0.1,
+                          max: 5000,
+                        );
                       },
                     ),
                   ),
@@ -336,9 +339,15 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
         suffixText: suffix,
       ),
       validator: (v) {
-        final parsed = v == null ? null : _parseNum(v);
-        if (parsed == null) return 'Enter a number';
-        return null;
+        final err = validatePositiveDouble(
+          v ?? '',
+          fieldLabel: label,
+          min: 0,
+          max: 100000,
+        );
+        // These fields are allowed to be 0.
+        if (err == '$label must be greater than 0.') return null;
+        return err;
       },
     );
   }
