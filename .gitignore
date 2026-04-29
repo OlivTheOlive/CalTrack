@@ -8,7 +8,6 @@
 .history
 .cursor/*
 
-assets/*
 opennutrition-dataset-*
 
 # Generated reports/audit artifacts from tool/opennutrition_import.py
@@ -54,6 +53,7 @@ unlinked_spec.ds
 # Android related
 **/android/**/gradle-wrapper.jar
 .gradle/
+.kotlin/
 **/android/captures/
 **/android/gradlew
 **/android/gradlew.bat
