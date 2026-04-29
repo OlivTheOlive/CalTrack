@@ -147,8 +147,24 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ steps.ver.outputs.version_name }}"
-          git push origin "v${{ steps.ver.outputs.version_name }}"
+
+          TAG="v${{ steps.ver.outputs.version_name }}"
+          HEAD="$(git rev-parse HEAD)"
+
+          # Retries / reruns may hit an existing tag from a previous publish on origin.
+          git fetch origin --tags --quiet 2>/dev/null || true
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            EXISTING="$(git rev-parse "$TAG^{commit}")"
+            if [ "$EXISTING" != "$HEAD" ]; then
+              echo "Tag $TAG already exists at $EXISTING but this release is at $HEAD; refuse to move tags." >&2
+              exit 1
+            fi
+            echo "Tag $TAG already points at current commit; skipping tag create/push."
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
 
       - name: Build release APK
         run: |
