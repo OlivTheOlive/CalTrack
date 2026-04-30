@@ -79,7 +79,7 @@ jobs:
       - name: Create pull request
         uses: peter-evans/create-pull-request@v8
         with:
-          commit-message: "chore(release): v${{ steps.bump.outputs.version_name }} [skip ci]"
+          commit-message: "chore(release): v${{ steps.bump.outputs.version_name }}"
           title: "chore(release): v${{ steps.bump.outputs.version_name }}"
           body: |
             Automated `pubspec.yaml` version bump.
