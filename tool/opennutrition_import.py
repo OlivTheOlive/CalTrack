@@ -61,6 +61,49 @@ def nutrition_from_json(raw: str) -> tuple[float, float, float, float]:
     return (kcal, protein, carbs, fat)
 
 
+def serving_from_json(raw: str) -> tuple[str | None, float | None]:
+    """Extract ``(common_label, grams_per_serving)`` from OpenNutrition's
+    ``serving`` JSON blob.
+
+    Shape is typically ``{"common": {"unit": "large egg", "quantity": 1},
+    "metric": {"unit": "g", "quantity": 50}}``. We only trust metric weights
+    (grams); rows where the metric unit is not ``g`` are ignored so the
+    downstream scaling math stays mass-based.
+
+    Returns ``(None, None)`` when nothing useful can be extracted.
+    """
+    if not raw or not raw.strip():
+        return (None, None)
+    try:
+        j = json.loads(raw)
+    except json.JSONDecodeError:
+        return (None, None)
+    if not isinstance(j, dict):
+        return (None, None)
+    metric = j.get("metric") if isinstance(j.get("metric"), dict) else None
+    common = j.get("common") if isinstance(j.get("common"), dict) else None
+    grams: float | None = None
+    if metric is not None:
+        unit = (metric.get("unit") or "").strip().lower()
+        qty = metric.get("quantity")
+        if unit == "g" and isinstance(qty, (int, float)) and qty > 0:
+            grams = float(qty)
+    label: str | None = None
+    if common is not None:
+        cu = (common.get("unit") or "").strip()
+        cq = common.get("quantity")
+        if cu:
+            if isinstance(cq, (int, float)) and cq and cq != 1:
+                # e.g. "5 quail eggs"
+                if cq == int(cq):
+                    label = f"{int(cq)} {cu}"
+                else:
+                    label = f"{cq} {cu}"
+            else:
+                label = cu
+    return (label, grams)
+
+
 def alternate_names_list(alternate_raw: str) -> list[str]:
     if not alternate_raw or not alternate_raw.strip():
         return []
@@ -418,6 +461,55 @@ def score_row_quality(row: dict, *, allow_hits: list[str], deny_hits: list[str])
     return score
 
 
+def load_groups_config(path: Path) -> dict:
+    """Load a food-groups config from [path]. Accepts JSON and a tiny
+    YAML subset (key: value, nested lists/maps) via PyYAML when
+    installed; silently returns an empty config when the file is
+    missing so ``--clean`` runs still work.
+
+    Expected shape:
+
+    ```
+    groups:
+      eggs:
+        label: "Eggs"
+        canonical_food_id: fd_F2MYJuH8UsE9
+        members:
+          - food_id: fd_fuy6e0gd67DQ
+            preset_label: "Small egg"
+            grams: 38
+          - food_id: fd_F2MYJuH8UsE9
+            preset_label: "Large egg"
+            grams: 50
+            is_default: true
+    ```
+    """
+    if not path.is_file():
+        return {"groups": {}}
+    text = path.read_text(encoding="utf-8")
+    # Try JSON first (always available).
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        pass
+    # Fallback to PyYAML if available.
+    try:
+        import yaml  # type: ignore
+    except ImportError:
+        print(
+            f"warning: {path} is not JSON and PyYAML is not installed; "
+            "ignoring groups config",
+            file=sys.stderr,
+        )
+        return {"groups": {}}
+    parsed = yaml.safe_load(text)
+    if not isinstance(parsed, dict):
+        return {"groups": {}}
+    return parsed
+
+
 def main() -> int:
     root = Path(__file__).resolve().parent.parent
     default_tsv = root / "opennutrition-dataset-2025" / "opennutrition_foods.tsv"
@@ -472,11 +564,31 @@ def main() -> int:
         help="Hard cap on borderline rows sent to the LLM (0 = no cap).",
     )
 
+    ap.add_argument(
+        "--groups-config",
+        type=Path,
+        default=None,
+        help="Optional YAML/JSON file defining food groups (aggregations "
+             "like eggs -> Small/Medium/Large/XL/Jumbo presets). JSON is "
+             "always accepted; YAML requires PyYAML (stdlib fallback reads "
+             "JSON only).",
+    )
+
     args = ap.parse_args()
 
     if not args.tsv.is_file():
         print(f"Missing TSV: {args.tsv}", file=sys.stderr)
         return 1
+
+    # Default groups config lives next to the importer. Prefer JSON
+    # (stdlib-readable); fall back to YAML if only YAML is present.
+    if args.groups_config is not None:
+        groups_config_path = args.groups_config
+    else:
+        json_path = root / "tool" / "food_groups.json"
+        yaml_path = root / "tool" / "food_groups.yaml"
+        groups_config_path = json_path if json_path.is_file() else yaml_path
+    groups_spec = load_groups_config(groups_config_path)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     if args.out.exists():
@@ -506,6 +618,43 @@ def main() -> int:
           search_text,
           tokenize = 'unicode61 remove_diacritics 1'
         );
+
+        -- Serving presets (e.g. "1 large egg = 50 g"). Multiple rows per
+        -- food are allowed; ``is_default`` marks the row the UI should
+        -- preselect. ``sort_order`` is ascending display order.
+        CREATE TABLE food_servings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          food_id TEXT NOT NULL,
+          label TEXT NOT NULL,
+          grams REAL NOT NULL,
+          is_default INTEGER NOT NULL DEFAULT 0,
+          sort_order INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX idx_servings_food ON food_servings(food_id);
+
+        -- Logical grouping of multiple catalog rows under one user-facing
+        -- entry (e.g. collapse Small/Medium/Large/Jumbo Eggs into "Eggs").
+        CREATE TABLE food_groups (
+          id TEXT PRIMARY KEY NOT NULL,
+          label TEXT NOT NULL,
+          canonical_food_id TEXT NOT NULL
+        );
+
+        -- A member row binds one catalog food id to a group, optionally
+        -- carrying its own preset label & gram weight (so a single group
+        -- can expose "Extra large egg · 56 g" even when only Large/Jumbo
+        -- exist as catalog rows).
+        CREATE TABLE food_group_members (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          group_id TEXT NOT NULL,
+          food_id TEXT NOT NULL,
+          preset_label TEXT,
+          grams REAL,
+          is_default INTEGER NOT NULL DEFAULT 0,
+          sort_order INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX idx_group_members_group ON food_group_members(group_id);
+        CREATE INDEX idx_group_members_food ON food_group_members(food_id);
         """
     )
 
@@ -514,6 +663,17 @@ def main() -> int:
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
     insert_fts = "INSERT INTO foods_fts (food_id, search_text) VALUES (?, ?)"
+    insert_serving = (
+        "INSERT INTO food_servings (food_id, label, grams, is_default, sort_order) "
+        "VALUES (?, ?, ?, ?, ?)"
+    )
+    insert_group = (
+        "INSERT INTO food_groups (id, label, canonical_food_id) VALUES (?, ?, ?)"
+    )
+    insert_group_member = (
+        "INSERT INTO food_group_members (group_id, food_id, preset_label, grams, is_default, sort_order) "
+        "VALUES (?, ?, ?, ?, ?, ?)"
+    )
 
     counters: Counter[str] = Counter()
     deny_token_counts: Counter[str] = Counter()
@@ -546,6 +706,9 @@ def main() -> int:
 
             ean = (row.get("ean_13") or "").strip() or None
             kcal, p, c, fa = nutrition_from_json(row.get("nutrition_100g") or "")
+            serving_label, grams_per_serving = serving_from_json(
+                row.get("serving") or ""
+            )
 
             sane, sane_reason = macros_within_bounds(
                 kcal, p, c, fa,
@@ -590,6 +753,8 @@ def main() -> int:
                 "allow_hits": allow_hits,
                 "labels": labels_list(row.get("labels") or ""),
                 "is_liquid": False,
+                "serving_label": serving_label,
+                "grams_per_serving": grams_per_serving,
             }
             entry["is_liquid"] = is_liquid_food(name=name, labels=entry["labels"])
 
@@ -681,6 +846,72 @@ def main() -> int:
     if batch_foods:
         conn.executemany(insert_food, batch_foods)
         conn.executemany(insert_fts, batch_fts)
+
+    # Insert per-food servings harvested from the TSV ``serving`` JSON.
+    retained_ids = {e["id"] for e in retained}
+    serving_rows: list[tuple] = []
+    for entry in retained:
+        label = entry.get("serving_label")
+        grams = entry.get("grams_per_serving")
+        if not label or not grams or grams <= 0:
+            continue
+        # Use the natural language label ("1 large egg") so the UI can
+        # render it verbatim. Stored with is_default=1 since it's the
+        # only serving the importer knows for this food.
+        serving_rows.append((entry["id"], label, float(grams), 1, 0))
+    if serving_rows:
+        conn.executemany(insert_serving, serving_rows)
+    counters["servings_from_tsv"] = len(serving_rows)
+
+    # Insert curated food groups. Members reference retained catalog ids.
+    groups_inserted = 0
+    members_inserted = 0
+    missing_members: list[str] = []
+    for gid, gspec in (groups_spec.get("groups") or {}).items():
+        if not isinstance(gspec, dict):
+            continue
+        canonical = (gspec.get("canonical_food_id") or "").strip()
+        label = (gspec.get("label") or gid).strip()
+        if not canonical or canonical not in retained_ids:
+            missing_members.append(f"group:{gid} canonical={canonical}")
+            continue
+        members = gspec.get("members") or []
+        if not isinstance(members, list) or not members:
+            continue
+        conn.execute(insert_group, (gid, label, canonical))
+        groups_inserted += 1
+        for idx, m in enumerate(members):
+            if not isinstance(m, dict):
+                continue
+            fid = (m.get("food_id") or "").strip()
+            if not fid or fid not in retained_ids:
+                missing_members.append(
+                    f"group:{gid} member_food_id={fid}"
+                )
+                continue
+            preset_label = m.get("preset_label")
+            grams_override = m.get("grams")
+            is_default = 1 if m.get("is_default") else 0
+            sort_order = int(m.get("sort_order") or idx)
+            conn.execute(
+                insert_group_member,
+                (
+                    gid,
+                    fid,
+                    preset_label,
+                    float(grams_override) if grams_override is not None else None,
+                    is_default,
+                    sort_order,
+                ),
+            )
+            members_inserted += 1
+    counters["groups_inserted"] = groups_inserted
+    counters["group_members_inserted"] = members_inserted
+    if missing_members:
+        counters["group_missing_members"] = len(missing_members)
+        # Only print the first few so the console stays usable.
+        for m in missing_members[:8]:
+            print(f"warning: skipped {m}", file=sys.stderr)
 
     counters["retained"] = len(retained)
     conn.execute("ANALYZE")

@@ -1563,12 +1563,36 @@ class $FoodPrefsTable extends FoodPrefs
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _lastServingLabelMeta = const VerificationMeta(
+    'lastServingLabel',
+  );
+  @override
+  late final GeneratedColumn<String> lastServingLabel = GeneratedColumn<String>(
+    'last_serving_label',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastServingQtyMeta = const VerificationMeta(
+    'lastServingQty',
+  );
+  @override
+  late final GeneratedColumn<double> lastServingQty = GeneratedColumn<double>(
+    'last_serving_qty',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     foodKey,
     treatAsLiquid,
     savedServingAmount,
     savedServingUnit,
+    lastServingLabel,
+    lastServingQty,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1617,6 +1641,24 @@ class $FoodPrefsTable extends FoodPrefs
         ),
       );
     }
+    if (data.containsKey('last_serving_label')) {
+      context.handle(
+        _lastServingLabelMeta,
+        lastServingLabel.isAcceptableOrUnknown(
+          data['last_serving_label']!,
+          _lastServingLabelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_serving_qty')) {
+      context.handle(
+        _lastServingQtyMeta,
+        lastServingQty.isAcceptableOrUnknown(
+          data['last_serving_qty']!,
+          _lastServingQtyMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1642,6 +1684,14 @@ class $FoodPrefsTable extends FoodPrefs
         DriftSqlType.string,
         data['${effectivePrefix}saved_serving_unit'],
       ),
+      lastServingLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_serving_label'],
+      ),
+      lastServingQty: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}last_serving_qty'],
+      ),
     );
   }
 
@@ -1664,11 +1714,23 @@ class FoodPref extends DataClass implements Insertable<FoodPref> {
 
   /// 'g' | 'ml'
   final String? savedServingUnit;
+
+  /// Last-used serving preset label (e.g. "Large egg") for catalog foods
+  /// that expose per-piece presets. Null when the user last logged by
+  /// grams or when the food has no presets. Paired with
+  /// [lastServingQty] to reconstruct "2 × Large egg".
+  final String? lastServingLabel;
+
+  /// Quantity of [lastServingLabel] used on the most recent log. E.g.
+  /// 2.0 for "2 large eggs". Null when presets weren't used.
+  final double? lastServingQty;
   const FoodPref({
     required this.foodKey,
     this.treatAsLiquid,
     this.savedServingAmount,
     this.savedServingUnit,
+    this.lastServingLabel,
+    this.lastServingQty,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1682,6 +1744,12 @@ class FoodPref extends DataClass implements Insertable<FoodPref> {
     }
     if (!nullToAbsent || savedServingUnit != null) {
       map['saved_serving_unit'] = Variable<String>(savedServingUnit);
+    }
+    if (!nullToAbsent || lastServingLabel != null) {
+      map['last_serving_label'] = Variable<String>(lastServingLabel);
+    }
+    if (!nullToAbsent || lastServingQty != null) {
+      map['last_serving_qty'] = Variable<double>(lastServingQty);
     }
     return map;
   }
@@ -1698,6 +1766,12 @@ class FoodPref extends DataClass implements Insertable<FoodPref> {
       savedServingUnit: savedServingUnit == null && nullToAbsent
           ? const Value.absent()
           : Value(savedServingUnit),
+      lastServingLabel: lastServingLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastServingLabel),
+      lastServingQty: lastServingQty == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastServingQty),
     );
   }
 
@@ -1713,6 +1787,8 @@ class FoodPref extends DataClass implements Insertable<FoodPref> {
         json['savedServingAmount'],
       ),
       savedServingUnit: serializer.fromJson<String?>(json['savedServingUnit']),
+      lastServingLabel: serializer.fromJson<String?>(json['lastServingLabel']),
+      lastServingQty: serializer.fromJson<double?>(json['lastServingQty']),
     );
   }
   @override
@@ -1723,6 +1799,8 @@ class FoodPref extends DataClass implements Insertable<FoodPref> {
       'treatAsLiquid': serializer.toJson<bool?>(treatAsLiquid),
       'savedServingAmount': serializer.toJson<double?>(savedServingAmount),
       'savedServingUnit': serializer.toJson<String?>(savedServingUnit),
+      'lastServingLabel': serializer.toJson<String?>(lastServingLabel),
+      'lastServingQty': serializer.toJson<double?>(lastServingQty),
     };
   }
 
@@ -1731,6 +1809,8 @@ class FoodPref extends DataClass implements Insertable<FoodPref> {
     Value<bool?> treatAsLiquid = const Value.absent(),
     Value<double?> savedServingAmount = const Value.absent(),
     Value<String?> savedServingUnit = const Value.absent(),
+    Value<String?> lastServingLabel = const Value.absent(),
+    Value<double?> lastServingQty = const Value.absent(),
   }) => FoodPref(
     foodKey: foodKey ?? this.foodKey,
     treatAsLiquid: treatAsLiquid.present
@@ -1742,6 +1822,12 @@ class FoodPref extends DataClass implements Insertable<FoodPref> {
     savedServingUnit: savedServingUnit.present
         ? savedServingUnit.value
         : this.savedServingUnit,
+    lastServingLabel: lastServingLabel.present
+        ? lastServingLabel.value
+        : this.lastServingLabel,
+    lastServingQty: lastServingQty.present
+        ? lastServingQty.value
+        : this.lastServingQty,
   );
   FoodPref copyWithCompanion(FoodPrefsCompanion data) {
     return FoodPref(
@@ -1755,6 +1841,12 @@ class FoodPref extends DataClass implements Insertable<FoodPref> {
       savedServingUnit: data.savedServingUnit.present
           ? data.savedServingUnit.value
           : this.savedServingUnit,
+      lastServingLabel: data.lastServingLabel.present
+          ? data.lastServingLabel.value
+          : this.lastServingLabel,
+      lastServingQty: data.lastServingQty.present
+          ? data.lastServingQty.value
+          : this.lastServingQty,
     );
   }
 
@@ -1764,14 +1856,22 @@ class FoodPref extends DataClass implements Insertable<FoodPref> {
           ..write('foodKey: $foodKey, ')
           ..write('treatAsLiquid: $treatAsLiquid, ')
           ..write('savedServingAmount: $savedServingAmount, ')
-          ..write('savedServingUnit: $savedServingUnit')
+          ..write('savedServingUnit: $savedServingUnit, ')
+          ..write('lastServingLabel: $lastServingLabel, ')
+          ..write('lastServingQty: $lastServingQty')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(foodKey, treatAsLiquid, savedServingAmount, savedServingUnit);
+  int get hashCode => Object.hash(
+    foodKey,
+    treatAsLiquid,
+    savedServingAmount,
+    savedServingUnit,
+    lastServingLabel,
+    lastServingQty,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1779,7 +1879,9 @@ class FoodPref extends DataClass implements Insertable<FoodPref> {
           other.foodKey == this.foodKey &&
           other.treatAsLiquid == this.treatAsLiquid &&
           other.savedServingAmount == this.savedServingAmount &&
-          other.savedServingUnit == this.savedServingUnit);
+          other.savedServingUnit == this.savedServingUnit &&
+          other.lastServingLabel == this.lastServingLabel &&
+          other.lastServingQty == this.lastServingQty);
 }
 
 class FoodPrefsCompanion extends UpdateCompanion<FoodPref> {
@@ -1787,12 +1889,16 @@ class FoodPrefsCompanion extends UpdateCompanion<FoodPref> {
   final Value<bool?> treatAsLiquid;
   final Value<double?> savedServingAmount;
   final Value<String?> savedServingUnit;
+  final Value<String?> lastServingLabel;
+  final Value<double?> lastServingQty;
   final Value<int> rowid;
   const FoodPrefsCompanion({
     this.foodKey = const Value.absent(),
     this.treatAsLiquid = const Value.absent(),
     this.savedServingAmount = const Value.absent(),
     this.savedServingUnit = const Value.absent(),
+    this.lastServingLabel = const Value.absent(),
+    this.lastServingQty = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FoodPrefsCompanion.insert({
@@ -1800,6 +1906,8 @@ class FoodPrefsCompanion extends UpdateCompanion<FoodPref> {
     this.treatAsLiquid = const Value.absent(),
     this.savedServingAmount = const Value.absent(),
     this.savedServingUnit = const Value.absent(),
+    this.lastServingLabel = const Value.absent(),
+    this.lastServingQty = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : foodKey = Value(foodKey);
   static Insertable<FoodPref> custom({
@@ -1807,6 +1915,8 @@ class FoodPrefsCompanion extends UpdateCompanion<FoodPref> {
     Expression<bool>? treatAsLiquid,
     Expression<double>? savedServingAmount,
     Expression<String>? savedServingUnit,
+    Expression<String>? lastServingLabel,
+    Expression<double>? lastServingQty,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1815,6 +1925,8 @@ class FoodPrefsCompanion extends UpdateCompanion<FoodPref> {
       if (savedServingAmount != null)
         'saved_serving_amount': savedServingAmount,
       if (savedServingUnit != null) 'saved_serving_unit': savedServingUnit,
+      if (lastServingLabel != null) 'last_serving_label': lastServingLabel,
+      if (lastServingQty != null) 'last_serving_qty': lastServingQty,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1824,6 +1936,8 @@ class FoodPrefsCompanion extends UpdateCompanion<FoodPref> {
     Value<bool?>? treatAsLiquid,
     Value<double?>? savedServingAmount,
     Value<String?>? savedServingUnit,
+    Value<String?>? lastServingLabel,
+    Value<double?>? lastServingQty,
     Value<int>? rowid,
   }) {
     return FoodPrefsCompanion(
@@ -1831,6 +1945,8 @@ class FoodPrefsCompanion extends UpdateCompanion<FoodPref> {
       treatAsLiquid: treatAsLiquid ?? this.treatAsLiquid,
       savedServingAmount: savedServingAmount ?? this.savedServingAmount,
       savedServingUnit: savedServingUnit ?? this.savedServingUnit,
+      lastServingLabel: lastServingLabel ?? this.lastServingLabel,
+      lastServingQty: lastServingQty ?? this.lastServingQty,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1850,6 +1966,12 @@ class FoodPrefsCompanion extends UpdateCompanion<FoodPref> {
     if (savedServingUnit.present) {
       map['saved_serving_unit'] = Variable<String>(savedServingUnit.value);
     }
+    if (lastServingLabel.present) {
+      map['last_serving_label'] = Variable<String>(lastServingLabel.value);
+    }
+    if (lastServingQty.present) {
+      map['last_serving_qty'] = Variable<double>(lastServingQty.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1863,6 +1985,8 @@ class FoodPrefsCompanion extends UpdateCompanion<FoodPref> {
           ..write('treatAsLiquid: $treatAsLiquid, ')
           ..write('savedServingAmount: $savedServingAmount, ')
           ..write('savedServingUnit: $savedServingUnit, ')
+          ..write('lastServingLabel: $lastServingLabel, ')
+          ..write('lastServingQty: $lastServingQty, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4094,6 +4218,8 @@ typedef $$FoodPrefsTableCreateCompanionBuilder =
       Value<bool?> treatAsLiquid,
       Value<double?> savedServingAmount,
       Value<String?> savedServingUnit,
+      Value<String?> lastServingLabel,
+      Value<double?> lastServingQty,
       Value<int> rowid,
     });
 typedef $$FoodPrefsTableUpdateCompanionBuilder =
@@ -4102,6 +4228,8 @@ typedef $$FoodPrefsTableUpdateCompanionBuilder =
       Value<bool?> treatAsLiquid,
       Value<double?> savedServingAmount,
       Value<String?> savedServingUnit,
+      Value<String?> lastServingLabel,
+      Value<double?> lastServingQty,
       Value<int> rowid,
     });
 
@@ -4131,6 +4259,16 @@ class $$FoodPrefsTableFilterComposer
 
   ColumnFilters<String> get savedServingUnit => $composableBuilder(
     column: $table.savedServingUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastServingLabel => $composableBuilder(
+    column: $table.lastServingLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get lastServingQty => $composableBuilder(
+    column: $table.lastServingQty,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4163,6 +4301,16 @@ class $$FoodPrefsTableOrderingComposer
     column: $table.savedServingUnit,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get lastServingLabel => $composableBuilder(
+    column: $table.lastServingLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get lastServingQty => $composableBuilder(
+    column: $table.lastServingQty,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FoodPrefsTableAnnotationComposer
@@ -4189,6 +4337,16 @@ class $$FoodPrefsTableAnnotationComposer
 
   GeneratedColumn<String> get savedServingUnit => $composableBuilder(
     column: $table.savedServingUnit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastServingLabel => $composableBuilder(
+    column: $table.lastServingLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get lastServingQty => $composableBuilder(
+    column: $table.lastServingQty,
     builder: (column) => column,
   );
 }
@@ -4225,12 +4383,16 @@ class $$FoodPrefsTableTableManager
                 Value<bool?> treatAsLiquid = const Value.absent(),
                 Value<double?> savedServingAmount = const Value.absent(),
                 Value<String?> savedServingUnit = const Value.absent(),
+                Value<String?> lastServingLabel = const Value.absent(),
+                Value<double?> lastServingQty = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FoodPrefsCompanion(
                 foodKey: foodKey,
                 treatAsLiquid: treatAsLiquid,
                 savedServingAmount: savedServingAmount,
                 savedServingUnit: savedServingUnit,
+                lastServingLabel: lastServingLabel,
+                lastServingQty: lastServingQty,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4239,12 +4401,16 @@ class $$FoodPrefsTableTableManager
                 Value<bool?> treatAsLiquid = const Value.absent(),
                 Value<double?> savedServingAmount = const Value.absent(),
                 Value<String?> savedServingUnit = const Value.absent(),
+                Value<String?> lastServingLabel = const Value.absent(),
+                Value<double?> lastServingQty = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FoodPrefsCompanion.insert(
                 foodKey: foodKey,
                 treatAsLiquid: treatAsLiquid,
                 savedServingAmount: savedServingAmount,
                 savedServingUnit: savedServingUnit,
+                lastServingLabel: lastServingLabel,
+                lastServingQty: lastServingQty,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

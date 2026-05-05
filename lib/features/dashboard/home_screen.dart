@@ -857,15 +857,37 @@ class _FoodLogTile extends StatelessWidget {
     double f100 = entry.grams > 0 ? entry.fatG * 100 / entry.grams : 0;
     var unitLabel = 'g';
 
+    String displayName = entry.displayName;
+    String? catalogFoodId = entry.catalogFoodId;
+    List<CatalogGroupPreset> presets = const [];
+    String? initialPresetLabel;
+    double? initialPresetQty;
+
     final id = entry.catalogFoodId;
     if (id != null) {
       final catalog = context.read<OpenNutritionCatalog>();
       final food = await catalog.byId(id);
-      if (food != null) {
-        kcal100 = food.kcalPer100g;
-        p100 = food.proteinPer100g;
-        c100 = food.carbsPer100g;
-        f100 = food.fatPer100g;
+      final group = await catalog.groupForFood(id);
+      // When the logged row is part of a group, re-render via the
+      // canonical food so the same macros + presets list back the sheet.
+      final canonical = (group != null && group.canonicalFoodId != id)
+          ? await catalog.byId(group.canonicalFoodId) ?? food
+          : food;
+      if (canonical != null) {
+        kcal100 = canonical.kcalPer100g;
+        p100 = canonical.proteinPer100g;
+        c100 = canonical.carbsPer100g;
+        f100 = canonical.fatPer100g;
+      }
+      if (group != null) {
+        displayName = group.label;
+        catalogFoodId = group.canonicalFoodId;
+        presets = group.presets;
+        final matched = group.presetForFoodId(id);
+        if (matched != null && matched.grams > 0) {
+          initialPresetLabel = matched.label;
+          initialPresetQty = entry.grams / matched.grams;
+        }
       }
     }
 
@@ -889,9 +911,9 @@ class _FoodLogTile extends StatelessWidget {
     await showFoodEntrySheet(
       context,
       FoodEntrySheetConfig(
-        displayName: entry.displayName,
+        displayName: displayName,
         source: entry.source,
-        catalogFoodId: entry.catalogFoodId,
+        catalogFoodId: catalogFoodId,
         customFoodId: entry.customFoodId,
         kcalPer100g: kcal100,
         proteinPer100g: p100,
@@ -903,6 +925,9 @@ class _FoodLogTile extends StatelessWidget {
         editingEntryId: entry.id,
         loggedAtForEdit: entry.loggedAt,
         unitLabel: unitLabel,
+        presets: presets,
+        initialPresetLabel: initialPresetLabel,
+        initialPresetQty: initialPresetQty,
       ),
     );
   }

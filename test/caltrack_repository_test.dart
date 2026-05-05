@@ -299,6 +299,32 @@ void main() {
           .get();
       expect(rows, isNotEmpty);
     });
+
+    test('setLastUsedServing persists label and quantity, then clears them',
+        () async {
+      const key = 'cat:fd_F2MYJuH8UsE9';
+      await repo.setLastUsedServing(
+        foodKey: key,
+        label: 'Large egg',
+        quantity: 2,
+      );
+      final saved = await repo.foodPrefByKey(key);
+      expect(saved, isNotNull);
+      expect(saved!.lastServingLabel, 'Large egg');
+      expect(saved.lastServingQty, 2);
+
+      // Clearing should null both columns without deleting the row
+      // (other prefs like treatAsLiquid may still live on it).
+      await repo.setLastUsedServing(
+        foodKey: key,
+        label: null,
+        quantity: null,
+      );
+      final cleared = await repo.foodPrefByKey(key);
+      expect(cleared, isNotNull);
+      expect(cleared!.lastServingLabel, equals(null));
+      expect(cleared.lastServingQty, equals(null));
+    });
   });
 }
 

@@ -1,0 +1,273 @@
+{
+  "_comment": "Curated food groups for opennutrition.sqlite. Each group collapses several catalog rows into one user-facing entry with size presets. canonical_food_id is the row whose macros & name back the group; members may reference the same id multiple times when one row should expose multiple preset labels (e.g. 'Large egg' & 'Extra large egg' both backed by fd_F2MYJuH8UsE9). See tool/opennutrition_import.py:load_groups_config for the full spec.",
+  "groups": {
+    "eggs": {
+      "label": "Eggs",
+      "canonical_food_id": "fd_F2MYJuH8UsE9",
+      "members": [
+        {
+          "food_id": "fd_fuy6e0gd67DQ",
+          "preset_label": "Small egg",
+          "grams": 38,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_w2I6dZ4BNwHT",
+          "preset_label": "Medium egg",
+          "grams": 44,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_F2MYJuH8UsE9",
+          "preset_label": "Large egg",
+          "grams": 50,
+          "is_default": true,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_F2MYJuH8UsE9",
+          "preset_label": "Extra large egg",
+          "grams": 56,
+          "sort_order": 3
+        },
+        {
+          "food_id": "fd_S2BbGfbOYbOw",
+          "preset_label": "Jumbo egg",
+          "grams": 63,
+          "sort_order": 4
+        }
+      ]
+    },
+
+    "banana": {
+      "_comment": "Fresh and frozen bananas share identical macros (89 kcal/100g). Preset = 1 medium whole banana.",
+      "label": "Banana",
+      "canonical_food_id": "fd_AjQa9nlOUTns",
+      "members": [
+        {
+          "food_id": "fd_AjQa9nlOUTns",
+          "preset_label": "1 medium banana",
+          "grams": 118,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_AjQa9nlOUTns",
+          "preset_label": "1 small banana",
+          "grams": 81,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_AjQa9nlOUTns",
+          "preset_label": "1 large banana",
+          "grams": 136,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_UO7rIeQjykUe",
+          "preset_label": "Frozen (1 medium)",
+          "grams": 118,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "butter": {
+      "_comment": "Salted and unsalted butter share identical macros. Preset = 1 tbsp.",
+      "label": "Butter",
+      "canonical_food_id": "fd_m9ZBHVV7vLtU",
+      "members": [
+        {
+          "food_id": "fd_m9ZBHVV7vLtU",
+          "preset_label": "Unsalted · 1 tbsp",
+          "grams": 14,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_m9ZBHVV7vLtU",
+          "preset_label": "Unsalted · 2 tbsp",
+          "grams": 28,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_fycPuybFqVcg",
+          "preset_label": "Salted · 1 tbsp",
+          "grams": 14,
+          "is_default": true,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_fycPuybFqVcg",
+          "preset_label": "Salted · 2 tbsp",
+          "grams": 28,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "oats": {
+      "_comment": "All oat types share near-identical macros (~375 kcal/100g, <3% spread). Canonical = Rolled Oats. Preset = ½ cup dry (40g).",
+      "label": "Oats",
+      "canonical_food_id": "fd_m82NffEwlO78",
+      "members": [
+        {
+          "food_id": "fd_m82NffEwlO78",
+          "preset_label": "Rolled oats · ½ cup",
+          "grams": 40,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_2fxDeqM0A8Cf",
+          "preset_label": "Quick oats · ½ cup",
+          "grams": 40,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_Mq4KdO6BH3dP",
+          "preset_label": "Old-fashioned oats · ½ cup",
+          "grams": 40,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_Pm3oWA0Gemky",
+          "preset_label": "Steel-cut oats · ¼ cup",
+          "grams": 40,
+          "sort_order": 3
+        },
+        {
+          "food_id": "fd_67uKLjaiZgw4",
+          "preset_label": "Whole oat groats · ¼ cup",
+          "grams": 45,
+          "sort_order": 4
+        }
+      ]
+    },
+
+    "white_rice": {
+      "_comment": "Long/Medium/Short grain white rice share near-identical macros (~362 kcal/100g, <2% spread). Canonical = Long Grain for neutrality. Preset = ¼ cup dry.",
+      "label": "White Rice",
+      "canonical_food_id": "fd_zuB8UN7NbpC7",
+      "members": [
+        {
+          "food_id": "fd_zuB8UN7NbpC7",
+          "preset_label": "Long grain · ¼ cup dry",
+          "grams": 45,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_XSd7Te973XKX",
+          "preset_label": "Medium grain · ¼ cup dry",
+          "grams": 50,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_o678OQU1af6D",
+          "preset_label": "Short grain · ¼ cup dry",
+          "grams": 45,
+          "sort_order": 2
+        }
+      ]
+    },
+
+    "brown_rice": {
+      "_comment": "Long/Medium/Short grain brown rice share near-identical macros (~360 kcal/100g, <5% spread). Canonical = Long Grain. Preset = ¼ cup dry.",
+      "label": "Brown Rice",
+      "canonical_food_id": "fd_d7GITvYkTJKX",
+      "members": [
+        {
+          "food_id": "fd_d7GITvYkTJKX",
+          "preset_label": "Long grain · ¼ cup dry",
+          "grams": 45,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_cfIRiXbIA5yL",
+          "preset_label": "Medium grain · ¼ cup dry",
+          "grams": 50,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_8tQvO5S8x3CV",
+          "preset_label": "Short grain · ¼ cup dry",
+          "grams": 45,
+          "sort_order": 2
+        }
+      ]
+    },
+
+    "cheddar": {
+      "_comment": "Mild/Sharp/Aged/Regular cheddar all ~407 kcal/100g (<1% spread). Canonical = generic Cheddar. Preset = 1 oz slice.",
+      "label": "Cheddar Cheese",
+      "canonical_food_id": "fd_jTATkrMc2qqj",
+      "members": [
+        {
+          "food_id": "fd_jTATkrMc2qqj",
+          "preset_label": "Cheddar · 1 oz",
+          "grams": 28,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_llBZxz9G6hd2",
+          "preset_label": "Mild cheddar · 1 oz",
+          "grams": 28,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_xvBlfw5ke5q0",
+          "preset_label": "Sharp cheddar · 1 oz",
+          "grams": 28,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_m0n6nKOKAXIw",
+          "preset_label": "Aged cheddar · 1 oz",
+          "grams": 28,
+          "sort_order": 3
+        },
+        {
+          "food_id": "fd_jTATkrMc2qqj",
+          "preset_label": "Cheddar · 2 oz",
+          "grams": 57,
+          "sort_order": 4
+        }
+      ]
+    },
+
+    "cottage_cheese": {
+      "_comment": "Large Curd / Small Curd / generic cottage cheese all ~103 kcal/100g (<5% spread). Canonical = generic. Preset = ½ cup.",
+      "label": "Cottage Cheese",
+      "canonical_food_id": "fd_UuDZjdYHGqOs",
+      "members": [
+        {
+          "food_id": "fd_UuDZjdYHGqOs",
+          "preset_label": "Cottage cheese · ½ cup",
+          "grams": 113,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_BABBxWrGmyzh",
+          "preset_label": "Large curd · ½ cup",
+          "grams": 113,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_NAq9yEdM6WjC",
+          "preset_label": "Small curd · ½ cup",
+          "grams": 113,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_UuDZjdYHGqOs",
+          "preset_label": "Cottage cheese · 1 cup",
+          "grams": 226,
+          "sort_order": 3
+        }
+      ]
+    }
+  }
+}

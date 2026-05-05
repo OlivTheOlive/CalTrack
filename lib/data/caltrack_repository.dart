@@ -183,6 +183,23 @@ class CalTrackRepository {
         );
   }
 
+  /// Persist the last-used group preset so the entry sheet can default
+  /// to "2 × Large egg" the next time the user opens this food. Pass
+  /// both values as null to clear the preference.
+  Future<void> setLastUsedServing({
+    required String foodKey,
+    required String? label,
+    required double? quantity,
+  }) async {
+    await _db.into(_db.foodPrefs).insertOnConflictUpdate(
+          FoodPrefsCompanion(
+            foodKey: Value(foodKey),
+            lastServingLabel: Value(label),
+            lastServingQty: Value(quantity),
+          ),
+        );
+  }
+
   Stream<List<WeightEntry>> watchWeightEntries() {
     final q = _db.select(_db.weightEntries)
       ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)]);
@@ -989,6 +1006,8 @@ class CalTrackRepository {
                 treatAsLiquid: Value(p.treatAsLiquid),
                 savedServingAmount: Value(p.savedServingAmount),
                 savedServingUnit: Value(p.savedServingUnit),
+                lastServingLabel: Value(p.lastServingLabel),
+                lastServingQty: Value(p.lastServingQty),
               ),
             );
       }

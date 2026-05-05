@@ -67,6 +67,16 @@ class FoodPrefs extends Table {
   /// 'g' | 'ml'
   TextColumn get savedServingUnit => text().nullable()();
 
+  /// Last-used serving preset label (e.g. "Large egg") for catalog foods
+  /// that expose per-piece presets. Null when the user last logged by
+  /// grams or when the food has no presets. Paired with
+  /// [lastServingQty] to reconstruct "2 × Large egg".
+  TextColumn get lastServingLabel => text().nullable()();
+
+  /// Quantity of [lastServingLabel] used on the most recent log. E.g.
+  /// 2.0 for "2 large eggs". Null when presets weren't used.
+  RealColumn get lastServingQty => real().nullable()();
+
   @override
   Set<Column<Object>>? get primaryKey => {foodKey};
 }
@@ -132,7 +142,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -165,6 +175,12 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.createTable(foodPrefs);
+          }
+          if (from < 6) {
+            // Remember the last-used group preset so the sheet can default
+            // to "2 × Large egg" on the next open.
+            await m.addColumn(foodPrefs, foodPrefs.lastServingLabel);
+            await m.addColumn(foodPrefs, foodPrefs.lastServingQty);
           }
         },
       );

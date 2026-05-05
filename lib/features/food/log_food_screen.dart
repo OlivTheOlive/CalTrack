@@ -170,27 +170,48 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
 
   Future<void> _openCatalogFood(
     CatalogFood food, {
-    double initialGrams = 100,
+    double? initialGrams,
+    String? initialPresetLabel,
+    double? initialPresetQty,
   }) async {
+    final catalog = context.read<OpenNutritionCatalog>();
+    final group = await catalog.groupForFood(food.id);
+    if (!mounted) return;
+    // When this food belongs to a group, render macros from the group's
+    // canonical row so size presets line up with one consistent set of
+    // per-100g numbers.
+    final canonical = (group != null && group.canonicalFoodId != food.id)
+        ? await catalog.byId(group.canonicalFoodId) ?? food
+        : food;
+    if (!mounted) return;
+    final displayName = group?.label ?? canonical.name;
+    final presets = group?.presets ?? const <CatalogGroupPreset>[];
+    final defaultPreset = group?.defaultPreset;
+    final resolvedInitialGrams = initialGrams ??
+        (defaultPreset != null ? defaultPreset.grams : 100.0);
+
     final action = await showFoodEntrySheet(
       context,
       FoodEntrySheetConfig(
-        displayName: food.name,
+        displayName: displayName,
         source: 'opennutrition',
-        catalogFoodId: food.id,
-        kcalPer100g: food.kcalPer100g,
-        proteinPer100g: food.proteinPer100g,
-        carbsPer100g: food.carbsPer100g,
-        fatPer100g: food.fatPer100g,
-        initialGrams: initialGrams,
+        catalogFoodId: canonical.id,
+        kcalPer100g: canonical.kcalPer100g,
+        proteinPer100g: canonical.proteinPer100g,
+        carbsPer100g: canonical.carbsPer100g,
+        fatPer100g: canonical.fatPer100g,
+        initialGrams: resolvedInitialGrams,
         showOpenNutritionAttribution: true,
         loggedAtForEdit: _initialLoggedAt(),
+        presets: presets,
+        initialPresetLabel: initialPresetLabel,
+        initialPresetQty: initialPresetQty,
       ),
     );
     if (!mounted || action == null) return;
     if (action == FoodEntryAction.added) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logged ${food.name}')),
+        SnackBar(content: Text('Logged $displayName')),
       );
     }
   }
@@ -203,7 +224,20 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
       final food = await catalog.byId(id);
       if (!mounted) return;
       if (food != null) {
-        await _openCatalogFood(food, initialGrams: entry.grams);
+        // If the original food belongs to a group, prefer the preset
+        // that maps to that exact catalog id so the user lands on the
+        // same size they picked last time (e.g. "Small egg").
+        final group = await catalog.groupForFood(id);
+        if (!mounted) return;
+        final matched = group?.presetForFoodId(id);
+        await _openCatalogFood(
+          food,
+          initialGrams: entry.grams,
+          initialPresetLabel: matched?.label,
+          initialPresetQty: matched != null && matched.grams > 0
+              ? (entry.grams / matched.grams)
+              : null,
+        );
         return;
       }
     }
@@ -429,6 +463,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                     leading: _FoodEmojiAvatar(name: f.name),
                     title: Text(f.name),
                     subtitle: Text('${f.kcalPer100g.round()} kcal / 100 g'),
+                    trailing: _GroupSizesBadge(foodId: f.id),
                     onTap: () => _openCatalogFood(f),
                   ),
                 ),
@@ -471,6 +506,42 @@ class _FoodEmojiAvatar extends StatelessWidget {
               size: 18,
               color: scheme.onSurfaceVariant,
             ),
+    );
+  }
+}
+
+/// Small badge that fetches the group attached to a catalog food and
+/// shows "N sizes" when there are at least 2 presets. Silent otherwise.
+class _GroupSizesBadge extends StatelessWidget {
+  const _GroupSizesBadge({required this.foodId});
+
+  final String foodId;
+
+  @override
+  Widget build(BuildContext context) {
+    final catalog = context.read<OpenNutritionCatalog>();
+    return FutureBuilder<CatalogFoodGroup?>(
+      future: catalog.groupForFood(foodId),
+      builder: (context, snap) {
+        final group = snap.data;
+        if (group == null || group.presets.length < 2) {
+          return const SizedBox.shrink();
+        }
+        final theme = Theme.of(context);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '${group.presets.length} sizes',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSecondaryContainer,
+            ),
+          ),
+        );
+      },
     );
   }
 }
