@@ -666,6 +666,17 @@ class CalTrackRepository {
     );
   }
 
+  /// Updates just the display name of a log entry. Used by quick-add edit
+  /// mode since [updateFoodLog] does not touch the display name column.
+  Future<void> updateQuickAddName({
+    required int id,
+    required String displayName,
+  }) async {
+    await (_db.update(_db.foodLogEntries)..where((t) => t.id.equals(id))).write(
+      FoodLogEntriesCompanion(displayName: Value(displayName)),
+    );
+  }
+
   Future<int> addFoodLogReturnId({
     required String source,
     String? catalogFoodId,
@@ -738,6 +749,8 @@ class CalTrackRepository {
     final seen = <String>{};
     final out = <FoodLogEntry>[];
     for (final r in rows) {
+      // Quick-add entries are raw calorie estimates, not reusable food items.
+      if (r.source == 'quick') continue;
       final key = foodLogKey(r);
       if (seen.contains(key)) continue;
       seen.add(key);
@@ -762,6 +775,7 @@ class CalTrackRepository {
         .get();
     final out = <String, int>{};
     for (final r in rows) {
+      if (r.source == 'quick') continue; // estimates are not reusable foods
       final k = foodLogKey(r);
       out.update(k, (v) => v + 1, ifAbsent: () => 1);
     }

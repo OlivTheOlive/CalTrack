@@ -6,6 +6,7 @@ import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/features/food/food_entry_sheet.dart';
+import 'package:caltrack/features/food/quick_add_sheet.dart';
 import 'package:caltrack/widgets/goal_choice_sheet.dart';
 import 'package:caltrack/widgets/goal_editor_sheet.dart';
 import 'package:flutter/material.dart';
@@ -800,15 +801,45 @@ class _TodayFoodLogCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    FilledButton.tonalIcon(
-                      onPressed: () {
-                        final path = isToday
-                            ? '/log-food'
-                            : '/log-food?day=${_formatDayParam(selectedDay)}';
-                        context.push(path);
-                      },
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add'),
+                    // Quick add + full food log buttons
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.bolt_rounded, size: 20),
+                          tooltip: 'Quick add',
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(40, 40),
+                          ),
+                          onPressed: () async {
+                            // Snap to noon on past days so the entry falls
+                            // inside the correct day bounds.
+                            final loggedAt = isToday
+                                ? null
+                                : DateTime(
+                                    selectedDay.year,
+                                    selectedDay.month,
+                                    selectedDay.day,
+                                    12,
+                                  );
+                            await showQuickAddSheet(
+                              context,
+                              loggedAt: loggedAt,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.tonalIcon(
+                          onPressed: () {
+                            final path = isToday
+                                ? '/log-food'
+                                : '/log-food?day=${_formatDayParam(selectedDay)}';
+                            context.push(path);
+                          },
+                          icon: const Icon(Icons.search_rounded, size: 18),
+                          label: const Text('Search'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -849,6 +880,13 @@ class _FoodLogTile extends StatelessWidget {
   final CalTrackRepository repo;
 
   Future<void> _openEdit(BuildContext context) async {
+    // Quick-add entries are calorie estimates, not food items — reopen the
+    // quick-add sheet instead of the food entry sheet.
+    if (entry.source == 'quick') {
+      await showQuickAddSheet(context, editingEntry: entry);
+      return;
+    }
+
     double kcal100 = entry.grams > 0 ? entry.kcal * 100 / entry.grams : 0;
     double p100 = entry.grams > 0 ? entry.proteinG * 100 / entry.grams : 0;
     double c100 = entry.grams > 0 ? entry.carbsG * 100 / entry.grams : 0;
@@ -993,16 +1031,25 @@ class _FoodLogTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${entry.grams.round()} g · $time'),
-              const SizedBox(height: 2),
               Text(
-                'P ${entry.proteinG.round()}g · '
-                'C ${entry.carbsG.round()}g · '
-                'F ${entry.fatG.round()}g',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                entry.source == 'quick'
+                    ? 'Estimated · $time'
+                    : '${entry.grams.round()} g · $time',
               ),
+              if (entry.source != 'quick' ||
+                  entry.proteinG > 0 ||
+                  entry.carbsG > 0 ||
+                  entry.fatG > 0) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'P ${entry.proteinG.round()}g · '
+                  'C ${entry.carbsG.round()}g · '
+                  'F ${entry.fatG.round()}g',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

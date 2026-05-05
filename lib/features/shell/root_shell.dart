@@ -1,4 +1,5 @@
 import 'package:caltrack/features/dashboard/home_screen.dart';
+import 'package:caltrack/features/food/quick_add_sheet.dart';
 import 'package:caltrack/features/weight/weight_analytics_tab.dart';
 import 'package:caltrack/widgets/log_fab_menu.dart';
 import 'package:flutter/material.dart';
@@ -111,6 +112,17 @@ class _RootShellState extends State<RootShell>
         onLogWeight: () {
           _closeFabMenu();
           context.push('/log-weight');
+        },
+        onQuickAdd: () async {
+          _closeFabMenu();
+          // FAB has no day context — always logs to now (today).
+          final messenger = ScaffoldMessenger.of(context);
+          final logged = await showQuickAddSheet(context);
+          if (logged && mounted) {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Entry added')),
+            );
+          }
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

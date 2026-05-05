@@ -325,6 +325,54 @@ void main() {
       expect(cleared!.lastServingLabel, equals(null));
       expect(cleared.lastServingQty, equals(null));
     });
+
+    test('quick-add entry saved with source=quick and grams=100', () async {
+      await repo.addFoodLog(
+        source: 'quick',
+        displayName: 'Pizza slice',
+        grams: 100,
+        kcal: 285,
+        proteinG: 12,
+        carbsG: 36,
+        fatG: 10,
+        loggedAt: DateTime(2026, 5, 4, 13),
+      );
+
+      final entries = await db.select(db.foodLogEntries).get();
+      expect(entries, hasLength(1));
+      final e = entries.first;
+      expect(e.source, 'quick');
+      expect(e.displayName, 'Pizza slice');
+      expect(e.grams, 100);
+      expect(e.kcal, 285);
+      expect(e.proteinG, 12);
+      expect(e.carbsG, 36);
+      expect(e.fatG, 10);
+      // No catalog or custom id attached.
+      expect(e.catalogFoodId, equals(null));
+      expect(e.customFoodId, equals(null));
+    });
+
+    test('quick-add with calories only (macros default to 0)', () async {
+      await repo.addFoodLog(
+        source: 'quick',
+        displayName: 'Handful of nuts',
+        grams: 100,
+        kcal: 180,
+        proteinG: 0,
+        carbsG: 0,
+        fatG: 0,
+        loggedAt: DateTime(2026, 5, 4, 14),
+      );
+
+      final entries = await db.select(db.foodLogEntries).get();
+      expect(entries, hasLength(1));
+      final e = entries.first;
+      expect(e.kcal, 180);
+      expect(e.proteinG, 0);
+      expect(e.carbsG, 0);
+      expect(e.fatG, 0);
+    });
   });
 }
 

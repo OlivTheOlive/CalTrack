@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Material 3 expandable FAB menu: a primary FAB that reveals smaller
-/// labeled FABs for adding food and weight entries.
+/// labeled FABs for quick-adding, adding food, and logging weight.
 class LogFabMenu extends StatelessWidget {
   const LogFabMenu({
     super.key,
@@ -10,6 +10,7 @@ class LogFabMenu extends StatelessWidget {
     required this.onToggle,
     required this.onLogFood,
     required this.onLogWeight,
+    required this.onQuickAdd,
   });
 
   final AnimationController controller;
@@ -17,6 +18,7 @@ class LogFabMenu extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback onLogFood;
   final VoidCallback onLogWeight;
+  final VoidCallback onQuickAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +28,7 @@ class LogFabMenu extends StatelessWidget {
       children: [
         _FabMenuItem(
           controller: controller,
-          index: 1,
+          index: 2,
           icon: Icons.monitor_weight_outlined,
           label: 'Log weight',
           heroTag: 'fab_menu_weight',
@@ -35,11 +37,20 @@ class LogFabMenu extends StatelessWidget {
         const SizedBox(height: 12),
         _FabMenuItem(
           controller: controller,
-          index: 0,
+          index: 1,
           icon: Icons.restaurant_menu_outlined,
           label: 'Log food',
           heroTag: 'fab_menu_food',
           onPressed: onLogFood,
+        ),
+        const SizedBox(height: 12),
+        _FabMenuItem(
+          controller: controller,
+          index: 0,
+          icon: Icons.bolt_rounded,
+          label: 'Quick add',
+          heroTag: 'fab_menu_quick',
+          onPressed: onQuickAdd,
         ),
         const SizedBox(height: 12),
         FloatingActionButton(
@@ -124,3 +135,4 @@ class _FabMenuItem extends StatelessWidget {
     );
   }
 }
+
