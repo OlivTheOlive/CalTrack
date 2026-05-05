@@ -8,8 +8,14 @@ import 'package:provider/provider.dart';
 
 /// Scans barcodes and returns either a [CatalogFood] or a [CustomFood] via
 /// [Navigator.pop], or redirects to the add-food form if not found.
+///
+/// When [rawMode] is true the screen skips catalog/custom lookups entirely
+/// and just returns the normalized EAN string. Used by the custom-food
+/// editor where the caller only needs the barcode digits.
 class BarcodeScanScreen extends StatefulWidget {
-  const BarcodeScanScreen({super.key});
+  const BarcodeScanScreen({super.key, this.rawMode = false});
+
+  final bool rawMode;
 
   @override
   State<BarcodeScanScreen> createState() => _BarcodeScanScreenState();
@@ -37,6 +43,12 @@ class _BarcodeScanScreenState extends State<BarcodeScanScreen> {
 
     setState(() => _handled = true);
     await _controller.stop();
+    if (!mounted) return;
+
+    if (widget.rawMode) {
+      Navigator.of(context).pop(normalized);
+      return;
+    }
 
     final custom = await repo.customFoodByBarcode(normalized);
     if (!mounted) return;
