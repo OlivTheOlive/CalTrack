@@ -240,7 +240,8 @@ class OpenNutritionCatalog {
       final gRows = db.select(
         '''
         SELECT g.id, g.label, g.canonical_food_id, f.name, f.ean,
-               f.kcal_100g, f.protein_100g, f.carbs_100g, f.fat_100g, f.is_liquid
+               f.kcal_100g, f.protein_100g, f.carbs_100g, f.fat_100g,
+               f.fiber_100g, f.sugar_100g, f.is_liquid
         FROM food_groups g
         JOIN foods f ON f.id = g.canonical_food_id
         WHERE g.id IN ($placeholders)
