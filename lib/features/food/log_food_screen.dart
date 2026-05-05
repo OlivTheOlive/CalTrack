@@ -367,9 +367,26 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                     onSubmitted: (_) => FocusScope.of(context).unfocus(),
                   ),
                 ),
-                const SizedBox(width: 8),
-                _AddCustomFoodButton(
-                  onPressed: () => context.push('/add-custom-food'),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    transitionBuilder: (child, anim) => FadeTransition(
+                      opacity: anim,
+                      child: ScaleTransition(scale: anim, child: child),
+                    ),
+                    child: _hasQuery
+                        ? const SizedBox(key: ValueKey('hidden'), width: 0)
+                        : Padding(
+                            key: const ValueKey('add'),
+                            padding: const EdgeInsets.only(left: 8),
+                            child: _AddCustomFoodButton(
+                              onPressed: () => context.push('/add-custom-food'),
+                            ),
+                          ),
+                  ),
                 ),
               ],
             ),
