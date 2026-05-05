@@ -36,9 +36,9 @@ void main() {
       ]));
     });
 
-    test('8 food groups exist', () {
+    test('27 food groups exist', () {
       final rows = db.select('SELECT COUNT(*) AS n FROM food_groups');
-      expect((rows.first['n'] as int), 8);
+      expect((rows.first['n'] as int), 27);
     });
 
     // ---- Eggs --------------------------------------------------------
