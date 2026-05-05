@@ -15,6 +15,8 @@ class CatalogFood {
     required this.proteinPer100g,
     required this.carbsPer100g,
     required this.fatPer100g,
+    required this.fiberPer100g,
+    required this.sugarPer100g,
     required this.isLiquid,
   });
 
@@ -25,6 +27,8 @@ class CatalogFood {
   final double proteinPer100g;
   final double carbsPer100g;
   final double fatPer100g;
+  final double fiberPer100g;
+  final double sugarPer100g;
   final bool isLiquid;
 }
 
@@ -122,7 +126,8 @@ class OpenNutritionCatalog {
   /// * `v3` – added `is_liquid` column for ml-first UI defaults.
   /// * `v4` – added `food_servings`, `food_groups`,
   ///   `food_group_members` tables for serving presets (e.g. egg sizes).
-  static const _catalogVersion = 'v4';
+  /// * `v5` – added `fiber_100g`, `sugar_100g` columns to `foods`.
+  static const _catalogVersion = 'v5';
 
   Database? _db;
 
@@ -186,7 +191,7 @@ class OpenNutritionCatalog {
     final effectiveLimit = limit * 2;
     final result = db.select(
       '''
-      SELECT f.id, f.name, f.ean, f.kcal_100g, f.protein_100g, f.carbs_100g, f.fat_100g, f.is_liquid
+      SELECT f.id, f.name, f.ean, f.kcal_100g, f.protein_100g, f.carbs_100g, f.fat_100g, f.fiber_100g, f.sugar_100g, f.is_liquid
       FROM foods_fts
       JOIN foods f ON f.id = foods_fts.food_id
       WHERE foods_fts MATCH ?
@@ -244,15 +249,24 @@ class OpenNutritionCatalog {
       for (final row in gRows) {
         final gid = row['id'] as String;
         groupLabelByGroup[gid] = row['label'] as String;
+        final calories = (row['kcal_100g'] as num).toDouble();
+            final proteinPer = (row['protein_100g'] as num).toDouble();
+            final carbsPer = (row['carbs_100g'] as num).toDouble();
+            final fatPer = (row['fat_100g'] as num).toDouble();
+            final fiberPer = (row['fiber_100g'] as num).toDouble();
+            final sugarPer = (row['sugar_100g'] as num).toDouble();
+            final isLiq = (row['is_liquid'] as int) != 0;
         canonicalByGroup[gid] = CatalogFood(
           id: row['canonical_food_id'] as String,
-          name: row['label'] as String, // surface the group label, not raw row name
+          name: row['label'] as String,
           ean: row['ean'] as String?,
-          kcalPer100g: (row['kcal_100g'] as num).toDouble(),
-          proteinPer100g: (row['protein_100g'] as num).toDouble(),
-          carbsPer100g: (row['carbs_100g'] as num).toDouble(),
-          fatPer100g: (row['fat_100g'] as num).toDouble(),
-          isLiquid: (row['is_liquid'] as int) != 0,
+          kcalPer100g: calories,
+          proteinPer100g: proteinPer,
+          carbsPer100g: carbsPer,
+          fatPer100g: fatPer,
+          fiberPer100g: fiberPer,
+          sugarPer100g: sugarPer,
+          isLiquid: isLiq,
         );
       }
     }
@@ -283,7 +297,7 @@ class OpenNutritionCatalog {
     final db = await _ensureOpen();
     final result = db.select(
       '''
-      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, is_liquid
+      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, fiber_100g, sugar_100g, is_liquid
       FROM foods
       WHERE id = ?
       LIMIT 1
@@ -301,7 +315,7 @@ class OpenNutritionCatalog {
     final db = await _ensureOpen();
     final result = db.select(
       '''
-      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, is_liquid
+      SELECT id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, fiber_100g, sugar_100g, is_liquid
       FROM foods
       WHERE ean = ?
       LIMIT 50
@@ -418,6 +432,8 @@ class OpenNutritionCatalog {
       proteinPer100g: (row['protein_100g'] as num).toDouble(),
       carbsPer100g: (row['carbs_100g'] as num).toDouble(),
       fatPer100g: (row['fat_100g'] as num).toDouble(),
+      fiberPer100g: (row['fiber_100g'] as num).toDouble(),
+      sugarPer100g: (row['sugar_100g'] as num).toDouble(),
       isLiquid: (row['is_liquid'] as int) != 0,
     );
   }

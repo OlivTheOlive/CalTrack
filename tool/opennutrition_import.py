@@ -39,8 +39,10 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 
-def nutrition_from_json(raw: str) -> tuple[float, float, float, float]:
-    """Returns (kcal, protein, carbs, fat) per 100g.
+def nutrition_from_json(
+    raw: str,
+) -> tuple[float, float, float, float, float, float]:
+    """Returns (kcal, protein, carbs, fat, fiber, sugar) per 100g.
 
     OpenNutrition stores total fat under the ``total_fat`` key (not ``fat``).
     Earlier versions of this importer only looked at ``fat``, which silently
@@ -49,16 +51,18 @@ def nutrition_from_json(raw: str) -> tuple[float, float, float, float]:
     non-OpenNutrition shape we might import later.
     """
     if not raw or not raw.strip():
-        return (0.0, 0.0, 0.0, 0.0)
+        return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     try:
         j = json.loads(raw)
     except json.JSONDecodeError:
-        return (0.0, 0.0, 0.0, 0.0)
+        return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     kcal = float(j.get("calories") or 0)
     protein = float(j.get("protein") or 0)
     carbs = float(j.get("carbohydrates") or j.get("carbs") or 0)
     fat = float(j.get("total_fat") or j.get("fat") or 0)
-    return (kcal, protein, carbs, fat)
+    fiber = float(j.get("dietary_fiber") or 0)
+    sugar = float(j.get("total_sugars") or 0)
+    return (kcal, protein, carbs, fat, fiber, sugar)
 
 
 def serving_from_json(raw: str) -> tuple[str | None, float | None]:
@@ -608,6 +612,8 @@ def main() -> int:
           protein_100g REAL NOT NULL,
           carbs_100g REAL NOT NULL,
           fat_100g REAL NOT NULL,
+          fiber_100g REAL NOT NULL DEFAULT 0,
+          sugar_100g REAL NOT NULL DEFAULT 0,
           is_liquid INTEGER NOT NULL DEFAULT 0
         );
 
@@ -659,8 +665,8 @@ def main() -> int:
     )
 
     insert_food = (
-        "INSERT INTO foods (id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, is_liquid) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO foods (id, name, ean, kcal_100g, protein_100g, carbs_100g, fat_100g, fiber_100g, sugar_100g, is_liquid) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     insert_fts = "INSERT INTO foods_fts (food_id, search_text) VALUES (?, ?)"
     insert_serving = (
@@ -705,7 +711,7 @@ def main() -> int:
                 continue
 
             ean = (row.get("ean_13") or "").strip() or None
-            kcal, p, c, fa = nutrition_from_json(row.get("nutrition_100g") or "")
+            kcal, p, c, fa, fi, su = nutrition_from_json(row.get("nutrition_100g") or "")
             serving_label, grams_per_serving = serving_from_json(
                 row.get("serving") or ""
             )
@@ -745,7 +751,7 @@ def main() -> int:
                 "id": fid,
                 "name": name,
                 "ean": ean,
-                "nutrition": (kcal, p, c, fa),
+                "nutrition": (kcal, p, c, fa, fi, su),
                 "search": search,
                 "type": ftype,
                 "verdict": verdict,
@@ -824,7 +830,7 @@ def main() -> int:
     batch_fts: list[tuple] = []
     batch_size = 5000
     for entry in retained:
-        kcal, p, c, fa = entry["nutrition"]
+        kcal, p, c, fa, fi, su = entry["nutrition"]
         batch_foods.append(
             (
                 entry["id"],
@@ -834,6 +840,8 @@ def main() -> int:
                 p,
                 c,
                 fa,
+                fi,
+                su,
                 1 if entry.get("is_liquid") else 0,
             )
         )

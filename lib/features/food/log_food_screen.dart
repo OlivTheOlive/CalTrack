@@ -211,6 +211,8 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
         kcalPer100g: canonical.kcalPer100g,
         proteinPer100g: canonical.proteinPer100g,
         carbsPer100g: canonical.carbsPer100g,
+        sugarPer100g: canonical.sugarPer100g,
+        fiberPer100g: canonical.fiberPer100g,
         fatPer100g: canonical.fatPer100g,
         initialGrams: resolved,
         showOpenNutritionAttribution: true,

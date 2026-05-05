@@ -405,9 +405,10 @@ class _TodaySummaryCard extends StatelessWidget {
               target: plan.macros.protein,
               color: scheme.primary,
             ),
-            _MacroIntakeProgressLinear(
-              label: 'Carbs',
+            _CarbsStackedBar(
               consumed: intake.carbsG,
+              sugar: intake.sugarG,
+              fiber: intake.fiberG,
               target: plan.macros.carbs,
               color: scheme.secondary,
             ),
@@ -480,6 +481,181 @@ class _MacroIntakeProgressLinear extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Carbs macro row that visually splits the progress bar into fiber, sugar,
+/// and remaining complex carbs so the user sees carb quality at a glance.
+class _CarbsStackedBar extends StatelessWidget {
+  const _CarbsStackedBar({
+    required this.consumed,
+    required this.sugar,
+    required this.fiber,
+    required this.target,
+    required this.color,
+  });
+
+  final double consumed;
+  final double sugar;
+  final double fiber;
+  final double target;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final safeTarget = target > 0 ? target : 1.0;
+    final ratio = (consumed / safeTarget).clamp(0.0, 1.0);
+    final over = target > 0 && consumed > target;
+    final hasCarbs = consumed > 0;
+
+    // Proportions within the filled portion of the bar.
+    final fiberPct =
+        hasCarbs ? (fiber / consumed).clamp(0.0, 1.0) : 0.0;
+    final sugarPct =
+        hasCarbs ? (sugar / consumed).clamp(0.0, 1.0) : 0.0;
+    // Guard: fiber + sugar ≤ total carbs.
+    final complex = (1.0 - fiberPct - sugarPct).clamp(0.0, 1.0);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('Carbs', style: theme.textTheme.titleSmall),
+              ),
+              Text(
+                '${consumed.round()} / ${target.round()} g',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: over ? scheme.error : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              height: 8,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final totalWidth = constraints.maxWidth;
+                  final fillWidth = totalWidth * ratio;
+                  return Stack(
+                    children: [
+                      // Background track.
+                      Positioned.fill(
+                        child: Container(color: scheme.surfaceContainerHighest),
+                      ),
+                      // Filled portion — sized in actual pixels.
+                      if (fillWidth > 0)
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: fillWidth,
+                          child: Row(
+                            children: [
+                              if (fiberPct > 0)
+                                Expanded(
+                                  flex: (fiberPct * 1000).round().clamp(1, 1000),
+                                  child: Container(
+                                    color: _fiberColor(scheme),
+                                  ),
+                                ),
+                              if (sugarPct > 0)
+                                Expanded(
+                                  flex: (sugarPct * 1000).round().clamp(1, 1000),
+                                  child: Container(
+                                    color: _sugarColor(scheme),
+                                  ),
+                                ),
+                              if (complex > 0)
+                                Expanded(
+                                  flex: (complex * 1000).round().clamp(1, 1000),
+                                  child: Container(
+                                    color: over ? scheme.error : color,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          // Legend row
+          if (hasCarbs) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 16,
+              runSpacing: 4,
+              children: [
+                if (fiber > 0)
+                  _LegendDot(
+                    color: _fiberColor(scheme),
+                    label: 'Fiber ${fiber.round()} g',
+                  ),
+                if (sugar > 0)
+                  _LegendDot(
+                    color: _sugarColor(scheme),
+                    label: 'Sugar ${sugar.round()} g',
+                  ),
+                _LegendDot(
+                  color: color,
+                  label:
+                      'Complex ${((consumed - fiber - sugar).round()).clamp(0, 9999)} g',
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static Color _fiberColor(ColorScheme scheme) =>
+      // Green-tinted — fiber is generally desirable.
+      Color.lerp(scheme.primary, scheme.secondary, 0.5)!;
+
+  static Color _sugarColor(ColorScheme scheme) =>
+      // Warm amber — draws attention without being alarmist.
+      Color.lerp(scheme.error, scheme.secondary, 0.5)!;
+}
+
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -916,6 +1092,8 @@ class _FoodLogTile extends StatelessWidget {
         p100 = canonical.proteinPer100g;
         c100 = canonical.carbsPer100g;
         f100 = canonical.fatPer100g;
+        s100 = canonical.sugarPer100g;
+        fi100 = canonical.fiberPer100g;
       }
       if (group != null) {
         displayName = group.label;

@@ -25,17 +25,17 @@ def _assert_eq(actual, expected, label: str) -> None:
 
 
 def test_nutrition_from_json_basic() -> None:
-    raw = '{"calories": 143, "protein": 12.6, "carbohydrates": 1.1, "total_fat": 9.5}'
+    raw = '{"calories": 143, "protein": 12.6, "carbohydrates": 1.1, "total_fat": 9.5, "dietary_fiber": 0.4, "total_sugars": 1.5}'
     _assert_eq(
         nutrition_from_json(raw),
-        (143.0, 12.6, 1.1, 9.5),
-        "nutrition_from_json basic",
+        (143.0, 12.6, 1.1, 9.5, 0.4, 1.5),
+        "nutrition_from_json with fiber+sugar",
     )
 
 
 def test_nutrition_from_json_empty() -> None:
-    _assert_eq(nutrition_from_json(""), (0.0, 0.0, 0.0, 0.0), "empty")
-    _assert_eq(nutrition_from_json("not json"), (0.0, 0.0, 0.0, 0.0), "bad json")
+    _assert_eq(nutrition_from_json(""), (0.0, 0.0, 0.0, 0.0, 0.0, 0.0), "empty")
+    _assert_eq(nutrition_from_json("not json"), (0.0, 0.0, 0.0, 0.0, 0.0, 0.0), "bad json")
 
 
 def test_serving_from_json_large_egg() -> None:

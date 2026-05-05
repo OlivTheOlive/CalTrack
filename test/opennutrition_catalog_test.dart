@@ -4,8 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 /// Direct-SQLite tests against the bundled `assets/opennutrition.sqlite`
-/// asset. These don't exercise the Dart catalog class (which needs
-/// rootBundle + path_provider) but do lock in the schema + curated groups.
+/// asset (v5 — includes fiber_100g / sugar_100g columns).
 void main() {
   group('bundled opennutrition.sqlite v4', () {
     late Database db;
@@ -146,6 +145,22 @@ void main() {
       );
       expect(rows, isNotEmpty);
       expect(rows.any((r) => (r['grams'] as num).toDouble() == 50.0), isTrue);
+    });
+
+    // ---- Fiber / sugar columns (v5) ----------------------------
+    test('fiber_100g and sugar_100g columns present and populated', () {
+      final rows = db.select(
+        "SELECT COUNT(*) AS n FROM foods WHERE fiber_100g IS NOT NULL AND sugar_100g IS NOT NULL",
+      );
+      expect((rows.first['n'] as int), greaterThan(3000));
+    });
+
+    test('Enriched White Rice has fiber > 0', () {
+      final rows = db.select(
+        "SELECT fiber_100g, sugar_100g FROM foods WHERE name='Enriched White Rice'",
+      );
+      expect(rows, isNotEmpty);
+      expect((rows.first['fiber_100g'] as num).toDouble(), greaterThan(0));
     });
   });
 }
