@@ -37,4 +37,5 @@
   - we should refactor the opennutrition.sqlite database to have a column for liquid (true or false) and if true it reads as a liquid.  (done)
   - from the nutritional scan, we should save the serving size as a quick select for the food meaning when the user access a food they want to log, the user will be able to select a per serving or a per gram selection. (done)
 - have a backup/import and export data option (done)
+- Aggregate similar foods with serving presets (e.g. Small/Medium/Large/XL/Jumbo eggs collapsed into one "Eggs" entry with a size picker). The entry sheet gets a Servings|Grams toggle and a quantity stepper so "2 × Large egg" is as easy as typing 100 g. Group definitions live in `tool/food_groups.json` and flow through the importer to `assets/opennutrition.sqlite` (catalog v4: `food_servings`, `food_groups`, `food_group_members`). (done)
 

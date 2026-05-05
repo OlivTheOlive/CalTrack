@@ -10,6 +10,9 @@ import 'package:provider/provider.dart';
 /// Outcome bubbled back from the food entry sheet.
 enum FoodEntryAction { added, updated, deleted }
 
+/// Mode of the amount selector inside the sheet.
+enum _AmountMode { servings, grams }
+
 class FoodEntrySheetConfig {
   const FoodEntrySheetConfig({
     required this.displayName,
@@ -28,6 +31,9 @@ class FoodEntrySheetConfig {
     this.subtitle,
     this.unitLabel = 'g',
     this.showOpenNutritionAttribution = false,
+    this.presets = const [],
+    this.initialPresetLabel,
+    this.initialPresetQty,
   });
 
   final String displayName;
@@ -50,7 +56,21 @@ class FoodEntrySheetConfig {
   final String unitLabel;
   final bool showOpenNutritionAttribution;
 
+  /// Optional serving presets (e.g. Small/Medium/Large/XL/Jumbo egg).
+  /// When non-empty the sheet defaults to "Servings" mode with the
+  /// default preset selected.
+  final List<CatalogGroupPreset> presets;
+
+  /// Preselected preset label (for reopening a saved log). Falls back to
+  /// the group's default when null.
+  final String? initialPresetLabel;
+
+  /// Preselected quantity (e.g. 2 for "2 × Large egg").
+  final double? initialPresetQty;
+
   bool get isEdit => editingEntryId != null;
+
+  bool get hasPresets => presets.isNotEmpty;
 }
 
 /// Modal bottom sheet to add or edit a food log entry. Returns the
@@ -79,8 +99,9 @@ class _FoodEntrySheet extends StatefulWidget {
 
 class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   late final TextEditingController _grams = TextEditingController(
-    text: _formatGrams(widget.config.initialGrams),
+    text: _formatNumber(widget.config.initialGrams),
   );
+  late final TextEditingController _qty = TextEditingController();
   bool _busy = false;
 
   String? _foodKey;
@@ -90,10 +111,45 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   double? _savedServingAmount;
   String? _savedServingUnit; // 'g' | 'ml'
 
+  late _AmountMode _mode;
+  CatalogGroupPreset? _selectedPreset;
+
   @override
   void initState() {
     super.initState();
+    _mode = widget.config.hasPresets ? _AmountMode.servings : _AmountMode.grams;
+    if (widget.config.hasPresets) {
+      _selectedPreset = _resolveInitialPreset();
+      final qty = widget.config.initialPresetQty ?? _inferQtyFromGrams();
+      _qty.text = _formatNumber(qty);
+      _syncGramsFromPreset();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPrefs());
+  }
+
+  CatalogGroupPreset? _resolveInitialPreset() {
+    final presets = widget.config.presets;
+    if (presets.isEmpty) return null;
+    final byLabel = widget.config.initialPresetLabel;
+    if (byLabel != null) {
+      for (final preset in presets) {
+        if (preset.label == byLabel) return preset;
+      }
+    }
+    for (final preset in presets) {
+      if (preset.isDefault) return preset;
+    }
+    return presets.first;
+  }
+
+  double _inferQtyFromGrams() {
+    final preset = _selectedPreset;
+    if (preset == null || preset.grams <= 0) return 1;
+    final qty = widget.config.initialGrams / preset.grams;
+    if (qty <= 0) return 1;
+    // Snap to the nearest quarter serving; most users pick whole/half.
+    final snapped = (qty * 4).round() / 4;
+    return snapped <= 0 ? 1 : snapped;
   }
 
   Future<void> _loadPrefs() async {
@@ -118,6 +174,25 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
       _treatAsLiquidOverride = pref?.treatAsLiquid;
       _savedServingAmount = pref?.savedServingAmount;
       _savedServingUnit = pref?.savedServingUnit;
+      // When no explicit initial preset was passed (i.e. fresh open) and
+      // the user has a remembered preset for this food, prefer that.
+      if (cfg.hasPresets &&
+          cfg.initialPresetLabel == null &&
+          pref?.lastServingLabel != null &&
+          pref?.lastServingQty != null) {
+        CatalogGroupPreset? match;
+        for (final preset in cfg.presets) {
+          if (preset.label == pref!.lastServingLabel) {
+            match = preset;
+            break;
+          }
+        }
+        if (match != null) {
+          _selectedPreset = match;
+          _qty.text = _formatNumber(pref!.lastServingQty!);
+          _syncGramsFromPreset();
+        }
+      }
       _loadingPrefs = false;
     });
   }
@@ -133,11 +208,12 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   @override
   void dispose() {
     _grams.dispose();
+    _qty.dispose();
     super.dispose();
   }
 
-  static String _formatGrams(double g) =>
-      g == g.roundToDouble() ? g.round().toString() : g.toStringAsFixed(1);
+  static String _formatNumber(double n) =>
+      n == n.roundToDouble() ? n.round().toString() : n.toStringAsFixed(1);
 
   double? _parseGrams() {
     final err = validatePositiveDouble(
@@ -147,6 +223,35 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
     );
     if (err != null) return null;
     return parseDouble(_grams.text);
+  }
+
+  double? _parseQty() {
+    final err = validatePositiveDouble(
+      _qty.text,
+      fieldLabel: 'Servings',
+      max: 1000,
+    );
+    if (err != null) return null;
+    return parseDouble(_qty.text);
+  }
+
+  /// Resolve the effective grams for the current mode. Returns null if
+  /// the input is invalid.
+  double? _effectiveGrams() {
+    if (_mode == _AmountMode.grams) {
+      return _parseGrams();
+    }
+    final preset = _selectedPreset;
+    final qty = _parseQty();
+    if (preset == null || qty == null) return null;
+    return preset.grams * qty;
+  }
+
+  void _syncGramsFromPreset() {
+    final preset = _selectedPreset;
+    final qty = parseDouble(_qty.text);
+    if (preset == null || qty == null) return;
+    _grams.text = _formatNumber(preset.grams * qty);
   }
 
   ScaledNutrition _scale(double grams) => scaleFromPer100g(
@@ -178,7 +283,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   Future<void> _saveServing() async {
     final key = _foodKey;
     if (key == null) return;
-    final amount = _parseGrams();
+    final amount = _effectiveGrams();
     if (amount == null) return;
     final unit = _effectiveUnitLabel;
     final repo = context.read<CalTrackRepository>();
@@ -196,12 +301,57 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   void _applyServing() {
     final a = _savedServingAmount;
     if (a == null) return;
-    _grams.text = _formatGrams(a);
-    setState(() {});
+    setState(() {
+      _mode = _AmountMode.grams;
+      _grams.text = _formatNumber(a);
+    });
+  }
+
+  void _setMode(_AmountMode next) {
+    if (next == _mode) return;
+    if (next == _AmountMode.servings) {
+      final preset = _selectedPreset;
+      final grams = _parseGrams();
+      if (preset != null && preset.grams > 0 && grams != null) {
+        final qty = grams / preset.grams;
+        _qty.text = _formatNumber(
+          qty <= 0 ? 1 : ((qty * 4).round() / 4).clamp(0.25, 100),
+        );
+      } else if (_qty.text.trim().isEmpty) {
+        _qty.text = '1';
+      }
+    } else {
+      // Moving Grams -> Servings-unaware field; carry the current
+      // preset-computed grams forward so the user doesn't lose their
+      // portion.
+      final g = _effectiveGrams();
+      if (g != null) _grams.text = _formatNumber(g);
+    }
+    setState(() => _mode = next);
+  }
+
+  void _pickPreset(CatalogGroupPreset? preset) {
+    if (preset == null) return;
+    setState(() {
+      _selectedPreset = preset;
+      if (_qty.text.trim().isEmpty) _qty.text = '1';
+      _syncGramsFromPreset();
+    });
+  }
+
+  void _bumpQty(double delta) {
+    final current = parseDouble(_qty.text) ?? 1;
+    final next = (current + delta).clamp(0.25, 1000.0);
+    // Round to a nice 0.25 step so increments stay predictable.
+    final snapped = (next * 4).round() / 4;
+    setState(() {
+      _qty.text = _formatNumber(snapped);
+      _syncGramsFromPreset();
+    });
   }
 
   Future<void> _save() async {
-    final grams = _parseGrams();
+    final grams = _effectiveGrams();
     if (grams == null) return;
     final scaled = _scale(grams);
     final factor = grams / 100.0;
@@ -221,6 +371,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
           fiberG: fiber,
           fatG: scaled.fatG,
         );
+        await _persistLastServing();
         if (!mounted) return;
         Navigator.of(context).pop(FoodEntryAction.updated);
       } else {
@@ -238,12 +389,37 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
           fatG: scaled.fatG,
           loggedAt: widget.config.loggedAtForEdit,
         );
+        await _persistLastServing();
         if (!mounted) return;
         Navigator.of(context).pop(FoodEntryAction.added);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _persistLastServing() async {
+    final key = _foodKey;
+    if (key == null) return;
+    final repo = context.read<CalTrackRepository>();
+    if (_mode == _AmountMode.servings) {
+      final preset = _selectedPreset;
+      final qty = _parseQty();
+      if (preset != null && qty != null) {
+        await repo.setLastUsedServing(
+          foodKey: key,
+          label: preset.label,
+          quantity: qty,
+        );
+        return;
+      }
+    }
+    // Switched to grams or invalid preset state -> clear remembered preset.
+    await repo.setLastUsedServing(
+      foodKey: key,
+      label: null,
+      quantity: null,
+    );
   }
 
   Future<void> _delete() async {
@@ -263,14 +439,22 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cfg = widget.config;
-    final grams = _parseGrams() ?? 0;
+    final grams = _effectiveGrams() ?? 0;
     final scaled = _scale(grams);
     final unitLabel = _effectiveUnitLabel;
-    final amountError = validatePositiveDouble(
-      _grams.text,
-      fieldLabel: 'Amount',
-      max: 100000,
-    );
+    final amountError = _mode == _AmountMode.grams
+        ? validatePositiveDouble(
+            _grams.text,
+            fieldLabel: 'Amount',
+            max: 100000,
+          )
+        : validatePositiveDouble(
+            _qty.text,
+            fieldLabel: 'Servings',
+            max: 1000,
+          );
+    final hasPresets = cfg.hasPresets;
+    final saveEnabled = !_busy && _effectiveGrams() != null;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -312,24 +496,57 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
               ],
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _grams,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              autofocus: !cfg.isEdit,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-              ],
-              decoration: InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: 'Amount',
-                suffixText: unitLabel,
-                errorText: amountError,
+            if (hasPresets) ...[
+              SegmentedButton<_AmountMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: _AmountMode.servings,
+                    label: Text('Servings'),
+                    icon: Icon(Icons.restaurant_menu),
+                  ),
+                  ButtonSegment(
+                    value: _AmountMode.grams,
+                    label: Text('Grams'),
+                    icon: Icon(Icons.scale_outlined),
+                  ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: _busy
+                    ? null
+                    : (s) => _setMode(s.first),
               ),
-              onChanged: (_) => setState(() {}),
-              onSubmitted: (_) => FocusScope.of(context).unfocus(),
-            ),
-            if (!_loadingPrefs) ...[
+              const SizedBox(height: 12),
+            ],
+            if (hasPresets && _mode == _AmountMode.servings)
+              _ServingsInput(
+                presets: cfg.presets,
+                selected: _selectedPreset,
+                qtyController: _qty,
+                onPresetChanged: _busy ? null : _pickPreset,
+                onQtyChanged: (_) => setState(_syncGramsFromPreset),
+                onBump: _busy ? null : _bumpQty,
+                errorText: amountError,
+                unitLabel: unitLabel,
+              )
+            else
+              TextField(
+                controller: _grams,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                autofocus: !cfg.isEdit,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                ],
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  labelText: 'Amount',
+                  suffixText: unitLabel,
+                  errorText: amountError,
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => FocusScope.of(context).unfocus(),
+              ),
+            if (!_loadingPrefs && !hasPresets) ...[
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -369,20 +586,23 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
                   ),
                 ),
             ],
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final g in const [25.0, 50.0, 100.0, 200.0, 250.0])
-                  ActionChip(
-                    label: Text('${g.round()} $unitLabel'),
-                    onPressed: () {
-                      _grams.text = _formatGrams(g);
-                      setState(() {});
-                    },
-                  ),
-              ],
-            ),
+            if (_mode == _AmountMode.grams) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final g in const [25.0, 50.0, 100.0, 200.0, 250.0])
+                    ActionChip(
+                      label: Text('${g.round()} $unitLabel'),
+                      onPressed: () {
+                        setState(() {
+                          _grams.text = _formatNumber(g);
+                        });
+                      },
+                    ),
+                ],
+              ),
+            ],
             if (!_loadingPrefs) ...[
               const SizedBox(height: 10),
               Wrap(
@@ -403,7 +623,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
                     avatar: const Icon(Icons.bookmark_add_outlined, size: 18),
                     label: const Text('Save current as serving'),
                     onPressed:
-                        _busy || _parseGrams() == null ? null : _saveServing,
+                        _busy || _effectiveGrams() == null ? null : _saveServing,
                   ),
                 ],
               ),
@@ -432,8 +652,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      onPressed:
-                          _busy || _parseGrams() == null ? null : _save,
+                      onPressed: saveEnabled ? _save : null,
                       child: const Text('Save'),
                     ),
                   ),
@@ -441,7 +660,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
               )
             else
               FilledButton.icon(
-                onPressed: _busy || _parseGrams() == null ? null : _save,
+                onPressed: saveEnabled ? _save : null,
                 icon: const Icon(Icons.add),
                 label: const Text('Add to diary'),
               ),
@@ -450,6 +669,110 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
       ),
     );
   }
+}
+
+/// "Servings" mode controls: preset dropdown + qty stepper + live summary.
+class _ServingsInput extends StatelessWidget {
+  const _ServingsInput({
+    required this.presets,
+    required this.selected,
+    required this.qtyController,
+    required this.onPresetChanged,
+    required this.onQtyChanged,
+    required this.onBump,
+    required this.errorText,
+    required this.unitLabel,
+  });
+
+  final List<CatalogGroupPreset> presets;
+  final CatalogGroupPreset? selected;
+  final TextEditingController qtyController;
+  final ValueChanged<CatalogGroupPreset?>? onPresetChanged;
+  final ValueChanged<String> onQtyChanged;
+  final ValueChanged<double>? onBump;
+  final String? errorText;
+  final String unitLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final qty = double.tryParse(qtyController.text.replaceAll(',', '.'));
+    final preset = selected;
+    final totalGrams = (preset != null && qty != null && qty > 0)
+        ? preset.grams * qty
+        : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<CatalogGroupPreset>(
+          initialValue: preset,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            labelText: 'Serving size',
+          ),
+          items: [
+            for (final p in presets)
+              DropdownMenuItem(
+                value: p,
+                child: Text('${p.label} · ${_formatGrams(p.grams)} g'),
+              ),
+          ],
+          onChanged: onPresetChanged,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            IconButton.filledTonal(
+              onPressed: onBump == null ? null : () => onBump!(-0.5),
+              icon: const Icon(Icons.remove),
+              tooltip: 'Decrease',
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: qtyController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                textAlign: TextAlign.center,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                ],
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  labelText: 'Servings',
+                  errorText: errorText,
+                ),
+                onChanged: onQtyChanged,
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
+              onPressed: onBump == null ? null : () => onBump!(0.5),
+              icon: const Icon(Icons.add),
+              tooltip: 'Increase',
+            ),
+          ],
+        ),
+        if (totalGrams != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            '${_formatQty(qty!)} × ${preset!.label} = '
+            '${_formatGrams(totalGrams)} $unitLabel',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  static String _formatGrams(double g) =>
+      g == g.roundToDouble() ? g.round().toString() : g.toStringAsFixed(1);
+  static String _formatQty(double q) =>
+      q == q.roundToDouble() ? q.round().toString() : q.toStringAsFixed(2);
 }
 
 class _NutritionPreviewCard extends StatelessWidget {

@@ -1,0 +1,837 @@
+{
+  "_comment": "Curated food groups for opennutrition.sqlite. Each group collapses several catalog rows into one user-facing entry with size presets. canonical_food_id is the row whose macros & name back the group; members may reference the same id multiple times when one row should expose multiple preset labels (e.g. 'Large egg' & 'Extra large egg' both backed by fd_F2MYJuH8UsE9). See tool/opennutrition_import.py:load_groups_config for the full spec.",
+  "groups": {
+    "eggs": {
+      "label": "Eggs",
+      "canonical_food_id": "fd_F2MYJuH8UsE9",
+      "members": [
+        {
+          "food_id": "fd_fuy6e0gd67DQ",
+          "preset_label": "Small egg",
+          "grams": 38,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_w2I6dZ4BNwHT",
+          "preset_label": "Medium egg",
+          "grams": 44,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_F2MYJuH8UsE9",
+          "preset_label": "Large egg",
+          "grams": 50,
+          "is_default": true,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_F2MYJuH8UsE9",
+          "preset_label": "Extra large egg",
+          "grams": 56,
+          "sort_order": 3
+        },
+        {
+          "food_id": "fd_S2BbGfbOYbOw",
+          "preset_label": "Jumbo egg",
+          "grams": 63,
+          "sort_order": 4
+        }
+      ]
+    },
+
+    "banana": {
+      "_comment": "Fresh and frozen bananas share identical macros (89 kcal/100g). Preset = 1 medium whole banana.",
+      "label": "Banana",
+      "canonical_food_id": "fd_AjQa9nlOUTns",
+      "members": [
+        {
+          "food_id": "fd_AjQa9nlOUTns",
+          "preset_label": "1 medium banana",
+          "grams": 118,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_AjQa9nlOUTns",
+          "preset_label": "1 small banana",
+          "grams": 81,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_AjQa9nlOUTns",
+          "preset_label": "1 large banana",
+          "grams": 136,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_UO7rIeQjykUe",
+          "preset_label": "Frozen (1 medium)",
+          "grams": 118,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "butter": {
+      "_comment": "Salted and unsalted butter share identical macros. Preset = 1 tbsp.",
+      "label": "Butter",
+      "canonical_food_id": "fd_m9ZBHVV7vLtU",
+      "members": [
+        {
+          "food_id": "fd_m9ZBHVV7vLtU",
+          "preset_label": "Unsalted · 1 tbsp",
+          "grams": 14,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_m9ZBHVV7vLtU",
+          "preset_label": "Unsalted · 2 tbsp",
+          "grams": 28,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_fycPuybFqVcg",
+          "preset_label": "Salted · 1 tbsp",
+          "grams": 14,
+          "is_default": true,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_fycPuybFqVcg",
+          "preset_label": "Salted · 2 tbsp",
+          "grams": 28,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "oats": {
+      "_comment": "All oat types share near-identical macros (~375 kcal/100g, <3% spread). Canonical = Rolled Oats. Preset = ½ cup dry (40g).",
+      "label": "Oats",
+      "canonical_food_id": "fd_m82NffEwlO78",
+      "members": [
+        {
+          "food_id": "fd_m82NffEwlO78",
+          "preset_label": "Rolled oats · ½ cup",
+          "grams": 40,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_2fxDeqM0A8Cf",
+          "preset_label": "Quick oats · ½ cup",
+          "grams": 40,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_Mq4KdO6BH3dP",
+          "preset_label": "Old-fashioned oats · ½ cup",
+          "grams": 40,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_Pm3oWA0Gemky",
+          "preset_label": "Steel-cut oats · ¼ cup",
+          "grams": 40,
+          "sort_order": 3
+        },
+        {
+          "food_id": "fd_67uKLjaiZgw4",
+          "preset_label": "Whole oat groats · ¼ cup",
+          "grams": 45,
+          "sort_order": 4
+        }
+      ]
+    },
+
+    "white_rice": {
+      "_comment": "Long/Medium/Short grain white rice share near-identical macros (~362 kcal/100g, <2% spread). Canonical = Long Grain for neutrality. Preset = ¼ cup dry.",
+      "label": "White Rice",
+      "canonical_food_id": "fd_zuB8UN7NbpC7",
+      "members": [
+        {
+          "food_id": "fd_zuB8UN7NbpC7",
+          "preset_label": "Long grain · ¼ cup dry",
+          "grams": 45,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_XSd7Te973XKX",
+          "preset_label": "Medium grain · ¼ cup dry",
+          "grams": 50,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_o678OQU1af6D",
+          "preset_label": "Short grain · ¼ cup dry",
+          "grams": 45,
+          "sort_order": 2
+        }
+      ]
+    },
+
+    "brown_rice": {
+      "_comment": "Long/Medium/Short grain brown rice share near-identical macros (~360 kcal/100g, <5% spread). Canonical = Long Grain. Preset = ¼ cup dry.",
+      "label": "Brown Rice",
+      "canonical_food_id": "fd_d7GITvYkTJKX",
+      "members": [
+        {
+          "food_id": "fd_d7GITvYkTJKX",
+          "preset_label": "Long grain · ¼ cup dry",
+          "grams": 45,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_cfIRiXbIA5yL",
+          "preset_label": "Medium grain · ¼ cup dry",
+          "grams": 50,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_8tQvO5S8x3CV",
+          "preset_label": "Short grain · ¼ cup dry",
+          "grams": 45,
+          "sort_order": 2
+        }
+      ]
+    },
+
+    "cheddar": {
+      "_comment": "Mild/Sharp/Aged/Regular cheddar all ~407 kcal/100g (<1% spread). Canonical = generic Cheddar. Preset = 1 oz slice.",
+      "label": "Cheddar Cheese",
+      "canonical_food_id": "fd_jTATkrMc2qqj",
+      "members": [
+        {
+          "food_id": "fd_jTATkrMc2qqj",
+          "preset_label": "Cheddar · 1 oz",
+          "grams": 28,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_llBZxz9G6hd2",
+          "preset_label": "Mild cheddar · 1 oz",
+          "grams": 28,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_xvBlfw5ke5q0",
+          "preset_label": "Sharp cheddar · 1 oz",
+          "grams": 28,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_m0n6nKOKAXIw",
+          "preset_label": "Aged cheddar · 1 oz",
+          "grams": 28,
+          "sort_order": 3
+        },
+        {
+          "food_id": "fd_jTATkrMc2qqj",
+          "preset_label": "Cheddar · 2 oz",
+          "grams": 57,
+          "sort_order": 4
+        }
+      ]
+    },
+
+    "cottage_cheese": {
+      "_comment": "Large Curd / Small Curd / generic cottage cheese all ~103 kcal/100g (<5% spread). Canonical = generic. Preset = ½ cup.",
+      "label": "Cottage Cheese",
+      "canonical_food_id": "fd_UuDZjdYHGqOs",
+      "members": [
+        {
+          "food_id": "fd_UuDZjdYHGqOs",
+          "preset_label": "Cottage cheese · ½ cup",
+          "grams": 113,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_BABBxWrGmyzh",
+          "preset_label": "Large curd · ½ cup",
+          "grams": 113,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_NAq9yEdM6WjC",
+          "preset_label": "Small curd · ½ cup",
+          "grams": 113,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_UuDZjdYHGqOs",
+          "preset_label": "Cottage cheese · 1 cup",
+          "grams": 226,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "_section_note_frozen_fruits": "--- FROZEN FRUITS (fresh + frozen share near-identical macros; canonical = fresh) ---",
+
+    "strawberries": {
+      "label": "Strawberries",
+      "canonical_food_id": "fd_nQqmuFjAzK7X",
+      "members": [
+        {
+          "food_id": "fd_nQqmuFjAzK7X",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 150,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_nQqmuFjAzK7X",
+          "preset_label": "Fresh · ½ cup",
+          "grams": 75,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_dVHkF2GHm37L",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 150,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_dVHkF2GHm37L",
+          "preset_label": "Frozen · ½ cup",
+          "grams": 80,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "blueberries": {
+      "_comment": "Fresh 56 kcal vs frozen 50 kcal (11% diff); macros close enough for an estimate.",
+      "label": "Blueberries",
+      "canonical_food_id": "fd_mNwC6Oo0rimj",
+      "members": [
+        {
+          "food_id": "fd_mNwC6Oo0rimj",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 148,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_mNwC6Oo0rimj",
+          "preset_label": "Fresh · ½ cup",
+          "grams": 74,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_3K8eePjB06xI",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 148,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_3K8eePjB06xI",
+          "preset_label": "Frozen · ½ cup",
+          "grams": 75,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "raspberries": {
+      "label": "Raspberries",
+      "canonical_food_id": "fd_I0IDek6HDBzP",
+      "members": [
+        {
+          "food_id": "fd_I0IDek6HDBzP",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 123,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_I0IDek6HDBzP",
+          "preset_label": "Fresh · ½ cup",
+          "grams": 62,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_u4h4oT0yd9xb",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 123,
+          "sort_order": 2
+        }
+      ]
+    },
+
+    "mango": {
+      "label": "Mango",
+      "canonical_food_id": "fd_Ox2A4U1KWla0",
+      "members": [
+        {
+          "food_id": "fd_Ox2A4U1KWla0",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 165,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_Ox2A4U1KWla0",
+          "preset_label": "Fresh · ½ cup",
+          "grams": 83,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_NsHZZKlMc34t",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 165,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_NsHZZKlMc34t",
+          "preset_label": "Frozen · ½ cup",
+          "grams": 80,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "pineapple": {
+      "label": "Pineapple",
+      "canonical_food_id": "fd_LRMreqrvqXMa",
+      "members": [
+        {
+          "food_id": "fd_LRMreqrvqXMa",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 165,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_LRMreqrvqXMa",
+          "preset_label": "Fresh · ½ cup",
+          "grams": 83,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_WkmIX9ALD3zo",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 165,
+          "sort_order": 2
+        }
+      ]
+    },
+
+    "kiwi": {
+      "label": "Kiwi",
+      "canonical_food_id": "fd_VbZhLJcSgVtn",
+      "members": [
+        {
+          "food_id": "fd_VbZhLJcSgVtn",
+          "preset_label": "Fresh · 1 fruit",
+          "grams": 76,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_VbZhLJcSgVtn",
+          "preset_label": "Fresh · 2 fruits",
+          "grams": 152,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_B1lcz6y8pVhA",
+          "preset_label": "Frozen · ½ cup",
+          "grams": 75,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_B1lcz6y8pVhA",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 150,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "plums": {
+      "label": "Plums",
+      "canonical_food_id": "fd_fUNfq98SJCOZ",
+      "members": [
+        {
+          "food_id": "fd_fUNfq98SJCOZ",
+          "preset_label": "Fresh · 1 medium",
+          "grams": 66,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_fUNfq98SJCOZ",
+          "preset_label": "Fresh · 2 medium",
+          "grams": 132,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_odNWYbnALyF9",
+          "preset_label": "Frozen · 2 plums",
+          "grams": 151,
+          "sort_order": 2
+        }
+      ]
+    },
+
+    "nectarine": {
+      "label": "Nectarine",
+      "canonical_food_id": "fd_bl0rrFDOFpzd",
+      "members": [
+        {
+          "food_id": "fd_bl0rrFDOFpzd",
+          "preset_label": "Fresh · 1 medium",
+          "grams": 150,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_5sp3jIbJemg4",
+          "preset_label": "Frozen · ½ cup",
+          "grams": 80,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_5sp3jIbJemg4",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 160,
+          "sort_order": 2
+        }
+      ]
+    },
+
+    "_section_note_frozen_veg": "--- FROZEN VEGETABLES (fresh canonical; frozen variant as additional preset) ---",
+
+    "broccoli": {
+      "_comment": "Fresh 34 kcal vs frozen 26 kcal (24% diff). Common enough to group; absolute error per cup ~8 kcal.",
+      "label": "Broccoli",
+      "canonical_food_id": "fd_EbqVdoKUKhgL",
+      "members": [
+        {
+          "food_id": "fd_EbqVdoKUKhgL",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 91,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_EbqVdoKUKhgL",
+          "preset_label": "Fresh · 2 cups",
+          "grams": 182,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_R9XWwfTSsX4o",
+          "preset_label": "Frozen · ½ cup",
+          "grams": 85,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_R9XWwfTSsX4o",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 170,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "cauliflower": {
+      "label": "Cauliflower",
+      "canonical_food_id": "fd_68s2VMyKFMO7",
+      "members": [
+        {
+          "food_id": "fd_68s2VMyKFMO7",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 107,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_art7TJokNqrr",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 107,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_6CHHWJOfcpcP",
+          "preset_label": "Riced fresh · 1 cup",
+          "grams": 107,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_knq8esnT3knG",
+          "preset_label": "Riced frozen · 1 cup",
+          "grams": 107,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "spinach": {
+      "label": "Spinach",
+      "canonical_food_id": "fd_XwjLybfAIH0l",
+      "members": [
+        {
+          "food_id": "fd_XwjLybfAIH0l",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 30,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_XwjLybfAIH0l",
+          "preset_label": "Fresh · 2 cups",
+          "grams": 60,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_N9Jxrwv7yOP0",
+          "preset_label": "Cooked · ½ cup",
+          "grams": 90,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_N9Jxrwv7yOP0",
+          "preset_label": "Cooked · 1 cup",
+          "grams": 180,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "green_peas": {
+      "label": "Green Peas",
+      "canonical_food_id": "fd_99q732hEFaWy",
+      "members": [
+        {
+          "food_id": "fd_99q732hEFaWy",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 160,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_99q732hEFaWy",
+          "preset_label": "Fresh · ½ cup",
+          "grams": 80,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_C8ckVIdFoXuw",
+          "preset_label": "Frozen · ½ cup",
+          "grams": 80,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_C8ckVIdFoXuw",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 160,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "corn": {
+      "label": "Corn",
+      "canonical_food_id": "fd_cJlCB2Sa8wIV",
+      "members": [
+        {
+          "food_id": "fd_cJlCB2Sa8wIV",
+          "preset_label": "Fresh · 1 ear",
+          "grams": 90,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_A0RRBcdoJhkE",
+          "preset_label": "Frozen cob · 1 ear",
+          "grams": 100,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_xFbQ7c5RVFi4",
+          "preset_label": "Frozen kernels · ½ cup",
+          "grams": 80,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_xFbQ7c5RVFi4",
+          "preset_label": "Frozen kernels · 1 cup",
+          "grams": 160,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "green_beans": {
+      "_comment": "Fresh 32 kcal vs frozen 39 kcal (18% diff). Absolute error per cup ~9 kcal.",
+      "label": "Green Beans",
+      "canonical_food_id": "fd_Tpc5ZPmJc6WV",
+      "members": [
+        {
+          "food_id": "fd_Tpc5ZPmJc6WV",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 125,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_r5ep57w6POBe",
+          "preset_label": "Frozen · ½ cup",
+          "grams": 85,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_r5ep57w6POBe",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 170,
+          "sort_order": 2
+        }
+      ]
+    },
+
+    "asparagus": {
+      "_comment": "Fresh 20 kcal vs frozen 24 kcal (17% diff). Absolute error per 6 spears ~1 kcal.",
+      "label": "Asparagus",
+      "canonical_food_id": "fd_0MaV0wph09CQ",
+      "members": [
+        {
+          "food_id": "fd_0MaV0wph09CQ",
+          "preset_label": "Fresh · 6 spears",
+          "grams": 90,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_0MaV0wph09CQ",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 134,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_J9xLD1nXbgGu",
+          "preset_label": "Frozen · 5 spears",
+          "grams": 90,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_J9xLD1nXbgGu",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 134,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "carrots": {
+      "_comment": "Fresh 41 kcal vs frozen 36 kcal (12% diff). Absolute error per medium carrot ~2 kcal.",
+      "label": "Carrots",
+      "canonical_food_id": "fd_D4CNdM8vIvL7",
+      "members": [
+        {
+          "food_id": "fd_D4CNdM8vIvL7",
+          "preset_label": "Fresh · 1 medium",
+          "grams": 61,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_D4CNdM8vIvL7",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 128,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_xQngwlr8mztI",
+          "preset_label": "Frozen · ½ cup",
+          "grams": 80,
+          "sort_order": 2
+        },
+        {
+          "food_id": "fd_xQngwlr8mztI",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 160,
+          "sort_order": 3
+        }
+      ]
+    },
+
+    "zucchini": {
+      "label": "Zucchini",
+      "canonical_food_id": "fd_Dr6BIlLGw8a7",
+      "members": [
+        {
+          "food_id": "fd_Dr6BIlLGw8a7",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 124,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_Dr6BIlLGw8a7",
+          "preset_label": "Fresh · ½ cup",
+          "grams": 62,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_G8WCms2ccDoX",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 120,
+          "sort_order": 2
+        }
+      ]
+    },
+
+    "snow_peas": {
+      "label": "Snow Peas",
+      "canonical_food_id": "fd_ySq6IG01Uxki",
+      "members": [
+        {
+          "food_id": "fd_ySq6IG01Uxki",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 85,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_7sDk8WUgVtIS",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 85,
+          "sort_order": 1
+        }
+      ]
+    },
+
+    "sugar_snap_peas": {
+      "_comment": "Fresh 42 kcal vs frozen 48 kcal (12% diff). Absolute error per cup ~4 kcal.",
+      "label": "Sugar Snap Peas",
+      "canonical_food_id": "fd_O6uopko2xX6a",
+      "members": [
+        {
+          "food_id": "fd_O6uopko2xX6a",
+          "preset_label": "Fresh · 1 cup",
+          "grams": 98,
+          "is_default": true,
+          "sort_order": 0
+        },
+        {
+          "food_id": "fd_n4Cnvh4jrnqY",
+          "preset_label": "Frozen · ⅔ cup",
+          "grams": 83,
+          "sort_order": 1
+        },
+        {
+          "food_id": "fd_n4Cnvh4jrnqY",
+          "preset_label": "Frozen · 1 cup",
+          "grams": 124,
+          "sort_order": 2
+        }
+      ]
+    }
+  }
+}

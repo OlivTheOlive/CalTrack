@@ -6,6 +6,7 @@ import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/features/food/food_entry_sheet.dart';
+import 'package:caltrack/features/food/quick_add_sheet.dart';
 import 'package:caltrack/widgets/goal_choice_sheet.dart';
 import 'package:caltrack/widgets/goal_editor_sheet.dart';
 import 'package:flutter/material.dart';
@@ -404,9 +405,10 @@ class _TodaySummaryCard extends StatelessWidget {
               target: plan.macros.protein,
               color: scheme.primary,
             ),
-            _MacroIntakeProgressLinear(
-              label: 'Carbs',
+            _CarbsStackedBar(
               consumed: intake.carbsG,
+              sugar: intake.sugarG,
+              fiber: intake.fiberG,
               target: plan.macros.carbs,
               color: scheme.secondary,
             ),
@@ -479,6 +481,181 @@ class _MacroIntakeProgressLinear extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Carbs macro row that visually splits the progress bar into fiber, sugar,
+/// and remaining complex carbs so the user sees carb quality at a glance.
+class _CarbsStackedBar extends StatelessWidget {
+  const _CarbsStackedBar({
+    required this.consumed,
+    required this.sugar,
+    required this.fiber,
+    required this.target,
+    required this.color,
+  });
+
+  final double consumed;
+  final double sugar;
+  final double fiber;
+  final double target;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final safeTarget = target > 0 ? target : 1.0;
+    final ratio = (consumed / safeTarget).clamp(0.0, 1.0);
+    final over = target > 0 && consumed > target;
+    final hasCarbs = consumed > 0;
+
+    // Proportions within the filled portion of the bar.
+    final fiberPct =
+        hasCarbs ? (fiber / consumed).clamp(0.0, 1.0) : 0.0;
+    final sugarPct =
+        hasCarbs ? (sugar / consumed).clamp(0.0, 1.0) : 0.0;
+    // Guard: fiber + sugar ≤ total carbs.
+    final complex = (1.0 - fiberPct - sugarPct).clamp(0.0, 1.0);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('Carbs', style: theme.textTheme.titleSmall),
+              ),
+              Text(
+                '${consumed.round()} / ${target.round()} g',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: over ? scheme.error : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              height: 8,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final totalWidth = constraints.maxWidth;
+                  final fillWidth = totalWidth * ratio;
+                  return Stack(
+                    children: [
+                      // Background track.
+                      Positioned.fill(
+                        child: Container(color: scheme.surfaceContainerHighest),
+                      ),
+                      // Filled portion — sized in actual pixels.
+                      if (fillWidth > 0)
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: fillWidth,
+                          child: Row(
+                            children: [
+                              if (fiberPct > 0)
+                                Expanded(
+                                  flex: (fiberPct * 1000).round().clamp(1, 1000),
+                                  child: Container(
+                                    color: _fiberColor(scheme),
+                                  ),
+                                ),
+                              if (sugarPct > 0)
+                                Expanded(
+                                  flex: (sugarPct * 1000).round().clamp(1, 1000),
+                                  child: Container(
+                                    color: _sugarColor(scheme),
+                                  ),
+                                ),
+                              if (complex > 0)
+                                Expanded(
+                                  flex: (complex * 1000).round().clamp(1, 1000),
+                                  child: Container(
+                                    color: over ? scheme.error : color,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          // Legend row
+          if (hasCarbs) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 16,
+              runSpacing: 4,
+              children: [
+                if (fiber > 0)
+                  _LegendDot(
+                    color: _fiberColor(scheme),
+                    label: 'Fiber ${fiber.round()} g',
+                  ),
+                if (sugar > 0)
+                  _LegendDot(
+                    color: _sugarColor(scheme),
+                    label: 'Sugar ${sugar.round()} g',
+                  ),
+                _LegendDot(
+                  color: color,
+                  label:
+                      'Complex ${((consumed - fiber - sugar).round()).clamp(0, 9999)} g',
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static Color _fiberColor(ColorScheme scheme) =>
+      // Green-tinted — fiber is generally desirable.
+      Color.lerp(scheme.primary, scheme.secondary, 0.5)!;
+
+  static Color _sugarColor(ColorScheme scheme) =>
+      // Warm amber — draws attention without being alarmist.
+      Color.lerp(scheme.error, scheme.secondary, 0.5)!;
+}
+
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -800,15 +977,45 @@ class _TodayFoodLogCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    FilledButton.tonalIcon(
-                      onPressed: () {
-                        final path = isToday
-                            ? '/log-food'
-                            : '/log-food?day=${_formatDayParam(selectedDay)}';
-                        context.push(path);
-                      },
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add'),
+                    // Quick add + full food log buttons
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.bolt_rounded, size: 20),
+                          tooltip: 'Quick add',
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(40, 40),
+                          ),
+                          onPressed: () async {
+                            // Snap to noon on past days so the entry falls
+                            // inside the correct day bounds.
+                            final loggedAt = isToday
+                                ? null
+                                : DateTime(
+                                    selectedDay.year,
+                                    selectedDay.month,
+                                    selectedDay.day,
+                                    12,
+                                  );
+                            await showQuickAddSheet(
+                              context,
+                              loggedAt: loggedAt,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.tonalIcon(
+                          onPressed: () {
+                            final path = isToday
+                                ? '/log-food'
+                                : '/log-food?day=${_formatDayParam(selectedDay)}';
+                            context.push(path);
+                          },
+                          icon: const Icon(Icons.search_rounded, size: 18),
+                          label: const Text('Search'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -849,6 +1056,13 @@ class _FoodLogTile extends StatelessWidget {
   final CalTrackRepository repo;
 
   Future<void> _openEdit(BuildContext context) async {
+    // Quick-add entries are calorie estimates, not food items — reopen the
+    // quick-add sheet instead of the food entry sheet.
+    if (entry.source == 'quick') {
+      await showQuickAddSheet(context, editingEntry: entry);
+      return;
+    }
+
     double kcal100 = entry.grams > 0 ? entry.kcal * 100 / entry.grams : 0;
     double p100 = entry.grams > 0 ? entry.proteinG * 100 / entry.grams : 0;
     double c100 = entry.grams > 0 ? entry.carbsG * 100 / entry.grams : 0;
@@ -857,15 +1071,39 @@ class _FoodLogTile extends StatelessWidget {
     double f100 = entry.grams > 0 ? entry.fatG * 100 / entry.grams : 0;
     var unitLabel = 'g';
 
+    String displayName = entry.displayName;
+    String? catalogFoodId = entry.catalogFoodId;
+    List<CatalogGroupPreset> presets = const [];
+    String? initialPresetLabel;
+    double? initialPresetQty;
+
     final id = entry.catalogFoodId;
     if (id != null) {
       final catalog = context.read<OpenNutritionCatalog>();
       final food = await catalog.byId(id);
-      if (food != null) {
-        kcal100 = food.kcalPer100g;
-        p100 = food.proteinPer100g;
-        c100 = food.carbsPer100g;
-        f100 = food.fatPer100g;
+      final group = await catalog.groupForFood(id);
+      // When the logged row is part of a group, re-render via the
+      // canonical food so the same macros + presets list back the sheet.
+      final canonical = (group != null && group.canonicalFoodId != id)
+          ? await catalog.byId(group.canonicalFoodId) ?? food
+          : food;
+      if (canonical != null) {
+        kcal100 = canonical.kcalPer100g;
+        p100 = canonical.proteinPer100g;
+        c100 = canonical.carbsPer100g;
+        f100 = canonical.fatPer100g;
+        s100 = canonical.sugarPer100g;
+        fi100 = canonical.fiberPer100g;
+      }
+      if (group != null) {
+        displayName = group.label;
+        catalogFoodId = group.canonicalFoodId;
+        presets = group.presets;
+        final matched = group.presetForFoodId(id);
+        if (matched != null && matched.grams > 0) {
+          initialPresetLabel = matched.label;
+          initialPresetQty = entry.grams / matched.grams;
+        }
       }
     }
 
@@ -889,9 +1127,9 @@ class _FoodLogTile extends StatelessWidget {
     await showFoodEntrySheet(
       context,
       FoodEntrySheetConfig(
-        displayName: entry.displayName,
+        displayName: displayName,
         source: entry.source,
-        catalogFoodId: entry.catalogFoodId,
+        catalogFoodId: catalogFoodId,
         customFoodId: entry.customFoodId,
         kcalPer100g: kcal100,
         proteinPer100g: p100,
@@ -903,6 +1141,9 @@ class _FoodLogTile extends StatelessWidget {
         editingEntryId: entry.id,
         loggedAtForEdit: entry.loggedAt,
         unitLabel: unitLabel,
+        presets: presets,
+        initialPresetLabel: initialPresetLabel,
+        initialPresetQty: initialPresetQty,
       ),
     );
   }
@@ -968,16 +1209,25 @@ class _FoodLogTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${entry.grams.round()} g · $time'),
-              const SizedBox(height: 2),
               Text(
-                'P ${entry.proteinG.round()}g · '
-                'C ${entry.carbsG.round()}g · '
-                'F ${entry.fatG.round()}g',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                entry.source == 'quick'
+                    ? 'Estimated · $time'
+                    : '${entry.grams.round()} g · $time',
               ),
+              if (entry.source != 'quick' ||
+                  entry.proteinG > 0 ||
+                  entry.carbsG > 0 ||
+                  entry.fatG > 0) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'P ${entry.proteinG.round()}g · '
+                  'C ${entry.carbsG.round()}g · '
+                  'F ${entry.fatG.round()}g',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

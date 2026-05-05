@@ -8,6 +8,7 @@
 .history
 .cursor/*
 
+AGENTS.md
 opennutrition-dataset-*
 
 # Generated reports/audit artifacts from tool/opennutrition_import.py
