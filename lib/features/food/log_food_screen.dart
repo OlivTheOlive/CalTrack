@@ -384,7 +384,6 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                       key: const ValueKey('idle'),
                       recentFuture: _recentFuture,
                       onRecentTap: _openRecentEntry,
-                      onScan: _scanBarcode,
                       onAddCustomFood: () => context.push('/add-custom-food'),
                     ),
             ),
@@ -404,13 +403,11 @@ class _IdleView extends StatelessWidget {
     super.key,
     required this.recentFuture,
     required this.onRecentTap,
-    required this.onScan,
     required this.onAddCustomFood,
   });
 
   final Future<List<FoodLogEntry>> recentFuture;
   final ValueChanged<FoodLogEntry> onRecentTap;
-  final VoidCallback onScan;
   final VoidCallback onAddCustomFood;
 
   @override
@@ -421,30 +418,14 @@ class _IdleView extends StatelessWidget {
         // Quick actions
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: FilledButton.tonalIcon(
-                  icon: const Icon(Icons.qr_code_scanner_outlined, size: 18),
-                  label: const Text('Scan barcode'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: onScan,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add custom'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: onAddCustomFood,
-                ),
-              ),
-            ],
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Add custom food'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              minimumSize: const Size.fromHeight(0),
+            ),
+            onPressed: onAddCustomFood,
           ),
         ),
 
