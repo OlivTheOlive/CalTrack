@@ -70,7 +70,10 @@ GoRouter createRouter(ProfileController profileController) {
       ),
       GoRoute(
         path: '/scan-barcode',
-        builder: (context, state) => const BarcodeScanScreen(),
+        builder: (context, state) {
+          final raw = state.uri.queryParameters['raw'] == '1';
+          return BarcodeScanScreen(rawMode: raw);
+        },
       ),
       GoRoute(
         path: '/add-custom-food',

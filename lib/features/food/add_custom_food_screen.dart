@@ -163,6 +163,12 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
     }
   }
 
+  Future<void> _scanBarcode() async {
+    final scanned = await context.push<Object?>('/scan-barcode?raw=1');
+    if (!mounted || scanned is! String || scanned.isEmpty) return;
+    setState(() => _barcode.text = scanned);
+  }
+
   Future<void> _scanLabel() async {
     final draft = await context.push<NutritionFactsDraft>('/scan-nutrition-label');
     if (!mounted || draft == null) return;
@@ -217,9 +223,14 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
                 controller: _barcode,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
                   labelText: 'Barcode (optional)',
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.qr_code_scanner_outlined),
+                    tooltip: 'Scan barcode',
+                    onPressed: _busy ? null : _scanBarcode,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

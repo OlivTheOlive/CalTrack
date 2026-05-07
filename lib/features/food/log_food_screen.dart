@@ -329,39 +329,66 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
           // -- Search bar ----------------------------------------------------
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _search,
-              focusNode: _searchFocus,
-              autofocus: true,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Search foods…',
-                prefixIcon: _searching
-                    ? Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: scheme.primary,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _search,
+                    focusNode: _searchFocus,
+                    autofocus: true,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: 'Search foods…',
+                      prefixIcon: _searching
+                          ? Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.search_rounded),
+                      suffixIcon: _hasQuery
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded),
+                              tooltip: 'Clear',
+                              onPressed: _clearSearch,
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.qr_code_scanner_outlined),
+                              tooltip: 'Scan barcode',
+                              onPressed: _scanBarcode,
+                            ),
+                    ),
+                    onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                  ),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    transitionBuilder: (child, anim) => FadeTransition(
+                      opacity: anim,
+                      child: ScaleTransition(scale: anim, child: child),
+                    ),
+                    child: _hasQuery
+                        ? const SizedBox(key: ValueKey('hidden'), width: 0)
+                        : Padding(
+                            key: const ValueKey('add'),
+                            padding: const EdgeInsets.only(left: 8),
+                            child: _AddCustomFoodButton(
+                              onPressed: () => context.push('/add-custom-food'),
+                            ),
                           ),
-                        ),
-                      )
-                    : const Icon(Icons.search_rounded),
-                suffixIcon: _hasQuery
-                    ? IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        tooltip: 'Clear',
-                        onPressed: _clearSearch,
-                      )
-                    : IconButton(
-                        icon: const Icon(Icons.qr_code_scanner_outlined),
-                        tooltip: 'Scan barcode',
-                        onPressed: _scanBarcode,
-                      ),
-              ),
-              onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -384,8 +411,6 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                       key: const ValueKey('idle'),
                       recentFuture: _recentFuture,
                       onRecentTap: _openRecentEntry,
-                      onScan: _scanBarcode,
-                      onAddCustomFood: () => context.push('/add-custom-food'),
                     ),
             ),
           ),
@@ -404,50 +429,16 @@ class _IdleView extends StatelessWidget {
     super.key,
     required this.recentFuture,
     required this.onRecentTap,
-    required this.onScan,
-    required this.onAddCustomFood,
   });
 
   final Future<List<FoodLogEntry>> recentFuture;
   final ValueChanged<FoodLogEntry> onRecentTap;
-  final VoidCallback onScan;
-  final VoidCallback onAddCustomFood;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.only(bottom: 32),
+      padding: const EdgeInsets.only(top: 8, bottom: 32),
       children: [
-        // Quick actions
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: FilledButton.tonalIcon(
-                  icon: const Icon(Icons.qr_code_scanner_outlined, size: 18),
-                  label: const Text('Scan barcode'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: onScan,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add custom'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: onAddCustomFood,
-                ),
-              ),
-            ],
-          ),
-        ),
-
         // Recent section
         _SectionHeader(
           icon: Icons.history_rounded,
@@ -1065,6 +1056,39 @@ class _EmojiAvatar extends StatelessWidget {
       child: emoji != null
           ? Text(emoji, style: const TextStyle(fontSize: 22))
           : Icon(Icons.restaurant_outlined, size: 20, color: scheme.onSurfaceVariant),
+    );
+  }
+}
+
+/// Compact "add custom food" action that sits next to the search bar.
+/// Sized to match the TextField's height so the row aligns cleanly.
+class _AddCustomFoodButton extends StatelessWidget {
+  const _AddCustomFoodButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Material(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: Tooltip(
+            message: 'Add custom food',
+            child: Icon(
+              Icons.add_rounded,
+              color: scheme.onPrimaryContainer,
+              size: 22,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
