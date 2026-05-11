@@ -410,7 +410,6 @@ class _TodaySummaryCard extends StatelessWidget {
               sugar: intake.sugarG,
               fiber: intake.fiberG,
               target: plan.macros.carbs,
-              color: scheme.secondary,
             ),
             _MacroIntakeProgressLinear(
               label: 'Fat',
@@ -493,14 +492,12 @@ class _CarbsStackedBar extends StatelessWidget {
     required this.sugar,
     required this.fiber,
     required this.target,
-    required this.color,
   });
 
   final double consumed;
   final double sugar;
   final double fiber;
   final double target;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -580,7 +577,9 @@ class _CarbsStackedBar extends StatelessWidget {
                                 Expanded(
                                   flex: (complex * 1000).round().clamp(1, 1000),
                                   child: Container(
-                                    color: over ? scheme.error : color,
+                                    color: over
+                                        ? scheme.error
+                                        : _complexColor(scheme),
                                   ),
                                 ),
                             ],
@@ -610,7 +609,7 @@ class _CarbsStackedBar extends StatelessWidget {
                     label: 'Sugar ${sugar.round()} g',
                   ),
                 _LegendDot(
-                  color: color,
+                  color: _complexColor(scheme),
                   label:
                       'Complex ${((consumed - fiber - sugar).round()).clamp(0, 9999)} g',
                 ),
@@ -622,13 +621,26 @@ class _CarbsStackedBar extends StatelessWidget {
     );
   }
 
+  // Fixed, hue-separated palette so fiber/sugar/complex stay distinguishable
+  // regardless of the active Material theme. Brightness-aware so each segment
+  // keeps enough contrast against `surfaceContainerHighest` in light/dark mode.
   static Color _fiberColor(ColorScheme scheme) =>
-      // Green-tinted — fiber is generally desirable.
-      Color.lerp(scheme.primary, scheme.secondary, 0.5)!;
+      // Green — fiber is generally desirable.
+      scheme.brightness == Brightness.dark
+          ? const Color(0xFF66BB6A)
+          : const Color(0xFF2E7D32);
 
   static Color _sugarColor(ColorScheme scheme) =>
       // Warm amber — draws attention without being alarmist.
-      Color.lerp(scheme.error, scheme.secondary, 0.5)!;
+      scheme.brightness == Brightness.dark
+          ? const Color(0xFFFFB74D)
+          : const Color(0xFFEF6C00);
+
+  static Color _complexColor(ColorScheme scheme) =>
+      // Cool blue — neutral starch/complex carbs, distinct from green/amber.
+      scheme.brightness == Brightness.dark
+          ? const Color(0xFF64B5F6)
+          : const Color(0xFF1565C0);
 }
 
 class _LegendDot extends StatelessWidget {

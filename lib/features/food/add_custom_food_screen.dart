@@ -159,7 +159,7 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
     );
     if (!mounted) return;
     if (action == FoodEntryAction.added) {
-      if (context.canPop()) context.pop();
+      Navigator.of(context).maybePop();
     }
   }
 
@@ -315,6 +315,7 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Saved.')),
                               );
+                              Navigator.of(context).maybePop();
                             },
                       child: const Text('Save'),
                     ),

@@ -3,11 +3,10 @@ import 'dart:io';
 
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 class DataToolsScreen extends StatefulWidget {
   const DataToolsScreen({super.key});
@@ -19,17 +18,8 @@ class DataToolsScreen extends StatefulWidget {
 class _DataToolsScreenState extends State<DataToolsScreen> {
   bool _busy = false;
 
-  Future<File> _writeExportFile(String jsonString) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final ts = DateTime.now()
-        .toIso8601String()
-        .replaceAll(':', '-')
-        .replaceAll('.', '-');
-    final path = p.join(dir.path, 'caltrack-backup-$ts.json');
-    final file = File(path);
-    await file.writeAsString(jsonString, flush: true);
-    return file;
-  }
+  static bool get _isMobile =>
+      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   Future<void> _export() async {
     final repo = context.read<CalTrackRepository>();
@@ -37,16 +27,32 @@ class _DataToolsScreenState extends State<DataToolsScreen> {
     try {
       final data = await repo.exportJson();
       final jsonString = const JsonEncoder.withIndent('  ').convert(data);
-      final file = await _writeExportFile(jsonString);
-      if (!mounted) return;
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'CalTrack backup',
-        subject: 'CalTrack backup',
+      final bytes = Uint8List.fromList(utf8.encode(jsonString));
+      final ts = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .replaceAll('.', '-');
+      final fileName = 'caltrack-backup-$ts.json';
+
+      final outputPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save CalTrack backup',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        // file_picker requires bytes on Android/iOS and rejects them on macOS.
+        bytes: _isMobile ? bytes : null,
       );
+
+      if (!mounted || outputPath == null) return;
+
+      // On desktop, the picker only returns a path — write the file ourselves.
+      if (!_isMobile) {
+        await File(outputPath).writeAsBytes(bytes, flush: true);
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Exported to ${p.basename(file.path)}')),
+        SnackBar(content: Text('Saved backup to ${p.basename(outputPath)}')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
