@@ -1,3 +1,4 @@
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/core/validation.dart';
@@ -99,9 +100,7 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
     final profileCtl = context.read<ProfileController>();
     final kg = _parseWeightKg();
     if (kg == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid weight.')),
-      );
+      AppSnackBar.showError(context, 'Enter a valid weight.');
       return;
     }
     final note = _trimmedNote();

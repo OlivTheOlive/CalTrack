@@ -1,3 +1,4 @@
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/nutrition.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
@@ -101,16 +102,13 @@ class WeeklyReviewScreen extends StatelessWidget {
                             repo: repo,
                           );
                           if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Adjusted calories by ±'
-                                '${defaultProgressStepKcal.round()} kcal '
-                                'because actual change was outside the '
-                                '±${defaultProgressBandKgPerWeek.toStringAsFixed(2)} '
-                                'kg/week band.',
-                              ),
-                            ),
+                          context.showAppSnackBar(
+                            'Adjusted calories by ±'
+                            '${defaultProgressStepKcal.round()} kcal '
+                            'because actual change was outside the '
+                            '±${defaultProgressBandKgPerWeek.toStringAsFixed(2)} '
+                            'kg/week band.',
+                            duration: const Duration(seconds: 8),
                           );
                           context.pop();
                         },
@@ -126,9 +124,7 @@ class WeeklyReviewScreen extends StatelessWidget {
                       repo: repo,
                     );
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Keeping current target.')),
-                    );
+                    context.showAppSnackBar('Keeping current target.');
                     context.pop();
                   },
                   icon: const Icon(Icons.check_circle_outline),
