@@ -1,3 +1,4 @@
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/features/dashboard/home_screen.dart';
 import 'package:caltrack/features/food/quick_add_sheet.dart';
 import 'package:caltrack/features/weight/weight_analytics_tab.dart';
@@ -119,9 +120,7 @@ class _RootShellState extends State<RootShell>
           final messenger = ScaffoldMessenger.of(context);
           final logged = await showQuickAddSheet(context);
           if (logged && mounted) {
-            messenger.showSnackBar(
-              const SnackBar(content: Text('Entry added')),
-            );
+            AppSnackBar.showDetached(messenger, message: 'Entry added');
           }
         },
       ),

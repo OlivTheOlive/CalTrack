@@ -1,3 +1,4 @@
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:caltrack/core/validation.dart';
@@ -312,9 +313,7 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
                               final id = await _saveCustomFood();
                               if (id == null) return;
                               if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Saved.')),
-                              );
+                              context.showAppSnackBar('Saved.');
                               Navigator.of(context).maybePop();
                             },
                       child: const Text('Save'),

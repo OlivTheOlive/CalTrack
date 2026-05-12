@@ -1,3 +1,4 @@
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/nutrition.dart';
 import 'package:caltrack/core/units.dart';
@@ -127,15 +128,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       max: 500,
     );
     if (heightErr != null || weightErr != null || goalErr != null || cw <= 0 || gw <= 0 || !_macroValid()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            heightErr ??
-                weightErr ??
-                goalErr ??
-                'Check all fields and macro percentages (100%).',
-          ),
-        ),
+      AppSnackBar.showError(
+        context,
+        heightErr ??
+            weightErr ??
+            goalErr ??
+            'Check all fields and macro percentages (100%).',
       );
       return;
     }

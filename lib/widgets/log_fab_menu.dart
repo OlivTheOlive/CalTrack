@@ -22,6 +22,25 @@ class LogFabMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mainFab = FloatingActionButton(
+      onPressed: onToggle,
+      tooltip: isOpen ? 'Close menu' : 'Add entry',
+      child: AnimatedRotation(
+        turns: isOpen ? 0.125 : 0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        child: const Icon(Icons.add),
+      ),
+    );
+
+    // When closed, only the primary FAB is in the tree so [Scaffold]'s
+    // `floatingActionButtonRect` stays at the bottom-right. A full [Column]
+    // of (invisible) menu rows still laid out space above the FAB, which made
+    // floating [SnackBar]s anchor to that tall rect — mid-screen by the list.
+    if (!isOpen) {
+      return mainFab;
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -53,16 +72,7 @@ class LogFabMenu extends StatelessWidget {
           onPressed: onQuickAdd,
         ),
         const SizedBox(height: 12),
-        FloatingActionButton(
-          onPressed: onToggle,
-          tooltip: isOpen ? 'Close menu' : 'Add entry',
-          child: AnimatedRotation(
-            turns: isOpen ? 0.125 : 0,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            child: const Icon(Icons.add),
-          ),
-        ),
+        mainFab,
       ],
     );
   }

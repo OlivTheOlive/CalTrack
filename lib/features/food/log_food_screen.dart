@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/core/food_emoji.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
@@ -178,8 +179,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     if (action == FoodEntryAction.added) {
       _refreshRecent();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Logged ${food.name}')));
+        context.showAppSnackBar('Logged ${food.name}');
       }
     }
   }
@@ -226,8 +226,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     if (action == FoodEntryAction.added) {
       _refreshRecent();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Logged $displayName')));
+        context.showAppSnackBar('Logged $displayName');
       }
     }
   }
@@ -281,8 +280,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     );
     if (!mounted || action != FoodEntryAction.added) return;
     _refreshRecent();
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('Logged ${entry.displayName}')));
+    context.showAppSnackBar('Logged ${entry.displayName}');
   }
 
   void _refreshRecent() {

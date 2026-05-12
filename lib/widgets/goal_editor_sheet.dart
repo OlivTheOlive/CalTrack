@@ -1,3 +1,4 @@
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
@@ -135,9 +136,7 @@ class _GoalEditorBodyState extends State<GoalEditorBody> {
         await profileCtl.refresh();
         if (!mounted) return;
         navigator.pop(true);
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Switched to maintenance.')),
-        );
+        AppSnackBar.showDetached(messenger, message: 'Switched to maintenance.');
       } finally {
         if (mounted) setState(() => _saving = false);
       }
@@ -146,9 +145,7 @@ class _GoalEditorBodyState extends State<GoalEditorBody> {
 
     final targetKg = _parseTargetKg();
     if (targetKg == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Enter a valid goal weight.')),
-      );
+      AppSnackBar.showError(context, 'Enter a valid goal weight.');
       return;
     }
     final currentKg = widget.currentWeightKg;
@@ -164,9 +161,7 @@ class _GoalEditorBodyState extends State<GoalEditorBody> {
       await profileCtl.refresh();
       if (!mounted) return;
       navigator.pop(true);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Goal updated.')),
-      );
+      AppSnackBar.showDetached(messenger, message: 'Goal updated.');
     } finally {
       if (mounted) setState(() => _saving = false);
     }

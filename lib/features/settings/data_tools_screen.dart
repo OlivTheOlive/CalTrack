@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -51,8 +52,8 @@ class _DataToolsScreenState extends State<DataToolsScreen> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved backup to ${p.basename(outputPath)}')),
+      context.showAppSnackBar(
+        'Saved backup to ${p.basename(outputPath)}',
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -70,9 +71,7 @@ class _DataToolsScreenState extends State<DataToolsScreen> {
     final file = result.files.single;
     final bytes = file.bytes;
     if (bytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not read file.')),
-      );
+      AppSnackBar.showError(context, 'Could not read file.');
       return;
     }
 
@@ -84,9 +83,7 @@ class _DataToolsScreenState extends State<DataToolsScreen> {
       parsed = obj.cast<String, Object?>();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid backup file.')),
-      );
+      AppSnackBar.showError(context, 'Invalid backup file.');
       return;
     }
 
@@ -94,12 +91,10 @@ class _DataToolsScreenState extends State<DataToolsScreen> {
     try {
       await repo.importJson(parsed, overwrite: overwrite);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(overwrite
-              ? 'Imported backup (overwrote existing data).'
-              : 'Imported backup (merged).'),
-        ),
+      context.showAppSnackBar(
+        overwrite
+            ? 'Imported backup (overwrote existing data).'
+            : 'Imported backup (merged).',
       );
     } finally {
       if (mounted) setState(() => _busy = false);

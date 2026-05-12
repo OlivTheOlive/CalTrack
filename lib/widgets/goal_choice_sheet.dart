@@ -1,3 +1,4 @@
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:flutter/material.dart';
@@ -65,9 +66,11 @@ class _GoalChoiceBodyState extends State<GoalChoiceBody> {
   Future<void> _maintain() async {
     await widget.repo.chooseMaintainWeight();
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Switched to maintenance calories.')),
+    AppSnackBar.showDetached(
+      messenger,
+      message: 'Switched to maintenance calories.',
     );
   }
 
@@ -75,9 +78,7 @@ class _GoalChoiceBodyState extends State<GoalChoiceBody> {
     final raw = _newGoalController.text.trim().replaceAll(',', '.');
     final parsed = double.tryParse(raw);
     if (parsed == null || parsed <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid goal weight.')),
-      );
+      AppSnackBar.showError(context, 'Enter a valid goal weight.');
       return;
     }
     final kg = widget.unit == WeightUnit.kg ? parsed : lbToKg(parsed);
@@ -86,10 +87,9 @@ class _GoalChoiceBodyState extends State<GoalChoiceBody> {
       weeklyChangeKgPerWeek: -0.5,
     );
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('New goal saved.')),
-    );
+    AppSnackBar.showDetached(messenger, message: 'New goal saved.');
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/food_emoji.dart';
 import 'package:caltrack/core/goal_eta.dart';
@@ -1179,31 +1180,26 @@ class _FoodLogTile extends StatelessWidget {
       onDismissed: (_) async {
         await repo.deleteFoodLog(entry.id);
         if (!context.mounted) return;
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Removed ${entry.displayName}'),
-            action: SnackBarAction(
-              label: 'Undo',
-              onPressed: () {
-                repo.addFoodLogReturnId(
-                  source: entry.source,
-                  catalogFoodId: entry.catalogFoodId,
-                  customFoodId: entry.customFoodId,
-                  displayName: entry.displayName,
-                  grams: entry.grams,
-                  kcal: entry.kcal,
-                  proteinG: entry.proteinG,
-                  carbsG: entry.carbsG,
-                  sugarG: entry.sugarG,
-                  fiberG: entry.fiberG,
-                  fatG: entry.fatG,
-                  loggedAt: entry.loggedAt,
-                );
-              },
-            ),
-          ),
+        context.showAppSnackBar(
+          'Removed ${entry.displayName}',
+          actionLabel: 'Undo',
+          onAction: () {
+            repo.addFoodLogReturnId(
+              source: entry.source,
+              catalogFoodId: entry.catalogFoodId,
+              customFoodId: entry.customFoodId,
+              displayName: entry.displayName,
+              grams: entry.grams,
+              kcal: entry.kcal,
+              proteinG: entry.proteinG,
+              carbsG: entry.carbsG,
+              sugarG: entry.sugarG,
+              fiberG: entry.fiberG,
+              fatG: entry.fatG,
+              loggedAt: entry.loggedAt,
+            );
+          },
+          replaceCurrent: true,
         );
       },
       child: ListTile(

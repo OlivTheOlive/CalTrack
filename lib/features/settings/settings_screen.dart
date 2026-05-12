@@ -1,3 +1,4 @@
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
@@ -134,9 +135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         );
                         await profileCtl.refresh();
                         if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Macros updated')),
-                        );
+                        context.showAppSnackBar('Macros updated');
                       },
                 child: const Text('Save macros'),
               ),

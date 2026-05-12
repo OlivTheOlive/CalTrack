@@ -1,3 +1,4 @@
+import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/core/nutrition_scaling.dart';
 import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
@@ -293,9 +294,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
       _savedServingAmount = amount;
       _savedServingUnit = unit;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Saved serving: ${amount.round()} $unit')),
-    );
+    context.showAppSnackBar('Saved serving: ${amount.round()} $unit');
   }
 
   void _applyServing() {
