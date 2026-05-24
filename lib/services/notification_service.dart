@@ -1,4 +1,5 @@
 import 'package:caltrack/data/caltrack_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart';
@@ -17,9 +18,14 @@ class NotificationService {
   bool _initialized = false;
 
   Future<void> _configureLocalTimeZone() async {
-    initializeTimeZones();
-    final name = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(name));
+    try {
+      initializeTimeZones();
+      final name = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(name));
+    } catch (e) {
+      debugPrint('NotificationService: timezone config failed, using UTC: $e');
+      tz.setLocalLocation(tz.getLocation('UTC'));
+    }
   }
 
   Future<void> init({
@@ -43,50 +49,67 @@ class NotificationService {
     _initialized = true;
   }
 
-  Future<void> scheduleWeeklyWeighIn({
+  /// Schedule (or re-schedule) the weekly weigh-in reminder.
+  /// Returns `true` on success, `false` on failure.
+  Future<bool> scheduleWeeklyWeighIn({
     required CalTrackRepository repo,
   }) async {
-    final profile = await repo.requireProfile();
-    if (!profile.onboardingCompleted) return;
+    try {
+      final profile = await repo.requireProfile();
+      if (!profile.onboardingCompleted) return false;
 
-    await _plugin.cancel(_weeklyNotificationId);
+      await _plugin.cancel(_weeklyNotificationId);
 
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      profile.reminderHour,
-      profile.reminderMinute,
-    );
+      final now = tz.TZDateTime.now(tz.local);
+      var scheduled = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        profile.reminderHour,
+        profile.reminderMinute,
+      );
 
-    while (scheduled.weekday != profile.reminderWeekday ||
-        !scheduled.isAfter(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
+      while (scheduled.weekday != profile.reminderWeekday ||
+          !scheduled.isAfter(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
+
+      const android = AndroidNotificationDetails(
+        'caltrack_weekly',
+        'Weekly weigh-in',
+        channelDescription: 'Reminder to log your weight and review progress.',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      );
+      const details = NotificationDetails(android: android);
+
+      await _plugin.zonedSchedule(
+        _weeklyNotificationId,
+        'CalTrack',
+        'Time to log your weight and check if your plan is working.',
+        scheduled,
+        details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        payload: '/log-weight',
+      );
+      return true;
+    } catch (e) {
+      debugPrint('NotificationService.scheduleWeeklyWeighIn failed: $e');
+      return false;
     }
+  }
 
-    const android = AndroidNotificationDetails(
-      'caltrack_weekly',
-      'Weekly weigh-in',
-      channelDescription: 'Reminder to log your weight and review progress.',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-    );
-    const details = NotificationDetails(android: android);
-
-    await _plugin.zonedSchedule(
-      _weeklyNotificationId,
-      'CalTrack',
-      'Time to log your weight and check if your plan is working.',
-      scheduled,
-      details,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-      payload: '/log-weight',
-    );
+  /// Re-schedule the weekly reminder using the currently stored profile.
+  /// Useful for [AppLifecycleListener] or boot receivers.
+  Future<bool> rescheduleFromRepo({
+    required CalTrackRepository repo,
+  }) async {
+    if (!_initialized) return false;
+    return scheduleWeeklyWeighIn(repo: repo);
   }
 
   Future<void> cancelWeekly() async {
