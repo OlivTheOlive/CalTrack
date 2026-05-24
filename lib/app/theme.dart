@@ -6,6 +6,11 @@ ThemeData buildCalTrackTheme({Brightness brightness = Brightness.light}) {
     seedColor: seed,
     brightness: brightness,
   );
+
+  const buttonShape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(Radius.circular(12)),
+  );
+
   return ThemeData(
     useMaterial3: true,
     colorScheme: colorScheme,
@@ -29,7 +34,19 @@ ThemeData buildCalTrackTheme({Brightness brightness = Brightness.light}) {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: buttonShape,
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        shape: buttonShape,
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        shape: buttonShape,
       ),
     ),
     pageTransitionsTheme: const PageTransitionsTheme(
