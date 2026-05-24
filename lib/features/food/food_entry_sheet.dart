@@ -107,8 +107,6 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
 
   String? _foodKey;
   bool _loadingPrefs = true;
-  bool _catalogLiquidDefault = false;
-  bool? _treatAsLiquidOverride;
   double? _savedServingAmount;
   String? _savedServingUnit; // 'g' | 'ml'
 
@@ -159,20 +157,16 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
     final key = cfg.catalogFoodId != null
         ? foodLogKeyForCatalogId(cfg.catalogFoodId!)
         : (cfg.customFoodId != null
-            ? foodLogKeyForCustomId(cfg.customFoodId!)
-            : foodLogKeyForName(cfg.displayName));
-    bool catalogDefault = false;
+              ? foodLogKeyForCustomId(cfg.customFoodId!)
+              : foodLogKeyForName(cfg.displayName));
     if (cfg.catalogFoodId != null) {
       final catalog = context.read<OpenNutritionCatalog>();
-      final food = await catalog.byId(cfg.catalogFoodId!);
-      catalogDefault = food?.isLiquid ?? false;
+      await catalog.byId(cfg.catalogFoodId!);
     }
     final pref = await repo.foodPrefByKey(key);
     if (!mounted) return;
     setState(() {
       _foodKey = key;
-      _catalogLiquidDefault = catalogDefault;
-      _treatAsLiquidOverride = pref?.treatAsLiquid;
       _savedServingAmount = pref?.savedServingAmount;
       _savedServingUnit = pref?.savedServingUnit;
       // When no explicit initial preset was passed (i.e. fresh open) and
@@ -198,13 +192,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
     });
   }
 
-  bool get _treatAsLiquidEffective =>
-      _treatAsLiquidOverride ?? _catalogLiquidDefault;
-
-  String get _effectiveUnitLabel {
-    if (_treatAsLiquidEffective) return 'ml';
-    return widget.config.unitLabel;
-  }
+  String get _effectiveUnitLabel => widget.config.unitLabel;
 
   @override
   void dispose() {
@@ -256,30 +244,12 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   }
 
   ScaledNutrition _scale(double grams) => scaleFromPer100g(
-        grams: grams,
-        kcalPer100g: widget.config.kcalPer100g,
-        proteinPer100g: widget.config.proteinPer100g,
-        carbsPer100g: widget.config.carbsPer100g,
-        fatPer100g: widget.config.fatPer100g,
-      );
-
-  Future<void> _setTreatAsLiquid(bool value) async {
-    final key = _foodKey;
-    if (key == null) return;
-    final repo = context.read<CalTrackRepository>();
-    await repo.setTreatAsLiquid(foodKey: key, treatAsLiquid: value);
-    if (!mounted) return;
-    setState(() => _treatAsLiquidOverride = value);
-  }
-
-  Future<void> _clearTreatAsLiquidOverride() async {
-    final key = _foodKey;
-    if (key == null) return;
-    final repo = context.read<CalTrackRepository>();
-    await repo.setTreatAsLiquid(foodKey: key, treatAsLiquid: null);
-    if (!mounted) return;
-    setState(() => _treatAsLiquidOverride = null);
-  }
+    grams: grams,
+    kcalPer100g: widget.config.kcalPer100g,
+    proteinPer100g: widget.config.proteinPer100g,
+    carbsPer100g: widget.config.carbsPer100g,
+    fatPer100g: widget.config.fatPer100g,
+  );
 
   Future<void> _saveServing() async {
     final key = _foodKey;
@@ -414,11 +384,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
       }
     }
     // Switched to grams or invalid preset state -> clear remembered preset.
-    await repo.setLastUsedServing(
-      foodKey: key,
-      label: null,
-      quantity: null,
-    );
+    await repo.setLastUsedServing(foodKey: key, label: null, quantity: null);
   }
 
   Future<void> _delete() async {
@@ -442,16 +408,8 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
     final scaled = _scale(grams);
     final unitLabel = _effectiveUnitLabel;
     final amountError = _mode == _AmountMode.grams
-        ? validatePositiveDouble(
-            _grams.text,
-            fieldLabel: 'Amount',
-            max: 100000,
-          )
-        : validatePositiveDouble(
-            _qty.text,
-            fieldLabel: 'Servings',
-            max: 1000,
-          );
+        ? validatePositiveDouble(_grams.text, fieldLabel: 'Amount', max: 100000)
+        : validatePositiveDouble(_qty.text, fieldLabel: 'Servings', max: 1000);
     final hasPresets = cfg.hasPresets;
     final saveEnabled = !_busy && _effectiveGrams() != null;
 
@@ -474,10 +432,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        cfg.displayName,
-                        style: theme.textTheme.titleLarge,
-                      ),
+                      Text(cfg.displayName, style: theme.textTheme.titleLarge),
                       const SizedBox(height: 2),
                       Text(
                         cfg.subtitle ??
@@ -510,9 +465,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
                   ),
                 ],
                 selected: {_mode},
-                onSelectionChanged: _busy
-                    ? null
-                    : (s) => _setMode(s.first),
+                onSelectionChanged: _busy ? null : (s) => _setMode(s.first),
               ),
               const SizedBox(height: 12),
             ],
@@ -530,8 +483,9 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
             else
               TextField(
                 controller: _grams,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 autofocus: !cfg.isEdit,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
@@ -545,46 +499,6 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
                 onChanged: (_) => setState(() {}),
                 onSubmitted: (_) => FocusScope.of(context).unfocus(),
               ),
-            if (!_loadingPrefs && !hasPresets) ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Treat as liquid (ml)'),
-                      subtitle: Text(
-                        _treatAsLiquidOverride == null
-                            ? 'Default: ${_catalogLiquidDefault ? "liquid" : "solid"}'
-                            : 'Override saved',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      value: _treatAsLiquidEffective,
-                      onChanged: _busy ? null : _setTreatAsLiquid,
-                    ),
-                  ),
-                  if (_treatAsLiquidOverride != null) ...[
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: _busy ? null : _clearTreatAsLiquidOverride,
-                      child: const Text('Use default'),
-                    ),
-                  ],
-                ],
-              ),
-              if (_treatAsLiquidEffective)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    'Approx: assumes 1 ml ≈ 1 g for nutrition scaling.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-            ],
             if (_mode == _AmountMode.grams) ...[
               const SizedBox(height: 8),
               Wrap(
@@ -621,8 +535,9 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
                   ActionChip(
                     avatar: const Icon(Icons.bookmark_add_outlined, size: 18),
                     label: const Text('Save current as serving'),
-                    onPressed:
-                        _busy || _effectiveGrams() == null ? null : _saveServing,
+                    onPressed: _busy || _effectiveGrams() == null
+                        ? null
+                        : _saveServing,
                   ),
                 ],
               ),
@@ -732,8 +647,9 @@ class _ServingsInput extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: qtyController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 textAlign: TextAlign.center,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
@@ -885,8 +801,7 @@ class _MacroComposition extends StatelessWidget {
               child: LinearProgressIndicator(
                 minHeight: 6,
                 value: kcalShare.clamp(0.0, 1.0),
-                backgroundColor:
-                    theme.colorScheme.surfaceContainerHighest,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 color: color,
               ),
             ),
