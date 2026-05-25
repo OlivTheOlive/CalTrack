@@ -381,7 +381,6 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: scheme.error,
                         side: BorderSide(color: scheme.error),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       icon: const Icon(Icons.delete_outline, size: 18),
                       label: const Text('Delete'),

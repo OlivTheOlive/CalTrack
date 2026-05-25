@@ -545,7 +545,6 @@ class _SearchResultsView extends StatelessWidget {
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text("Can't find it? Add a custom food"),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
                 foregroundColor: scheme.onSurfaceVariant,
                 side: BorderSide(color: scheme.outlineVariant),
               ),
