@@ -6,6 +6,33 @@ ThemeData buildCalTrackTheme({Brightness brightness = Brightness.light}) {
     seedColor: seed,
     brightness: brightness,
   );
+  return _buildFromScheme(colorScheme);
+}
+
+/// Pure-black OLED theme — saves battery on AMOLED screens.
+ThemeData buildCalTrackOledTheme() {
+  const seed = Color(0xFF2E7D6B);
+  final base = ColorScheme.fromSeed(
+    seedColor: seed,
+    brightness: Brightness.dark,
+  );
+  // Override surface colours to true black.
+  final colorScheme = base.copyWith(
+    surface: Colors.black,
+    surfaceContainerHighest: const Color(0xFF0D0D0D),
+    surfaceContainerHigh: const Color(0xFF111111),
+    surfaceContainer: const Color(0xFF141414),
+    surfaceContainerLow: const Color(0xFF181818),
+    surfaceContainerLowest: Colors.black,
+    surfaceDim: Colors.black,
+    surfaceBright: const Color(0xFF1C1C1C),
+  );
+  return _buildFromScheme(colorScheme).copyWith(
+    scaffoldBackgroundColor: Colors.black,
+  );
+}
+
+ThemeData _buildFromScheme(ColorScheme colorScheme) {
   return ThemeData(
     useMaterial3: true,
     colorScheme: colorScheme,

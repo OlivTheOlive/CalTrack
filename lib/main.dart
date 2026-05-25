@@ -1,6 +1,7 @@
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/app/router.dart';
 import 'package:caltrack/app/theme.dart';
+import 'package:caltrack/app/theme_controller.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
@@ -9,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +21,8 @@ Future<void> main() async {
   final repo = CalTrackRepository(db);
   final catalog = OpenNutritionCatalog();
   final profileController = ProfileController(repo);
+  final prefs = await SharedPreferences.getInstance();
+  final themeController = ThemeController(prefs);
 
   late final GoRouter router;
   router = createRouter(profileController);
@@ -40,6 +44,7 @@ Future<void> main() async {
         Provider<CalTrackRepository>.value(value: repo),
         Provider<OpenNutritionCatalog>.value(value: catalog),
         ChangeNotifierProvider<ProfileController>.value(value: profileController),
+        ChangeNotifierProvider<ThemeController>.value(value: themeController),
       ],
       child: CalTrackApp(router: router),
     ),
@@ -53,11 +58,14 @@ class CalTrackApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeController = context.watch<ThemeController>();
     return MaterialApp.router(
       title: 'CalTrack',
       theme: buildCalTrackTheme(),
-      darkTheme: buildCalTrackTheme(brightness: Brightness.dark),
-      themeMode: ThemeMode.system,
+      darkTheme: themeController.isOled
+          ? buildCalTrackOledTheme()
+          : buildCalTrackTheme(brightness: Brightness.dark),
+      themeMode: themeController.themeMode,
       routerConfig: router,
     );
   }
