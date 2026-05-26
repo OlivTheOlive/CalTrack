@@ -1,5 +1,6 @@
 import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
+import 'package:caltrack/app/theme_controller.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
@@ -57,6 +58,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
+              Text(
+                'Theme',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              const _ThemePicker(),
+              const SizedBox(height: 20),
               Text(
                 'Weight display',
                 style: Theme.of(context).textTheme.titleSmall,
@@ -387,6 +395,43 @@ class _FoodDataCounts extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Segmented button that lets the user pick between System, Light, Dark, OLED.
+class _ThemePicker extends StatelessWidget {
+  const _ThemePicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<ThemeController>();
+    return SegmentedButton<AppThemeMode>(
+      showSelectedIcon: false,
+      segments: const [
+        ButtonSegment(
+          value: AppThemeMode.system,
+          icon: Icon(Icons.brightness_auto),
+          label: Text('System'),
+        ),
+        ButtonSegment(
+          value: AppThemeMode.light,
+          icon: Icon(Icons.light_mode),
+          label: Text('Light'),
+        ),
+        ButtonSegment(
+          value: AppThemeMode.dark,
+          icon: Icon(Icons.dark_mode),
+          label: Text('Dark'),
+        ),
+        ButtonSegment(
+          value: AppThemeMode.oled,
+          icon: Icon(Icons.circle),
+          label: Text('OLED'),
+        ),
+      ],
+      selected: {controller.mode},
+      onSelectionChanged: (s) => controller.setMode(s.first),
     );
   }
 }

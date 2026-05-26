@@ -1,4 +1,5 @@
 import 'package:caltrack/app/profile_controller.dart';
+import 'package:caltrack/app/theme_controller.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
@@ -11,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeCatalog extends OpenNutritionCatalog {
   @override
@@ -73,6 +75,8 @@ void main() {
 
     testWidgets('Settings shows Data tools and routes to DataToolsScreen',
         (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final themeCtl = ThemeController(await SharedPreferences.getInstance());
       final router = GoRouter(
         initialLocation: '/settings',
         routes: [
@@ -92,6 +96,7 @@ void main() {
           providers: [
             Provider<CalTrackRepository>.value(value: repo),
             ChangeNotifierProvider<ProfileController>.value(value: profileCtl),
+            ChangeNotifierProvider<ThemeController>.value(value: themeCtl),
             Provider<OpenNutritionCatalog>.value(value: _FakeCatalog()),
           ],
           child: MaterialApp.router(routerConfig: router),
