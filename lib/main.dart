@@ -96,7 +96,7 @@ class _CalTrackAppState extends State<CalTrackApp> with WidgetsBindingObserver {
           ? buildCalTrackOledTheme()
           : buildCalTrackTheme(brightness: Brightness.dark),
       themeMode: themeController.themeMode,
-      routerConfig: router,
+      routerConfig: widget.router,
     );
   }
 }

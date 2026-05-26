@@ -33,6 +33,9 @@ ThemeData buildCalTrackOledTheme() {
 }
 
 ThemeData _buildFromScheme(ColorScheme colorScheme) {
+  final buttonShape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),
+  );
   return ThemeData(
     useMaterial3: true,
     colorScheme: colorScheme,
