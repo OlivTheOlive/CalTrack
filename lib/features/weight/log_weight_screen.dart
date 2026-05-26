@@ -105,7 +105,7 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
     }
     final note = _trimmedNote();
 
-    setState(() => _saving = true);
+      setState(() => _saving = true);
     try {
       final editing = _editingEntry;
       if (editing != null) {
@@ -127,9 +127,9 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
           await repo.addWeightEntry(weightKg: kg, note: note);
         }
       }
-      await profileCtl.refresh();
       if (!mounted) return;
       context.pop();
+      WidgetsBinding.instance.addPostFrameCallback((_) => profileCtl.refresh());
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -191,9 +191,9 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
     setState(() => _saving = true);
     try {
       await repo.deleteWeightEntry(editing.id);
-      await profileCtl.refresh();
       if (!mounted) return;
       context.pop();
+      WidgetsBinding.instance.addPostFrameCallback((_) => profileCtl.refresh());
     } finally {
       if (mounted) setState(() => _saving = false);
     }
