@@ -10,6 +10,7 @@ import 'package:caltrack/widgets/opennutrition_attribution.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -265,6 +266,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/data-tools'),
               ),
+              const Divider(height: 40),
+              Text('About', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              _VersionInfoTile(),
             ],
           );
         },
@@ -432,6 +437,37 @@ class _ThemePicker extends StatelessWidget {
       ],
       selected: {controller.mode},
       onSelectionChanged: (s) => controller.setMode(s.first),
+    );
+  }
+}
+
+class _VersionInfoTile extends StatelessWidget {
+  const _VersionInfoTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snap) {
+        final info = snap.data;
+        final version = info == null ? '...' : info.version;
+        final buildNumber = info == null ? '' : ' (${info.buildNumber})';
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.info_outline),
+          title: Text('CalTrack v$version$buildNumber'),
+          subtitle: const Text('Check for updates on GitHub.'),
+          trailing: const Icon(Icons.open_in_new),
+          onTap: () async {
+            final uri = Uri.parse(
+              'https://github.com/OlivTheOlive/CalTrack/releases',
+            );
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+        );
+      },
     );
   }
 }
