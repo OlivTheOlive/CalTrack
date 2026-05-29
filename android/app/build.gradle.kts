@@ -1,8 +1,49 @@
+import java.nio.file.Files
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+fun loadReleaseSigningConfig(): SigningConfig? {
+    // 1. Local development: key.properties
+    val propsFile = rootProject.file("key.properties")
+    if (propsFile.exists()) {
+        val props = java.util.Properties().apply { load(propsFile.inputStream()) }
+        val storeFile = rootProject.file(props["storeFile"] as String)
+        if (storeFile.exists()) {
+            return signingConfigs.create("release") {
+                storeFile = storeFile
+                storePassword = props["storePassword"] as String
+                keyAlias = props["keyAlias"] as String
+                keyPassword = props["keyPassword"] as String
+            }
+        }
+    }
+
+    // 2. CI / GitHub Actions: decode keystore from env var
+    val keystoreB64 = System.getenv("RELEASE_KEYSTORE_BASE64")
+    val storePass = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+    val keyAliasName = System.getenv("RELEASE_KEY_ALIAS")
+    val keyPass = System.getenv("RELEASE_KEY_PASSWORD")
+
+    if (keystoreB64 != null && storePass != null && keyAliasName != null && keyPass != null) {
+        val decoded = Base64.getDecoder().decode(keystoreB64)
+        val tempFile = java.io.File.createTempFile("release-keystore-", ".jks")
+        Files.write(tempFile.toPath(), decoded)
+        tempFile.deleteOnExit()
+        return signingConfigs.create("release") {
+            storeFile = tempFile
+            storePassword = storePass
+            keyAlias = keyAliasName
+            keyPassword = keyPass
+        }
+    }
+
+    return null
 }
 
 android {
@@ -17,10 +58,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.caltrack.caltrack"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -29,12 +67,9 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = loadReleaseSigningConfig()
+                ?: signingConfigs.getByName("debug")
 
-            // Fix R8 failures caused by optional ML Kit script recognizer classes
-            // referenced by the text recognition plugin.
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
