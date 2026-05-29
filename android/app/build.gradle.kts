@@ -1,3 +1,7 @@
+import java.io.File
+import java.util.Base64
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -25,8 +29,8 @@ android {
 
     val keystorePropsFile = rootProject.file("key.properties")
     val hasLocalKeyProps = keystorePropsFile.exists()
-    val props = if (hasLocalKeyProps) {
-        java.util.Properties().apply { load(keystorePropsFile.inputStream()) }
+    val localProps = if (hasLocalKeyProps) {
+        Properties().apply { load(keystorePropsFile.inputStream()) }
     } else null
 
     val envKeystoreB64 = System.getenv("RELEASE_KEYSTORE_BASE64")
@@ -39,14 +43,14 @@ android {
     if (hasLocalKeyProps || hasEnvSigning) {
         signingConfigs.create("release") {
             if (hasLocalKeyProps) {
-                storeFile = rootProject.file(props!!["storeFile"] as String)
-                storePassword = props["storePassword"] as String
-                keyAlias = props["keyAlias"] as String
-                keyPassword = props["keyPassword"] as String
+                storeFile = rootProject.file(localProps!!.getProperty("storeFile"))
+                storePassword = localProps.getProperty("storePassword")
+                keyAlias = localProps.getProperty("keyAlias")
+                keyPassword = localProps.getProperty("keyPassword")
             } else {
-                val decoded = java.util.Base64.getDecoder().decode(envKeystoreB64)
-                val tempFile = java.io.File.createTempFile("release-keystore-", ".jks")
-                java.nio.file.Files.write(tempFile.toPath(), decoded)
+                val decoded = Base64.getDecoder().decode(envKeystoreB64)
+                val tempFile = File.createTempFile("release-keystore-", ".jks")
+                tempFile.writeBytes(decoded)
                 tempFile.deleteOnExit()
                 storeFile = tempFile
                 storePassword = envStorePass
