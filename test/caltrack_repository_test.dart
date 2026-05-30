@@ -373,6 +373,117 @@ void main() {
       expect(e.carbsG, 0);
       expect(e.fatG, 0);
     });
+
+    test('food log with mealPeriod', () async {
+      await repo.addFoodLog(
+        source: 'custom',
+        displayName: 'Oatmeal',
+        grams: 200,
+        kcal: 300,
+        proteinG: 10,
+        carbsG: 50,
+        fatG: 5,
+        loggedAt: DateTime(2026, 5, 5, 8),
+        mealPeriod: MealPeriod.breakfast,
+      );
+
+      final entries = await db.select(db.foodLogEntries).get();
+      expect(entries, hasLength(1));
+      final e = entries.first;
+      expect(e.mealPeriod, 'breakfast');
+      expect(e.isPlanned, false);
+    });
+
+    test('food log with isPlanned', () async {
+      await repo.addFoodLog(
+        source: 'custom',
+        displayName: 'Meal prep',
+        grams: 300,
+        kcal: 500,
+        proteinG: 30,
+        carbsG: 60,
+        fatG: 15,
+        loggedAt: DateTime(2026, 5, 10, 12),
+        mealPeriod: MealPeriod.lunch,
+        isPlanned: true,
+      );
+
+      final entries = await db.select(db.foodLogEntries).get();
+      expect(entries, hasLength(1));
+      final e = entries.first;
+      expect(e.mealPeriod, 'lunch');
+      expect(e.isPlanned, true);
+    });
+
+    test('updateFoodLog preserves mealPeriod', () async {
+      final id = await repo.addFoodLogReturnId(
+        source: 'custom',
+        displayName: 'Salad',
+        grams: 200,
+        kcal: 350,
+        proteinG: 15,
+        carbsG: 30,
+        fatG: 20,
+        loggedAt: DateTime(2026, 5, 6, 12),
+        mealPeriod: MealPeriod.lunch,
+      );
+
+      await repo.updateFoodLog(
+        id: id,
+        grams: 250,
+        kcal: 400,
+        proteinG: 18,
+        carbsG: 35,
+        fatG: 22,
+        mealPeriod: MealPeriod.dinner,
+      );
+
+      final e = await db.select(db.foodLogEntries).getSingle();
+      expect(e.mealPeriod, 'dinner');
+      expect(e.grams, 250);
+    });
+
+    test('intakeForDayByPeriod groups correctly', () async {
+      final day = DateTime(2026, 5, 7);
+      await repo.addFoodLog(
+        source: 'custom',
+        displayName: 'Oatmeal',
+        grams: 200,
+        kcal: 300,
+        proteinG: 10,
+        carbsG: 50,
+        fatG: 5,
+        loggedAt: DateTime(2026, 5, 7, 8),
+        mealPeriod: MealPeriod.breakfast,
+      );
+      await repo.addFoodLog(
+        source: 'custom',
+        displayName: 'Chicken',
+        grams: 200,
+        kcal: 400,
+        proteinG: 40,
+        carbsG: 10,
+        fatG: 20,
+        loggedAt: DateTime(2026, 5, 7, 13),
+        mealPeriod: MealPeriod.lunch,
+      );
+      await repo.addFoodLog(
+        source: 'custom',
+        displayName: 'Yogurt',
+        grams: 150,
+        kcal: 150,
+        proteinG: 8,
+        carbsG: 12,
+        fatG: 5,
+        loggedAt: DateTime(2026, 5, 7, 16),
+        mealPeriod: MealPeriod.snack,
+      );
+
+      final byPeriod = await repo.intakeForDayByPeriod(day);
+      expect(byPeriod[MealPeriod.breakfast]!.kcal, 300);
+      expect(byPeriod[MealPeriod.lunch]!.kcal, 400);
+      expect(byPeriod[MealPeriod.snack]!.kcal, 150);
+    });
   });
 }
 

@@ -35,6 +35,8 @@ class FoodEntrySheetConfig {
     this.presets = const [],
     this.initialPresetLabel,
     this.initialPresetQty,
+    this.initialMealPeriod,
+    this.initialIsPlanned = false,
   });
 
   final String displayName;
@@ -68,6 +70,12 @@ class FoodEntrySheetConfig {
 
   /// Preselected quantity (e.g. 2 for "2 × Large egg").
   final double? initialPresetQty;
+
+  /// Initial meal period selection.
+  final MealPeriod? initialMealPeriod;
+
+  /// Whether the entry is planned (pre-logged for future).
+  final bool initialIsPlanned;
 
   bool get isEdit => editingEntryId != null;
 
@@ -113,10 +121,15 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   late _AmountMode _mode;
   CatalogGroupPreset? _selectedPreset;
 
+  MealPeriod? _selectedPeriod;
+  bool _isPlanned = false;
+
   @override
   void initState() {
     super.initState();
     _mode = widget.config.hasPresets ? _AmountMode.servings : _AmountMode.grams;
+    _selectedPeriod = widget.config.initialMealPeriod;
+    _isPlanned = widget.config.initialIsPlanned;
     if (widget.config.hasPresets) {
       _selectedPreset = _resolveInitialPreset();
       final qty = widget.config.initialPresetQty ?? _inferQtyFromGrams();
@@ -339,6 +352,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
           sugarG: sugar,
           fiberG: fiber,
           fatG: scaled.fatG,
+          mealPeriod: _selectedPeriod,
         );
         await _persistLastServing();
         if (!mounted) return;
@@ -357,6 +371,8 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
           fiberG: fiber,
           fatG: scaled.fatG,
           loggedAt: widget.config.loggedAtForEdit,
+          mealPeriod: _selectedPeriod,
+          isPlanned: _isPlanned,
         );
         await _persistLastServing();
         if (!mounted) return;
@@ -547,6 +563,20 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
             if (cfg.showOpenNutritionAttribution) ...[
               const SizedBox(height: 12),
               const OpenNutritionAttribution(),
+            ],
+            const SizedBox(height: 16),
+            MealPeriodPicker(
+              selected: _selectedPeriod,
+              onChanged: (p) => setState(() => _selectedPeriod = p),
+              enabled: !_busy,
+            ),
+            if (!cfg.isEdit) ...[
+              const SizedBox(height: 12),
+              PlannedToggle(
+                value: _isPlanned,
+                onChanged: (v) => setState(() => _isPlanned = v),
+                enabled: !_busy,
+              ),
             ],
             const SizedBox(height: 20),
             if (cfg.isEdit)
@@ -829,6 +859,84 @@ class _MacroComposition extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Row of chips to select a meal period for the entry.
+class MealPeriodPicker extends StatelessWidget {
+  const MealPeriodPicker({
+    super.key,
+    required this.selected,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final MealPeriod? selected;
+  final ValueChanged<MealPeriod?> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Meal period', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              FilterChip(
+                label: const Text('None'),
+                selected: selected == null,
+                onSelected: enabled ? (_) => onChanged(null) : null,
+              ),
+              const SizedBox(width: 8),
+              for (final period in MealPeriod.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text(
+                      period.name[0].toUpperCase() + period.name.substring(1),
+                    ),
+                    selected: selected == period,
+                    onSelected: enabled ? (_) => onChanged(period) : null,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Toggle to mark the entry as planned (pre-logged for future).
+class PlannedToggle extends StatelessWidget {
+  const PlannedToggle({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      title: const Text('Plan for future'),
+      subtitle: const Text(
+        'Pre-log this entry. It will count toward daily totals.',
+      ),
+      value: value,
+      onChanged: enabled ? onChanged : null,
+      contentPadding: EdgeInsets.zero,
+      dense: true,
     );
   }
 }

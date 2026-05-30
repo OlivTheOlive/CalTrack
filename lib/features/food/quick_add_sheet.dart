@@ -1,5 +1,6 @@
 import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
+import 'package:caltrack/features/food/food_entry_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -51,6 +52,8 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
   bool _macrosExpanded = false;
   bool _busy = false;
   bool _submitted = false; // only show errors after first save attempt
+  MealPeriod? _selectedPeriod;
+  bool _isPlanned = false;
 
   @override
   void initState() {
@@ -60,6 +63,8 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
       // Pre-fill from the existing log entry.
       _nameCtrl.text = entry.displayName;
       _kcalCtrl.text = _fmt(entry.kcal);
+      _selectedPeriod = MealPeriod.fromDb(entry.mealPeriod);
+      _isPlanned = entry.isPlanned;
       if (entry.proteinG > 0) {
         _proteinCtrl.text = _fmt(entry.proteinG);
         _macrosExpanded = true;
@@ -138,8 +143,6 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
 
       final editId = widget.editingEntry?.id;
       if (editId != null) {
-        // Edit mode: update the existing row in place.
-        // grams stays 100 (the convention used at creation time).
         await repo.updateFoodLog(
           id: editId,
           grams: 100,
@@ -147,12 +150,10 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
           proteinG: protein,
           carbsG: carbs,
           fatG: fat,
+          mealPeriod: _selectedPeriod,
         );
-        // Also update the display name directly via a custom update.
         await repo.updateQuickAddName(id: editId, displayName: name);
       } else {
-        // New entry: store as source='quick', grams=100 (implementation
-        // detail; this entry is never exposed as a searchable food item).
         await repo.addFoodLogReturnId(
           source: 'quick',
           displayName: name,
@@ -162,6 +163,8 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
           carbsG: carbs,
           fatG: fat,
           loggedAt: widget.loggedAt,
+          mealPeriod: _selectedPeriod,
+          isPlanned: _isPlanned,
         );
       }
       if (!mounted) return;
@@ -369,6 +372,20 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
                   : const SizedBox.shrink(),
             ),
 
+            const SizedBox(height: 12),
+            MealPeriodPicker(
+              selected: _selectedPeriod,
+              onChanged: (p) => setState(() => _selectedPeriod = p),
+              enabled: !_busy,
+            ),
+            if (!widget.isEdit) ...[
+              const SizedBox(height: 8),
+              PlannedToggle(
+                value: _isPlanned,
+                onChanged: (v) => setState(() => _isPlanned = v),
+                enabled: !_busy,
+              ),
+            ],
             const SizedBox(height: 24),
 
             // ---- Action buttons -----------------------------------------

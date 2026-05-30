@@ -5,7 +5,7 @@ import 'package:caltrack/data/app_database.dart';
 import 'package:drift/drift.dart';
 
 export 'package:caltrack/data/app_database.dart'
-    show Profile, Goal, WeightEntry, FoodLogEntry, CustomFood, FoodPref;
+    show Profile, Goal, WeightEntry, FoodLogEntry, CustomFood, FoodPref, MealPeriod;
 
 /// Aggregated intake for a calendar day (sums logged portions).
 class DailyIntakeTotals {
@@ -557,6 +557,45 @@ class CalTrackRepository {
     return DailyIntakeTotals.fromEntries(rows);
   }
 
+  /// Returns aggregated totals grouped by meal period for a single day.
+  Future<Map<MealPeriod?, DailyIntakeTotals>> intakeForDayByPeriod(
+      DateTime day) async {
+    final (s, e) = _dayBounds(day);
+    final rows = await (_db.select(_db.foodLogEntries)
+          ..where((t) =>
+              t.loggedAt.isBiggerOrEqualValue(s) &
+              t.loggedAt.isSmallerThanValue(e)))
+        .get();
+    final out = <MealPeriod?, List<FoodLogEntry>>{};
+    for (final r in rows) {
+      final period = MealPeriod.fromDb(r.mealPeriod);
+      out.putIfAbsent(period, () => []).add(r);
+    }
+    return out.map(
+      (key, value) => MapEntry(key, DailyIntakeTotals.fromEntries(value)),
+    );
+  }
+
+  /// Stream of all entries for a day, grouped by meal period.
+  Stream<Map<MealPeriod?, List<FoodLogEntry>>> watchFoodLogsForDayByPeriod(
+      DateTime day) {
+    final (s, e) = _dayBounds(day);
+    return (_db.select(_db.foodLogEntries)
+          ..where((t) =>
+              t.loggedAt.isBiggerOrEqualValue(s) &
+              t.loggedAt.isSmallerThanValue(e))
+          ..orderBy([(t) => OrderingTerm.desc(t.loggedAt)]))
+        .watch()
+        .map((rows) {
+      final out = <MealPeriod?, List<FoodLogEntry>>{};
+      for (final r in rows) {
+        final period = MealPeriod.fromDb(r.mealPeriod);
+        out.putIfAbsent(period, () => []).add(r);
+      }
+      return out;
+    });
+  }
+
   /// Aggregate kcal logged per calendar day in [start, endExclusive).
   /// Returned map keys are local-midnight DateTimes; days with no entries
   /// are omitted (callers should treat missing keys as 0).
@@ -652,6 +691,7 @@ class CalTrackRepository {
     double? sugarG,
     double? fiberG,
     required double fatG,
+    MealPeriod? mealPeriod,
   }) async {
     await (_db.update(_db.foodLogEntries)..where((t) => t.id.equals(id))).write(
       FoodLogEntriesCompanion(
@@ -662,6 +702,7 @@ class CalTrackRepository {
         sugarG: sugarG == null ? const Value.absent() : Value(sugarG),
         fiberG: fiberG == null ? const Value.absent() : Value(fiberG),
         fatG: Value(fatG),
+        mealPeriod: Value(mealPeriod?.dbValue),
       ),
     );
   }
@@ -690,6 +731,8 @@ class CalTrackRepository {
     double fiberG = 0,
     required double fatG,
     DateTime? loggedAt,
+    MealPeriod? mealPeriod,
+    bool isPlanned = false,
   }) {
     return _db.into(_db.foodLogEntries).insert(
           FoodLogEntriesCompanion.insert(
@@ -705,6 +748,8 @@ class CalTrackRepository {
             sugarG: Value(sugarG),
             fiberG: Value(fiberG),
             fatG: fatG,
+            mealPeriod: Value(mealPeriod?.dbValue),
+            isPlanned: Value(isPlanned),
           ),
         );
   }
@@ -722,6 +767,8 @@ class CalTrackRepository {
     double fiberG = 0,
     required double fatG,
     DateTime? loggedAt,
+    MealPeriod? mealPeriod,
+    bool isPlanned = false,
   }) async {
     await _db.into(_db.foodLogEntries).insert(
           FoodLogEntriesCompanion.insert(
@@ -737,6 +784,8 @@ class CalTrackRepository {
             sugarG: Value(sugarG),
             fiberG: Value(fiberG),
             fatG: fatG,
+            mealPeriod: Value(mealPeriod?.dbValue),
+            isPlanned: Value(isPlanned),
           ),
         );
   }
@@ -807,6 +856,14 @@ class CalTrackRepository {
           ..limit(limit))
         .get();
     return rows;
+  }
+
+  /// Returns all custom foods ordered by name. Used for the custom foods
+  /// management list screen.
+  Future<List<CustomFood>> allCustomFoods() async {
+    return (_db.select(_db.customFoods)
+          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+        .get();
   }
 
   Future<int> upsertCustomFood({
@@ -919,7 +976,12 @@ class CalTrackRepository {
     final custom =
         list('customFoods').map((m) => CustomFood.fromJson(m)).toList();
     final foodLogs = list('foodLogEntries')
-        .map((m) => FoodLogEntry.fromJson(m))
+        .map((m) {
+          // Ensure backward compatibility with exports that lack the new
+          // columns (schema v6 → v7 migration).
+          m.putIfAbsent('isPlanned', () => false);
+          return FoodLogEntry.fromJson(m);
+        })
         .toList();
     final prefs = list('foodPrefs').map((m) => FoodPref.fromJson(m)).toList();
 
@@ -953,6 +1015,18 @@ class CalTrackRepository {
               dailyCalorieTarget: profile.dailyCalorieTarget == null
                   ? const Value.absent()
                   : Value(profile.dailyCalorieTarget),
+              breakfastTarget: profile.breakfastTarget == null
+                  ? const Value.absent()
+                  : Value(profile.breakfastTarget),
+              lunchTarget: profile.lunchTarget == null
+                  ? const Value.absent()
+                  : Value(profile.lunchTarget),
+              dinnerTarget: profile.dinnerTarget == null
+                  ? const Value.absent()
+                  : Value(profile.dinnerTarget),
+              snackTarget: profile.snackTarget == null
+                  ? const Value.absent()
+                  : Value(profile.snackTarget),
             ),
           );
 
@@ -1010,6 +1084,8 @@ class CalTrackRepository {
                 sugarG: Value(e.sugarG),
                 fiberG: Value(e.fiberG),
                 fatG: Value(e.fatG),
+                mealPeriod: Value(e.mealPeriod),
+                isPlanned: Value(e.isPlanned),
               ),
             );
       }

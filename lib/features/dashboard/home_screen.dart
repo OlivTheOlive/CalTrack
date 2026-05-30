@@ -53,7 +53,7 @@ class _DashboardTabState extends State<DashboardTab> {
       context: context,
       initialDate: _selectedDay,
       firstDate: today.subtract(const Duration(days: 365 * 5)),
-      lastDate: today,
+      lastDate: today.add(const Duration(days: 365)),
     );
     if (!mounted || picked == null) return;
     setState(() => _selectedDay = calendarDay(picked));
@@ -209,7 +209,7 @@ class _DashboardListView extends StatelessWidget {
     final currentGoal = goal;
     final today = calendarDay(DateTime.now());
     final isToday = selectedDay == today;
-    final canGoForward = selectedDay.isBefore(today);
+    const canGoForward = true;
     final profile = profileCtl.profile!;
 
     return ListView(
@@ -220,7 +220,7 @@ class _DashboardListView extends StatelessWidget {
           isToday: isToday,
           canGoForward: canGoForward,
           onPrev: onPrevDay,
-          onNext: canGoForward ? onNextDay : null,
+          onNext: onNextDay,
           onPick: onPickDay,
           onReset: isToday ? null : onResetToday,
         ),
@@ -941,25 +941,66 @@ class _TodayFoodLogCard extends StatelessWidget {
     return '$y-$m-$d';
   }
 
+  static const _periodOrder = [
+    MealPeriod.breakfast,
+    MealPeriod.lunch,
+    MealPeriod.dinner,
+    MealPeriod.snack,
+  ];
+
+  static String _periodLabel(MealPeriod p) {
+    return p.name[0].toUpperCase() + p.name.substring(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final nf = _nfDecimal;
-    return StreamBuilder<List<FoodLogEntry>>(
-      stream: repo.watchFoodLogsForDay(selectedDay),
+    return StreamBuilder<Map<MealPeriod?, List<FoodLogEntry>>>(
+      stream: repo.watchFoodLogsForDayByPeriod(selectedDay),
       builder: (context, snap) {
-        final entries = snap.data ?? const <FoodLogEntry>[];
+        final grouped = snap.data ?? const <MealPeriod?, List<FoodLogEntry>>{};
+        final allEntries = grouped.values.expand((l) => l).toList();
         final totalKcal =
-            entries.fold<double>(0, (acc, e) => acc + e.kcal).round();
+            allEntries.fold<double>(0, (acc, e) => acc + e.kcal).round();
         final title = isToday
             ? "Today's food"
             : 'Food · ${_fmtDayShort.format(selectedDay)}';
         final emptyMsg = isToday
             ? 'Nothing logged yet today.'
             : 'Nothing logged on this day.';
-        final entriesLabel =
-            entries.length == 1 ? '1 entry' : '${entries.length} entries';
+        final entriesLabel = allEntries.length == 1
+            ? '1 entry'
+            : '${allEntries.length} entries';
+
+        // Build period sections in consistent order.
+        final periodSections = <Widget>[];
+        for (final period in _periodOrder) {
+          final entries = grouped[period] ?? [];
+          if (entries.isEmpty) continue;
+          periodSections.add(_PeriodSection(
+            period: period,
+            entries: entries,
+            repo: repo,
+            theme: theme,
+            scheme: scheme,
+            nf: nf,
+          ));
+        }
+        // Uncategorized entries (null period) at the end.
+        final uncategorized = grouped[null] ?? [];
+        if (uncategorized.isNotEmpty) {
+          periodSections.add(_PeriodSection(
+            period: null,
+            entries: uncategorized,
+            repo: repo,
+            theme: theme,
+            scheme: scheme,
+            nf: nf,
+          ));
+        }
+
         return Card(
           clipBehavior: Clip.hardEdge,
           child: Column(
@@ -980,7 +1021,7 @@ class _TodayFoodLogCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            entries.isEmpty
+                            allEntries.isEmpty
                                 ? 'No entries yet'
                                 : '$entriesLabel · ${nf.format(totalKcal)} kcal',
                             style: theme.textTheme.bodySmall?.copyWith(
@@ -1001,8 +1042,6 @@ class _TodayFoodLogCard extends StatelessWidget {
                             minimumSize: const Size(40, 40),
                           ),
                           onPressed: () async {
-                            // Snap to noon on past days so the entry falls
-                            // inside the correct day bounds.
                             final loggedAt = isToday
                                 ? null
                                 : DateTime(
@@ -1033,7 +1072,7 @@ class _TodayFoodLogCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (entries.isEmpty)
+              if (allEntries.isEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                   child: Text(
@@ -1044,20 +1083,69 @@ class _TodayFoodLogCard extends StatelessWidget {
                   ),
                 )
               else
-                for (var i = 0; i < entries.length; i++) ...[
-                  if (i > 0)
-                    Divider(
-                      height: 1,
-                      color: scheme.outlineVariant.withValues(alpha: 0.4),
-                      indent: 16,
-                      endIndent: 16,
-                    ),
-                  _FoodLogTile(entry: entries[i], repo: repo),
-                ],
+                ...periodSections,
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// A single meal period section within the food log card.
+class _PeriodSection extends StatelessWidget {
+  const _PeriodSection({
+    required this.period,
+    required this.entries,
+    required this.repo,
+    required this.theme,
+    required this.scheme,
+    required this.nf,
+  });
+
+  final MealPeriod? period;
+  final List<FoodLogEntry> entries;
+  final CalTrackRepository repo;
+  final ThemeData theme;
+  final ColorScheme scheme;
+  final NumberFormat nf;
+
+  @override
+  Widget build(BuildContext context) {
+    final sectionKcal =
+        entries.fold<double>(0, (acc, e) => acc + e.kcal).round();
+    final label = period != null ? _TodayFoodLogCard._periodLabel(period!) : 'Other';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Divider(
+          height: 1,
+          color: scheme.outlineVariant.withValues(alpha: 0.4),
+          indent: 16,
+          endIndent: 16,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+          child: Text(
+            '$label · ${nf.format(sectionKcal)} kcal',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: scheme.primary,
+            ),
+          ),
+        ),
+        for (var i = 0; i < entries.length; i++) ...[
+          if (i > 0)
+            Divider(
+              height: 1,
+              color: scheme.outlineVariant.withValues(alpha: 0.3),
+              indent: 16,
+              endIndent: 16,
+            ),
+          _FoodLogTile(entry: entries[i], repo: repo),
+        ],
+      ],
     );
   }
 }
@@ -1157,6 +1245,8 @@ class _FoodLogTile extends StatelessWidget {
         presets: presets,
         initialPresetLabel: initialPresetLabel,
         initialPresetQty: initialPresetQty,
+        initialMealPeriod: MealPeriod.fromDb(entry.mealPeriod),
+        initialIsPlanned: entry.isPlanned,
       ),
     );
   }
@@ -1165,6 +1255,126 @@ class _FoodLogTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final time = _fmtTime.format(entry.loggedAt);
+    final isPlanned = entry.isPlanned;
+    final tile = ListTile(
+      leading: _FoodEmojiAvatar(name: entry.displayName),
+      title: Text(
+        entry.displayName,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+          fontStyle: isPlanned ? FontStyle.italic : null,
+        ),
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  entry.source == 'quick'
+                      ? 'Estimated · $time'
+                      : '${entry.grams.round()} g · $time',
+                ),
+                if (isPlanned) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.tertiaryContainer,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Planned',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onTertiaryContainer,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            if (entry.source != 'quick' ||
+                entry.proteinG > 0 ||
+                entry.carbsG > 0 ||
+                entry.fatG > 0) ...[
+              const SizedBox(height: 2),
+              Text(
+                'P ${entry.proteinG.round()}g · '
+                'C ${entry.carbsG.round()}g · '
+                'F ${entry.fatG.round()}g',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      trailing: Text(
+        '${entry.kcal.round()} kcal',
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: theme.colorScheme.primary,
+        ),
+      ),
+      onTap: () => _openEdit(context),
+    );
+
+    if (isPlanned) {
+      return Opacity(
+        opacity: 0.75,
+        child: Dismissible(
+          key: ValueKey('food-${entry.id}'),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            color: theme.colorScheme.errorContainer,
+            child: Icon(
+              Icons.delete_outline,
+              color: theme.colorScheme.onErrorContainer,
+            ),
+          ),
+          onDismissed: (_) async {
+            await repo.deleteFoodLog(entry.id);
+            if (!context.mounted) return;
+            context.showAppSnackBar(
+              'Removed ${entry.displayName}',
+              actionLabel: 'Undo',
+              onAction: () {
+                repo.addFoodLogReturnId(
+                  source: entry.source,
+                  catalogFoodId: entry.catalogFoodId,
+                  customFoodId: entry.customFoodId,
+                  displayName: entry.displayName,
+                  grams: entry.grams,
+                  kcal: entry.kcal,
+                  proteinG: entry.proteinG,
+                  carbsG: entry.carbsG,
+                  sugarG: entry.sugarG,
+                  fiberG: entry.fiberG,
+                  fatG: entry.fatG,
+                  loggedAt: entry.loggedAt,
+                  mealPeriod: MealPeriod.fromDb(entry.mealPeriod),
+                  isPlanned: entry.isPlanned,
+                );
+              },
+              replaceCurrent: true,
+            );
+          },
+          child: tile,
+        ),
+      );
+    }
+
     return Dismissible(
       key: ValueKey('food-${entry.id}'),
       direction: DismissDirection.endToStart,
@@ -1197,57 +1407,14 @@ class _FoodLogTile extends StatelessWidget {
               fiberG: entry.fiberG,
               fatG: entry.fatG,
               loggedAt: entry.loggedAt,
+              mealPeriod: MealPeriod.fromDb(entry.mealPeriod),
+              isPlanned: entry.isPlanned,
             );
           },
           replaceCurrent: true,
         );
       },
-      child: ListTile(
-        leading: _FoodEmojiAvatar(name: entry.displayName),
-        title: Text(
-          entry.displayName,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                entry.source == 'quick'
-                    ? 'Estimated · $time'
-                    : '${entry.grams.round()} g · $time',
-              ),
-              if (entry.source != 'quick' ||
-                  entry.proteinG > 0 ||
-                  entry.carbsG > 0 ||
-                  entry.fatG > 0) ...[
-                const SizedBox(height: 2),
-                Text(
-                  'P ${entry.proteinG.round()}g · '
-                  'C ${entry.carbsG.round()}g · '
-                  'F ${entry.fatG.round()}g',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        trailing: Text(
-          '${entry.kcal.round()} kcal',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.primary,
-          ),
-        ),
-        onTap: () => _openEdit(context),
-      ),
+      child: tile,
     );
   }
 }

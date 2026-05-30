@@ -236,6 +236,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: 12),
               const _FoodDataCounts(),
               const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.restaurant_outlined),
+                title: const Text('Custom foods'),
+                subtitle: const Text('View, edit, or delete your custom foods.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/custom-foods'),
+              ),
+              const SizedBox(height: 12),
               Text(
                 'Portions of the catalog originate from Open Food Facts. '
                 'When displaying that data, maintain attribution to '

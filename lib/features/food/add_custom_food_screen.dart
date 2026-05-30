@@ -10,9 +10,18 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 class AddCustomFoodScreen extends StatefulWidget {
-  const AddCustomFoodScreen({super.key, this.initialBarcode});
+  const AddCustomFoodScreen({
+    super.key,
+    this.initialBarcode,
+    this.existingFood,
+  });
 
   final String? initialBarcode;
+
+  /// When non-null, the screen is in **edit mode** for this custom food.
+  final CustomFood? existingFood;
+
+  bool get isEdit => existingFood != null;
 
   @override
   State<AddCustomFoodScreen> createState() => _AddCustomFoodScreenState();
@@ -21,23 +30,49 @@ class AddCustomFoodScreen extends StatefulWidget {
 class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  late final TextEditingController _name = TextEditingController();
-  late final TextEditingController _brand = TextEditingController();
-  late final TextEditingController _barcode =
-      TextEditingController(text: widget.initialBarcode ?? '');
+  late final TextEditingController _name;
+  late final TextEditingController _brand;
+  late final TextEditingController _barcode;
 
-  late final TextEditingController _servingSize = TextEditingController(text: '100');
-  ServingUnit _unit = ServingUnit.g;
+  late final TextEditingController _servingSize;
+  late ServingUnit _unit;
 
-  late final TextEditingController _calories = TextEditingController();
-  late final TextEditingController _fat = TextEditingController();
-  late final TextEditingController _carbs = TextEditingController();
-  late final TextEditingController _sugar = TextEditingController();
-  late final TextEditingController _fiber = TextEditingController();
-  late final TextEditingController _protein = TextEditingController();
+  late final TextEditingController _calories;
+  late final TextEditingController _fat;
+  late final TextEditingController _carbs;
+  late final TextEditingController _sugar;
+  late final TextEditingController _fiber;
+  late final TextEditingController _protein;
 
   bool _busy = false;
   int? _savedId;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existingFood;
+    _name = TextEditingController(text: existing?.name ?? '');
+    _brand = TextEditingController(text: existing?.brand ?? '');
+    _barcode = TextEditingController(
+      text: existing?.barcode ?? widget.initialBarcode ?? '',
+    );
+    _servingSize = TextEditingController(
+      text: existing?.servingSize.toString() ?? '100',
+    );
+    _unit = existing != null
+        ? ServingUnit.values.firstWhere(
+            (u) => u.name == existing.servingUnit,
+            orElse: () => ServingUnit.g,
+          )
+        : ServingUnit.g;
+    _calories = TextEditingController(text: existing?.calories.toString() ?? '');
+    _fat = TextEditingController(text: existing?.fatG.toString() ?? '');
+    _carbs = TextEditingController(text: existing?.carbsG.toString() ?? '');
+    _sugar = TextEditingController(text: existing?.sugarG.toString() ?? '');
+    _fiber = TextEditingController(text: existing?.fiberG.toString() ?? '');
+    _protein = TextEditingController(text: existing?.proteinG.toString() ?? '');
+    _savedId = existing?.id;
+  }
 
   @override
   void dispose() {
@@ -188,12 +223,49 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
     setState(() {});
   }
 
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete food?'),
+        content: Text(
+          'Delete "${_name.text.trim()}"? This cannot be undone. '
+          'Existing log entries will not be affected.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || _savedId == null) return;
+    final repo = context.read<CalTrackRepository>();
+    setState(() => _busy = true);
+    try {
+      await repo.deleteCustomFood(_savedId!);
+      if (!context.mounted) return;
+      context.showAppSnackBar('Deleted "${_name.text.trim()}".');
+      Navigator.of(context).maybePop();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add food')),
+      appBar: AppBar(title: Text(widget.isEdit ? 'Edit food' : 'Add food')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -313,21 +385,45 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
                               final id = await _saveCustomFood();
                               if (id == null) return;
                               if (!context.mounted) return;
-                              context.showAppSnackBar('Saved.');
+                              context.showAppSnackBar(
+                                widget.isEdit ? 'Updated.' : 'Saved.',
+                              );
                               Navigator.of(context).maybePop();
                             },
-                      child: const Text('Save'),
+                      child: Text(widget.isEdit ? 'Save changes' : 'Save'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      onPressed: _busy ? null : _saveAndLog,
-                      child: const Text('Save & log'),
+                      onPressed: _busy
+                          ? null
+                          : widget.isEdit
+                              ? () async {
+                                  final id = await _saveCustomFood();
+                                  if (id == null) return;
+                                  if (!context.mounted) return;
+                                  context.showAppSnackBar('Updated.');
+                                  Navigator.of(context).maybePop();
+                                }
+                              : _saveAndLog,
+                      child: Text(widget.isEdit ? 'Save' : 'Save & log'),
                     ),
                   ),
                 ],
               ),
+              if (widget.isEdit) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _delete,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Delete food'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                    side: BorderSide(color: theme.colorScheme.error),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -356,11 +452,9 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
           min: 0,
           max: 100000,
         );
-        // These fields are allowed to be 0.
         if (err == '$label must be greater than 0.') return null;
         return err;
       },
     );
   }
 }
-
