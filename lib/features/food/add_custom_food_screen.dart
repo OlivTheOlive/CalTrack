@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+enum _UnsavedAction { save, discard, cancel }
+
 class AddCustomFoodScreen extends StatefulWidget {
   const AddCustomFoodScreen({
     super.key,
@@ -46,6 +48,7 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
 
   bool _busy = false;
   int? _savedId;
+  Map<String, Object?>? _originalSnapshot;
 
   @override
   void initState() {
@@ -72,6 +75,88 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
     _fiber = TextEditingController(text: existing?.fiberG.toString() ?? '');
     _protein = TextEditingController(text: existing?.proteinG.toString() ?? '');
     _savedId = existing?.id;
+    _takeSnapshot();
+  }
+
+  void _takeSnapshot() {
+    _originalSnapshot = {
+      'name': _name.text,
+      'brand': _brand.text,
+      'barcode': _barcode.text,
+      'servingSize': _servingSize.text,
+      'unit': _unit,
+      'calories': _calories.text,
+      'fat': _fat.text,
+      'carbs': _carbs.text,
+      'sugar': _sugar.text,
+      'fiber': _fiber.text,
+      'protein': _protein.text,
+    };
+  }
+
+  bool get _hasUnsavedChanges {
+    if (_originalSnapshot == null) return false;
+    return _name.text != _originalSnapshot!['name'] ||
+        _brand.text != _originalSnapshot!['brand'] ||
+        _barcode.text != _originalSnapshot!['barcode'] ||
+        _servingSize.text != _originalSnapshot!['servingSize'] ||
+        _unit != _originalSnapshot!['unit'] ||
+        _calories.text != _originalSnapshot!['calories'] ||
+        _fat.text != _originalSnapshot!['fat'] ||
+        _carbs.text != _originalSnapshot!['carbs'] ||
+        _sugar.text != _originalSnapshot!['sugar'] ||
+        _fiber.text != _originalSnapshot!['fiber'] ||
+        _protein.text != _originalSnapshot!['protein'];
+  }
+
+  Future<bool> _maybePop() async {
+    if (!_hasUnsavedChanges) {
+      Navigator.of(context).maybePop();
+      return true;
+    }
+    final action = await showDialog<_UnsavedAction>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Unsaved changes'),
+        content: const Text(
+          'You have unsaved changes to this food.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _UnsavedAction.cancel),
+            child: const Text('Cancel'),
+          ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, _UnsavedAction.discard),
+            child: const Text('Exit without saving'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, _UnsavedAction.save),
+            child: const Text('Save and exit'),
+          ),
+        ],
+      ),
+    );
+    switch (action) {
+      case _UnsavedAction.save:
+        final id = await _saveCustomFood();
+        if (id != null) {
+          if (!mounted) return true;
+          context.showAppSnackBar('Updated.');
+          Navigator.of(context).pop();
+          return true;
+        }
+        return false;
+      case _UnsavedAction.discard:
+        _originalSnapshot = null;
+        if (!mounted) return true;
+        Navigator.of(context).pop();
+        return true;
+      case _UnsavedAction.cancel:
+        return false;
+      case null:
+        return false;
+    }
   }
 
   @override
@@ -126,6 +211,7 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
         proteinG: protein,
       );
       _savedId = id;
+      _takeSnapshot();
       return id;
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -248,11 +334,12 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
       ),
     );
     if (confirmed != true || _savedId == null) return;
+    if (!mounted) return;
     final repo = context.read<CalTrackRepository>();
     setState(() => _busy = true);
     try {
       await repo.deleteCustomFood(_savedId!);
-      if (!context.mounted) return;
+      if (!mounted) return;
       context.showAppSnackBar('Deleted "${_name.text.trim()}".');
       Navigator.of(context).maybePop();
     } finally {
@@ -266,10 +353,16 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.isEdit ? 'Edit food' : 'Add food')),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
+      body: PopScope(
+        canPop: !_hasUnsavedChanges,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) return;
+          await _maybePop();
+        },
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
               TextFormField(
@@ -375,44 +468,18 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
                 label: const Text('Take nutrition label picture'),
               ),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _busy
-                          ? null
-                          : () async {
-                              final id = await _saveCustomFood();
-                              if (id == null) return;
-                              if (!context.mounted) return;
-                              context.showAppSnackBar(
-                                widget.isEdit ? 'Updated.' : 'Saved.',
-                              );
-                              Navigator.of(context).maybePop();
-                            },
-                      child: Text(widget.isEdit ? 'Save changes' : 'Save'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _busy
-                          ? null
-                          : widget.isEdit
-                              ? () async {
-                                  final id = await _saveCustomFood();
-                                  if (id == null) return;
-                                  if (!context.mounted) return;
-                                  context.showAppSnackBar('Updated.');
-                                  Navigator.of(context).maybePop();
-                                }
-                              : _saveAndLog,
-                      child: Text(widget.isEdit ? 'Save' : 'Save & log'),
-                    ),
-                  ),
-                ],
-              ),
               if (widget.isEdit) ...[
+                FilledButton.icon(
+                  onPressed: _busy ? null : () async {
+                    final id = await _saveCustomFood();
+                    if (id == null) return;
+                    if (!context.mounted) return;
+                    context.showAppSnackBar('Updated.');
+                    Navigator.of(context).maybePop();
+                  },
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Save'),
+                ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _busy ? null : _delete,
@@ -423,10 +490,37 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
                     side: BorderSide(color: theme.colorScheme.error),
                   ),
                 ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _busy
+                            ? null
+                            : () async {
+                                final id = await _saveCustomFood();
+                                if (id == null) return;
+                                if (!context.mounted) return;
+                                context.showAppSnackBar('Saved.');
+                                Navigator.of(context).maybePop();
+                              },
+                        child: const Text('Save'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _busy ? null : _saveAndLog,
+                        child: const Text('Save & log'),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -51,9 +51,10 @@ class _CustomFoodsListScreenState extends State<CustomFoodsListScreen> {
       ),
     );
     if (confirmed != true) return;
+    if (!mounted) return;
     final repo = context.read<CalTrackRepository>();
     await repo.deleteCustomFood(food.id);
-    if (!context.mounted) return;
+    if (!mounted) return;
     context.showAppSnackBar('Deleted "${food.name}".');
     _refresh();
   }
