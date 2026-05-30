@@ -1,6 +1,7 @@
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:caltrack/features/bands/calorie_bands_screen.dart';
+import 'package:caltrack/features/calendar/calendar_screen.dart';
 import 'package:caltrack/features/food/add_custom_food_screen.dart';
 import 'package:caltrack/features/food/barcode_scan_screen.dart';
 import 'package:caltrack/features/food/custom_foods_list_screen.dart';
@@ -96,6 +97,10 @@ GoRouter createRouter(ProfileController profileController) {
       GoRoute(
         path: '/scan-nutrition-label',
         builder: (context, state) => const NutritionLabelScanScreen(),
+      ),
+      GoRoute(
+        path: '/calendar',
+        builder: (context, state) => const CalendarScreen(),
       ),
     ],
   );
