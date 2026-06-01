@@ -171,6 +171,50 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
         type: DriftSqlType.double,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _breakfastTargetMeta = const VerificationMeta(
+    'breakfastTarget',
+  );
+  @override
+  late final GeneratedColumn<double> breakfastTarget = GeneratedColumn<double>(
+    'breakfast_target',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lunchTargetMeta = const VerificationMeta(
+    'lunchTarget',
+  );
+  @override
+  late final GeneratedColumn<double> lunchTarget = GeneratedColumn<double>(
+    'lunch_target',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dinnerTargetMeta = const VerificationMeta(
+    'dinnerTarget',
+  );
+  @override
+  late final GeneratedColumn<double> dinnerTarget = GeneratedColumn<double>(
+    'dinner_target',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _snackTargetMeta = const VerificationMeta(
+    'snackTarget',
+  );
+  @override
+  late final GeneratedColumn<double> snackTarget = GeneratedColumn<double>(
+    'snack_target',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -188,6 +232,10 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
     reminderMinute,
     onboardingCompleted,
     dailyCalorieTarget,
+    breakfastTarget,
+    lunchTarget,
+    dinnerTarget,
+    snackTarget,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -334,6 +382,42 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
         ),
       );
     }
+    if (data.containsKey('breakfast_target')) {
+      context.handle(
+        _breakfastTargetMeta,
+        breakfastTarget.isAcceptableOrUnknown(
+          data['breakfast_target']!,
+          _breakfastTargetMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lunch_target')) {
+      context.handle(
+        _lunchTargetMeta,
+        lunchTarget.isAcceptableOrUnknown(
+          data['lunch_target']!,
+          _lunchTargetMeta,
+        ),
+      );
+    }
+    if (data.containsKey('dinner_target')) {
+      context.handle(
+        _dinnerTargetMeta,
+        dinnerTarget.isAcceptableOrUnknown(
+          data['dinner_target']!,
+          _dinnerTargetMeta,
+        ),
+      );
+    }
+    if (data.containsKey('snack_target')) {
+      context.handle(
+        _snackTargetMeta,
+        snackTarget.isAcceptableOrUnknown(
+          data['snack_target']!,
+          _snackTargetMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -403,6 +487,22 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
         DriftSqlType.double,
         data['${effectivePrefix}daily_calorie_target'],
       ),
+      breakfastTarget: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}breakfast_target'],
+      ),
+      lunchTarget: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lunch_target'],
+      ),
+      dinnerTarget: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}dinner_target'],
+      ),
+      snackTarget: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}snack_target'],
+      ),
     );
   }
 
@@ -431,6 +531,10 @@ class Profile extends DataClass implements Insertable<Profile> {
   final int reminderMinute;
   final bool onboardingCompleted;
   final double? dailyCalorieTarget;
+  final double? breakfastTarget;
+  final double? lunchTarget;
+  final double? dinnerTarget;
+  final double? snackTarget;
   const Profile({
     required this.id,
     required this.sex,
@@ -447,6 +551,10 @@ class Profile extends DataClass implements Insertable<Profile> {
     required this.reminderMinute,
     required this.onboardingCompleted,
     this.dailyCalorieTarget,
+    this.breakfastTarget,
+    this.lunchTarget,
+    this.dinnerTarget,
+    this.snackTarget,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -469,6 +577,18 @@ class Profile extends DataClass implements Insertable<Profile> {
     map['onboarding_completed'] = Variable<bool>(onboardingCompleted);
     if (!nullToAbsent || dailyCalorieTarget != null) {
       map['daily_calorie_target'] = Variable<double>(dailyCalorieTarget);
+    }
+    if (!nullToAbsent || breakfastTarget != null) {
+      map['breakfast_target'] = Variable<double>(breakfastTarget);
+    }
+    if (!nullToAbsent || lunchTarget != null) {
+      map['lunch_target'] = Variable<double>(lunchTarget);
+    }
+    if (!nullToAbsent || dinnerTarget != null) {
+      map['dinner_target'] = Variable<double>(dinnerTarget);
+    }
+    if (!nullToAbsent || snackTarget != null) {
+      map['snack_target'] = Variable<double>(snackTarget);
     }
     return map;
   }
@@ -494,6 +614,18 @@ class Profile extends DataClass implements Insertable<Profile> {
       dailyCalorieTarget: dailyCalorieTarget == null && nullToAbsent
           ? const Value.absent()
           : Value(dailyCalorieTarget),
+      breakfastTarget: breakfastTarget == null && nullToAbsent
+          ? const Value.absent()
+          : Value(breakfastTarget),
+      lunchTarget: lunchTarget == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lunchTarget),
+      dinnerTarget: dinnerTarget == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dinnerTarget),
+      snackTarget: snackTarget == null && nullToAbsent
+          ? const Value.absent()
+          : Value(snackTarget),
     );
   }
 
@@ -522,6 +654,10 @@ class Profile extends DataClass implements Insertable<Profile> {
       dailyCalorieTarget: serializer.fromJson<double?>(
         json['dailyCalorieTarget'],
       ),
+      breakfastTarget: serializer.fromJson<double?>(json['breakfastTarget']),
+      lunchTarget: serializer.fromJson<double?>(json['lunchTarget']),
+      dinnerTarget: serializer.fromJson<double?>(json['dinnerTarget']),
+      snackTarget: serializer.fromJson<double?>(json['snackTarget']),
     );
   }
   @override
@@ -543,6 +679,10 @@ class Profile extends DataClass implements Insertable<Profile> {
       'reminderMinute': serializer.toJson<int>(reminderMinute),
       'onboardingCompleted': serializer.toJson<bool>(onboardingCompleted),
       'dailyCalorieTarget': serializer.toJson<double?>(dailyCalorieTarget),
+      'breakfastTarget': serializer.toJson<double?>(breakfastTarget),
+      'lunchTarget': serializer.toJson<double?>(lunchTarget),
+      'dinnerTarget': serializer.toJson<double?>(dinnerTarget),
+      'snackTarget': serializer.toJson<double?>(snackTarget),
     };
   }
 
@@ -562,6 +702,10 @@ class Profile extends DataClass implements Insertable<Profile> {
     int? reminderMinute,
     bool? onboardingCompleted,
     Value<double?> dailyCalorieTarget = const Value.absent(),
+    Value<double?> breakfastTarget = const Value.absent(),
+    Value<double?> lunchTarget = const Value.absent(),
+    Value<double?> dinnerTarget = const Value.absent(),
+    Value<double?> snackTarget = const Value.absent(),
   }) => Profile(
     id: id ?? this.id,
     sex: sex ?? this.sex,
@@ -582,6 +726,12 @@ class Profile extends DataClass implements Insertable<Profile> {
     dailyCalorieTarget: dailyCalorieTarget.present
         ? dailyCalorieTarget.value
         : this.dailyCalorieTarget,
+    breakfastTarget: breakfastTarget.present
+        ? breakfastTarget.value
+        : this.breakfastTarget,
+    lunchTarget: lunchTarget.present ? lunchTarget.value : this.lunchTarget,
+    dinnerTarget: dinnerTarget.present ? dinnerTarget.value : this.dinnerTarget,
+    snackTarget: snackTarget.present ? snackTarget.value : this.snackTarget,
   );
   Profile copyWithCompanion(ProfilesCompanion data) {
     return Profile(
@@ -620,6 +770,18 @@ class Profile extends DataClass implements Insertable<Profile> {
       dailyCalorieTarget: data.dailyCalorieTarget.present
           ? data.dailyCalorieTarget.value
           : this.dailyCalorieTarget,
+      breakfastTarget: data.breakfastTarget.present
+          ? data.breakfastTarget.value
+          : this.breakfastTarget,
+      lunchTarget: data.lunchTarget.present
+          ? data.lunchTarget.value
+          : this.lunchTarget,
+      dinnerTarget: data.dinnerTarget.present
+          ? data.dinnerTarget.value
+          : this.dinnerTarget,
+      snackTarget: data.snackTarget.present
+          ? data.snackTarget.value
+          : this.snackTarget,
     );
   }
 
@@ -640,7 +802,11 @@ class Profile extends DataClass implements Insertable<Profile> {
           ..write('reminderHour: $reminderHour, ')
           ..write('reminderMinute: $reminderMinute, ')
           ..write('onboardingCompleted: $onboardingCompleted, ')
-          ..write('dailyCalorieTarget: $dailyCalorieTarget')
+          ..write('dailyCalorieTarget: $dailyCalorieTarget, ')
+          ..write('breakfastTarget: $breakfastTarget, ')
+          ..write('lunchTarget: $lunchTarget, ')
+          ..write('dinnerTarget: $dinnerTarget, ')
+          ..write('snackTarget: $snackTarget')
           ..write(')'))
         .toString();
   }
@@ -662,6 +828,10 @@ class Profile extends DataClass implements Insertable<Profile> {
     reminderMinute,
     onboardingCompleted,
     dailyCalorieTarget,
+    breakfastTarget,
+    lunchTarget,
+    dinnerTarget,
+    snackTarget,
   );
   @override
   bool operator ==(Object other) =>
@@ -681,7 +851,11 @@ class Profile extends DataClass implements Insertable<Profile> {
           other.reminderHour == this.reminderHour &&
           other.reminderMinute == this.reminderMinute &&
           other.onboardingCompleted == this.onboardingCompleted &&
-          other.dailyCalorieTarget == this.dailyCalorieTarget);
+          other.dailyCalorieTarget == this.dailyCalorieTarget &&
+          other.breakfastTarget == this.breakfastTarget &&
+          other.lunchTarget == this.lunchTarget &&
+          other.dinnerTarget == this.dinnerTarget &&
+          other.snackTarget == this.snackTarget);
 }
 
 class ProfilesCompanion extends UpdateCompanion<Profile> {
@@ -700,6 +874,10 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
   final Value<int> reminderMinute;
   final Value<bool> onboardingCompleted;
   final Value<double?> dailyCalorieTarget;
+  final Value<double?> breakfastTarget;
+  final Value<double?> lunchTarget;
+  final Value<double?> dinnerTarget;
+  final Value<double?> snackTarget;
   const ProfilesCompanion({
     this.id = const Value.absent(),
     this.sex = const Value.absent(),
@@ -716,6 +894,10 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     this.reminderMinute = const Value.absent(),
     this.onboardingCompleted = const Value.absent(),
     this.dailyCalorieTarget = const Value.absent(),
+    this.breakfastTarget = const Value.absent(),
+    this.lunchTarget = const Value.absent(),
+    this.dinnerTarget = const Value.absent(),
+    this.snackTarget = const Value.absent(),
   });
   ProfilesCompanion.insert({
     this.id = const Value.absent(),
@@ -733,6 +915,10 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     required int reminderMinute,
     this.onboardingCompleted = const Value.absent(),
     this.dailyCalorieTarget = const Value.absent(),
+    this.breakfastTarget = const Value.absent(),
+    this.lunchTarget = const Value.absent(),
+    this.dinnerTarget = const Value.absent(),
+    this.snackTarget = const Value.absent(),
   }) : sex = Value(sex),
        birthDateMillis = Value(birthDateMillis),
        heightCm = Value(heightCm),
@@ -760,6 +946,10 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     Expression<int>? reminderMinute,
     Expression<bool>? onboardingCompleted,
     Expression<double>? dailyCalorieTarget,
+    Expression<double>? breakfastTarget,
+    Expression<double>? lunchTarget,
+    Expression<double>? dinnerTarget,
+    Expression<double>? snackTarget,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -779,6 +969,10 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
         'onboarding_completed': onboardingCompleted,
       if (dailyCalorieTarget != null)
         'daily_calorie_target': dailyCalorieTarget,
+      if (breakfastTarget != null) 'breakfast_target': breakfastTarget,
+      if (lunchTarget != null) 'lunch_target': lunchTarget,
+      if (dinnerTarget != null) 'dinner_target': dinnerTarget,
+      if (snackTarget != null) 'snack_target': snackTarget,
     });
   }
 
@@ -798,6 +992,10 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     Value<int>? reminderMinute,
     Value<bool>? onboardingCompleted,
     Value<double?>? dailyCalorieTarget,
+    Value<double?>? breakfastTarget,
+    Value<double?>? lunchTarget,
+    Value<double?>? dinnerTarget,
+    Value<double?>? snackTarget,
   }) {
     return ProfilesCompanion(
       id: id ?? this.id,
@@ -815,6 +1013,10 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
       reminderMinute: reminderMinute ?? this.reminderMinute,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       dailyCalorieTarget: dailyCalorieTarget ?? this.dailyCalorieTarget,
+      breakfastTarget: breakfastTarget ?? this.breakfastTarget,
+      lunchTarget: lunchTarget ?? this.lunchTarget,
+      dinnerTarget: dinnerTarget ?? this.dinnerTarget,
+      snackTarget: snackTarget ?? this.snackTarget,
     );
   }
 
@@ -866,6 +1068,18 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     if (dailyCalorieTarget.present) {
       map['daily_calorie_target'] = Variable<double>(dailyCalorieTarget.value);
     }
+    if (breakfastTarget.present) {
+      map['breakfast_target'] = Variable<double>(breakfastTarget.value);
+    }
+    if (lunchTarget.present) {
+      map['lunch_target'] = Variable<double>(lunchTarget.value);
+    }
+    if (dinnerTarget.present) {
+      map['dinner_target'] = Variable<double>(dinnerTarget.value);
+    }
+    if (snackTarget.present) {
+      map['snack_target'] = Variable<double>(snackTarget.value);
+    }
     return map;
   }
 
@@ -886,7 +1100,11 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
           ..write('reminderHour: $reminderHour, ')
           ..write('reminderMinute: $reminderMinute, ')
           ..write('onboardingCompleted: $onboardingCompleted, ')
-          ..write('dailyCalorieTarget: $dailyCalorieTarget')
+          ..write('dailyCalorieTarget: $dailyCalorieTarget, ')
+          ..write('breakfastTarget: $breakfastTarget, ')
+          ..write('lunchTarget: $lunchTarget, ')
+          ..write('dinnerTarget: $dinnerTarget, ')
+          ..write('snackTarget: $snackTarget')
           ..write(')'))
         .toString();
   }
@@ -2838,6 +3056,32 @@ class $FoodLogEntriesTable extends FoodLogEntries
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _mealPeriodMeta = const VerificationMeta(
+    'mealPeriod',
+  );
+  @override
+  late final GeneratedColumn<String> mealPeriod = GeneratedColumn<String>(
+    'meal_period',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isPlannedMeta = const VerificationMeta(
+    'isPlanned',
+  );
+  @override
+  late final GeneratedColumn<bool> isPlanned = GeneratedColumn<bool>(
+    'is_planned',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_planned" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2853,6 +3097,8 @@ class $FoodLogEntriesTable extends FoodLogEntries
     sugarG,
     fiberG,
     fatG,
+    mealPeriod,
+    isPlanned,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2966,6 +3212,18 @@ class $FoodLogEntriesTable extends FoodLogEntries
     } else if (isInserting) {
       context.missing(_fatGMeta);
     }
+    if (data.containsKey('meal_period')) {
+      context.handle(
+        _mealPeriodMeta,
+        mealPeriod.isAcceptableOrUnknown(data['meal_period']!, _mealPeriodMeta),
+      );
+    }
+    if (data.containsKey('is_planned')) {
+      context.handle(
+        _isPlannedMeta,
+        isPlanned.isAcceptableOrUnknown(data['is_planned']!, _isPlannedMeta),
+      );
+    }
     return context;
   }
 
@@ -3027,6 +3285,14 @@ class $FoodLogEntriesTable extends FoodLogEntries
         DriftSqlType.double,
         data['${effectivePrefix}fat_g'],
       )!,
+      mealPeriod: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}meal_period'],
+      ),
+      isPlanned: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_planned'],
+      )!,
     );
   }
 
@@ -3050,6 +3316,8 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
   final double sugarG;
   final double fiberG;
   final double fatG;
+  final String? mealPeriod;
+  final bool isPlanned;
   const FoodLogEntry({
     required this.id,
     required this.loggedAt,
@@ -3064,6 +3332,8 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     required this.sugarG,
     required this.fiberG,
     required this.fatG,
+    this.mealPeriod,
+    required this.isPlanned,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3085,6 +3355,10 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     map['sugar_g'] = Variable<double>(sugarG);
     map['fiber_g'] = Variable<double>(fiberG);
     map['fat_g'] = Variable<double>(fatG);
+    if (!nullToAbsent || mealPeriod != null) {
+      map['meal_period'] = Variable<String>(mealPeriod);
+    }
+    map['is_planned'] = Variable<bool>(isPlanned);
     return map;
   }
 
@@ -3107,6 +3381,10 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       sugarG: Value(sugarG),
       fiberG: Value(fiberG),
       fatG: Value(fatG),
+      mealPeriod: mealPeriod == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mealPeriod),
+      isPlanned: Value(isPlanned),
     );
   }
 
@@ -3129,6 +3407,8 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       sugarG: serializer.fromJson<double>(json['sugarG']),
       fiberG: serializer.fromJson<double>(json['fiberG']),
       fatG: serializer.fromJson<double>(json['fatG']),
+      mealPeriod: serializer.fromJson<String?>(json['mealPeriod']),
+      isPlanned: serializer.fromJson<bool>(json['isPlanned']),
     );
   }
   @override
@@ -3148,6 +3428,8 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       'sugarG': serializer.toJson<double>(sugarG),
       'fiberG': serializer.toJson<double>(fiberG),
       'fatG': serializer.toJson<double>(fatG),
+      'mealPeriod': serializer.toJson<String?>(mealPeriod),
+      'isPlanned': serializer.toJson<bool>(isPlanned),
     };
   }
 
@@ -3165,6 +3447,8 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     double? sugarG,
     double? fiberG,
     double? fatG,
+    Value<String?> mealPeriod = const Value.absent(),
+    bool? isPlanned,
   }) => FoodLogEntry(
     id: id ?? this.id,
     loggedAt: loggedAt ?? this.loggedAt,
@@ -3181,6 +3465,8 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     sugarG: sugarG ?? this.sugarG,
     fiberG: fiberG ?? this.fiberG,
     fatG: fatG ?? this.fatG,
+    mealPeriod: mealPeriod.present ? mealPeriod.value : this.mealPeriod,
+    isPlanned: isPlanned ?? this.isPlanned,
   );
   FoodLogEntry copyWithCompanion(FoodLogEntriesCompanion data) {
     return FoodLogEntry(
@@ -3203,6 +3489,10 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       sugarG: data.sugarG.present ? data.sugarG.value : this.sugarG,
       fiberG: data.fiberG.present ? data.fiberG.value : this.fiberG,
       fatG: data.fatG.present ? data.fatG.value : this.fatG,
+      mealPeriod: data.mealPeriod.present
+          ? data.mealPeriod.value
+          : this.mealPeriod,
+      isPlanned: data.isPlanned.present ? data.isPlanned.value : this.isPlanned,
     );
   }
 
@@ -3221,7 +3511,9 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
           ..write('carbsG: $carbsG, ')
           ..write('sugarG: $sugarG, ')
           ..write('fiberG: $fiberG, ')
-          ..write('fatG: $fatG')
+          ..write('fatG: $fatG, ')
+          ..write('mealPeriod: $mealPeriod, ')
+          ..write('isPlanned: $isPlanned')
           ..write(')'))
         .toString();
   }
@@ -3241,6 +3533,8 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     sugarG,
     fiberG,
     fatG,
+    mealPeriod,
+    isPlanned,
   );
   @override
   bool operator ==(Object other) =>
@@ -3258,7 +3552,9 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
           other.carbsG == this.carbsG &&
           other.sugarG == this.sugarG &&
           other.fiberG == this.fiberG &&
-          other.fatG == this.fatG);
+          other.fatG == this.fatG &&
+          other.mealPeriod == this.mealPeriod &&
+          other.isPlanned == this.isPlanned);
 }
 
 class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
@@ -3275,6 +3571,8 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
   final Value<double> sugarG;
   final Value<double> fiberG;
   final Value<double> fatG;
+  final Value<String?> mealPeriod;
+  final Value<bool> isPlanned;
   const FoodLogEntriesCompanion({
     this.id = const Value.absent(),
     this.loggedAt = const Value.absent(),
@@ -3289,6 +3587,8 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     this.sugarG = const Value.absent(),
     this.fiberG = const Value.absent(),
     this.fatG = const Value.absent(),
+    this.mealPeriod = const Value.absent(),
+    this.isPlanned = const Value.absent(),
   });
   FoodLogEntriesCompanion.insert({
     this.id = const Value.absent(),
@@ -3304,6 +3604,8 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     this.sugarG = const Value.absent(),
     this.fiberG = const Value.absent(),
     required double fatG,
+    this.mealPeriod = const Value.absent(),
+    this.isPlanned = const Value.absent(),
   }) : loggedAt = Value(loggedAt),
        source = Value(source),
        displayName = Value(displayName),
@@ -3326,6 +3628,8 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     Expression<double>? sugarG,
     Expression<double>? fiberG,
     Expression<double>? fatG,
+    Expression<String>? mealPeriod,
+    Expression<bool>? isPlanned,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3341,6 +3645,8 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
       if (sugarG != null) 'sugar_g': sugarG,
       if (fiberG != null) 'fiber_g': fiberG,
       if (fatG != null) 'fat_g': fatG,
+      if (mealPeriod != null) 'meal_period': mealPeriod,
+      if (isPlanned != null) 'is_planned': isPlanned,
     });
   }
 
@@ -3358,6 +3664,8 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     Value<double>? sugarG,
     Value<double>? fiberG,
     Value<double>? fatG,
+    Value<String?>? mealPeriod,
+    Value<bool>? isPlanned,
   }) {
     return FoodLogEntriesCompanion(
       id: id ?? this.id,
@@ -3373,6 +3681,8 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
       sugarG: sugarG ?? this.sugarG,
       fiberG: fiberG ?? this.fiberG,
       fatG: fatG ?? this.fatG,
+      mealPeriod: mealPeriod ?? this.mealPeriod,
+      isPlanned: isPlanned ?? this.isPlanned,
     );
   }
 
@@ -3418,6 +3728,12 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     if (fatG.present) {
       map['fat_g'] = Variable<double>(fatG.value);
     }
+    if (mealPeriod.present) {
+      map['meal_period'] = Variable<String>(mealPeriod.value);
+    }
+    if (isPlanned.present) {
+      map['is_planned'] = Variable<bool>(isPlanned.value);
+    }
     return map;
   }
 
@@ -3436,7 +3752,9 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
           ..write('carbsG: $carbsG, ')
           ..write('sugarG: $sugarG, ')
           ..write('fiberG: $fiberG, ')
-          ..write('fatG: $fatG')
+          ..write('fatG: $fatG, ')
+          ..write('mealPeriod: $mealPeriod, ')
+          ..write('isPlanned: $isPlanned')
           ..write(')'))
         .toString();
   }
@@ -3482,6 +3800,10 @@ typedef $$ProfilesTableCreateCompanionBuilder =
       required int reminderMinute,
       Value<bool> onboardingCompleted,
       Value<double?> dailyCalorieTarget,
+      Value<double?> breakfastTarget,
+      Value<double?> lunchTarget,
+      Value<double?> dinnerTarget,
+      Value<double?> snackTarget,
     });
 typedef $$ProfilesTableUpdateCompanionBuilder =
     ProfilesCompanion Function({
@@ -3500,6 +3822,10 @@ typedef $$ProfilesTableUpdateCompanionBuilder =
       Value<int> reminderMinute,
       Value<bool> onboardingCompleted,
       Value<double?> dailyCalorieTarget,
+      Value<double?> breakfastTarget,
+      Value<double?> lunchTarget,
+      Value<double?> dinnerTarget,
+      Value<double?> snackTarget,
     });
 
 class $$ProfilesTableFilterComposer
@@ -3583,6 +3909,26 @@ class $$ProfilesTableFilterComposer
 
   ColumnFilters<double> get dailyCalorieTarget => $composableBuilder(
     column: $table.dailyCalorieTarget,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get breakfastTarget => $composableBuilder(
+    column: $table.breakfastTarget,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get lunchTarget => $composableBuilder(
+    column: $table.lunchTarget,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get dinnerTarget => $composableBuilder(
+    column: $table.dinnerTarget,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get snackTarget => $composableBuilder(
+    column: $table.snackTarget,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3670,6 +4016,26 @@ class $$ProfilesTableOrderingComposer
     column: $table.dailyCalorieTarget,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get breakfastTarget => $composableBuilder(
+    column: $table.breakfastTarget,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get lunchTarget => $composableBuilder(
+    column: $table.lunchTarget,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get dinnerTarget => $composableBuilder(
+    column: $table.dinnerTarget,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get snackTarget => $composableBuilder(
+    column: $table.snackTarget,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ProfilesTableAnnotationComposer
@@ -3745,6 +4111,26 @@ class $$ProfilesTableAnnotationComposer
     column: $table.dailyCalorieTarget,
     builder: (column) => column,
   );
+
+  GeneratedColumn<double> get breakfastTarget => $composableBuilder(
+    column: $table.breakfastTarget,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get lunchTarget => $composableBuilder(
+    column: $table.lunchTarget,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get dinnerTarget => $composableBuilder(
+    column: $table.dinnerTarget,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get snackTarget => $composableBuilder(
+    column: $table.snackTarget,
+    builder: (column) => column,
+  );
 }
 
 class $$ProfilesTableTableManager
@@ -3790,6 +4176,10 @@ class $$ProfilesTableTableManager
                 Value<int> reminderMinute = const Value.absent(),
                 Value<bool> onboardingCompleted = const Value.absent(),
                 Value<double?> dailyCalorieTarget = const Value.absent(),
+                Value<double?> breakfastTarget = const Value.absent(),
+                Value<double?> lunchTarget = const Value.absent(),
+                Value<double?> dinnerTarget = const Value.absent(),
+                Value<double?> snackTarget = const Value.absent(),
               }) => ProfilesCompanion(
                 id: id,
                 sex: sex,
@@ -3806,6 +4196,10 @@ class $$ProfilesTableTableManager
                 reminderMinute: reminderMinute,
                 onboardingCompleted: onboardingCompleted,
                 dailyCalorieTarget: dailyCalorieTarget,
+                breakfastTarget: breakfastTarget,
+                lunchTarget: lunchTarget,
+                dinnerTarget: dinnerTarget,
+                snackTarget: snackTarget,
               ),
           createCompanionCallback:
               ({
@@ -3824,6 +4218,10 @@ class $$ProfilesTableTableManager
                 required int reminderMinute,
                 Value<bool> onboardingCompleted = const Value.absent(),
                 Value<double?> dailyCalorieTarget = const Value.absent(),
+                Value<double?> breakfastTarget = const Value.absent(),
+                Value<double?> lunchTarget = const Value.absent(),
+                Value<double?> dinnerTarget = const Value.absent(),
+                Value<double?> snackTarget = const Value.absent(),
               }) => ProfilesCompanion.insert(
                 id: id,
                 sex: sex,
@@ -3840,6 +4238,10 @@ class $$ProfilesTableTableManager
                 reminderMinute: reminderMinute,
                 onboardingCompleted: onboardingCompleted,
                 dailyCalorieTarget: dailyCalorieTarget,
+                breakfastTarget: breakfastTarget,
+                lunchTarget: lunchTarget,
+                dinnerTarget: dinnerTarget,
+                snackTarget: snackTarget,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -4781,6 +5183,8 @@ typedef $$FoodLogEntriesTableCreateCompanionBuilder =
       Value<double> sugarG,
       Value<double> fiberG,
       required double fatG,
+      Value<String?> mealPeriod,
+      Value<bool> isPlanned,
     });
 typedef $$FoodLogEntriesTableUpdateCompanionBuilder =
     FoodLogEntriesCompanion Function({
@@ -4797,6 +5201,8 @@ typedef $$FoodLogEntriesTableUpdateCompanionBuilder =
       Value<double> sugarG,
       Value<double> fiberG,
       Value<double> fatG,
+      Value<String?> mealPeriod,
+      Value<bool> isPlanned,
     });
 
 class $$FoodLogEntriesTableFilterComposer
@@ -4870,6 +5276,16 @@ class $$FoodLogEntriesTableFilterComposer
 
   ColumnFilters<double> get fatG => $composableBuilder(
     column: $table.fatG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mealPeriod => $composableBuilder(
+    column: $table.mealPeriod,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPlanned => $composableBuilder(
+    column: $table.isPlanned,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4947,6 +5363,16 @@ class $$FoodLogEntriesTableOrderingComposer
     column: $table.fatG,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get mealPeriod => $composableBuilder(
+    column: $table.mealPeriod,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPlanned => $composableBuilder(
+    column: $table.isPlanned,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FoodLogEntriesTableAnnotationComposer
@@ -5002,6 +5428,14 @@ class $$FoodLogEntriesTableAnnotationComposer
 
   GeneratedColumn<double> get fatG =>
       $composableBuilder(column: $table.fatG, builder: (column) => column);
+
+  GeneratedColumn<String> get mealPeriod => $composableBuilder(
+    column: $table.mealPeriod,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isPlanned =>
+      $composableBuilder(column: $table.isPlanned, builder: (column) => column);
 }
 
 class $$FoodLogEntriesTableTableManager
@@ -5050,6 +5484,8 @@ class $$FoodLogEntriesTableTableManager
                 Value<double> sugarG = const Value.absent(),
                 Value<double> fiberG = const Value.absent(),
                 Value<double> fatG = const Value.absent(),
+                Value<String?> mealPeriod = const Value.absent(),
+                Value<bool> isPlanned = const Value.absent(),
               }) => FoodLogEntriesCompanion(
                 id: id,
                 loggedAt: loggedAt,
@@ -5064,6 +5500,8 @@ class $$FoodLogEntriesTableTableManager
                 sugarG: sugarG,
                 fiberG: fiberG,
                 fatG: fatG,
+                mealPeriod: mealPeriod,
+                isPlanned: isPlanned,
               ),
           createCompanionCallback:
               ({
@@ -5080,6 +5518,8 @@ class $$FoodLogEntriesTableTableManager
                 Value<double> sugarG = const Value.absent(),
                 Value<double> fiberG = const Value.absent(),
                 required double fatG,
+                Value<String?> mealPeriod = const Value.absent(),
+                Value<bool> isPlanned = const Value.absent(),
               }) => FoodLogEntriesCompanion.insert(
                 id: id,
                 loggedAt: loggedAt,
@@ -5094,6 +5534,8 @@ class $$FoodLogEntriesTableTableManager
                 sugarG: sugarG,
                 fiberG: fiberG,
                 fatG: fatG,
+                mealPeriod: mealPeriod,
+                isPlanned: isPlanned,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

@@ -1,7 +1,10 @@
 import 'package:caltrack/app/profile_controller.dart';
+import 'package:caltrack/data/app_database.dart';
 import 'package:caltrack/features/bands/calorie_bands_screen.dart';
+import 'package:caltrack/features/calendar/calendar_screen.dart';
 import 'package:caltrack/features/food/add_custom_food_screen.dart';
 import 'package:caltrack/features/food/barcode_scan_screen.dart';
+import 'package:caltrack/features/food/custom_foods_list_screen.dart';
 import 'package:caltrack/features/food/log_food_screen.dart';
 import 'package:caltrack/features/food/nutrition_label_scan_screen.dart';
 import 'package:caltrack/features/onboarding/onboarding_screen.dart';
@@ -80,12 +83,24 @@ GoRouter createRouter(ProfileController profileController) {
         builder: (context, state) {
           final extra = state.extra;
           final barcode = extra is Map ? extra['barcode'] as String? : null;
-          return AddCustomFoodScreen(initialBarcode: barcode);
+          final existingFood = extra is Map ? extra['existingFood'] as CustomFood? : null;
+          return AddCustomFoodScreen(
+            initialBarcode: barcode,
+            existingFood: existingFood,
+          );
         },
+      ),
+      GoRoute(
+        path: '/custom-foods',
+        builder: (context, state) => const CustomFoodsListScreen(),
       ),
       GoRoute(
         path: '/scan-nutrition-label',
         builder: (context, state) => const NutritionLabelScanScreen(),
+      ),
+      GoRoute(
+        path: '/calendar',
+        builder: (context, state) => const CalendarScreen(),
       ),
     ],
   );

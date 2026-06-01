@@ -71,6 +71,11 @@ class _RootShellState extends State<RootShell>
         title: const Text('CalTrack'),
         actions: [
           IconButton(
+            tooltip: 'Calendar',
+            onPressed: () => context.push('/calendar'),
+            icon: const Icon(Icons.calendar_month_outlined),
+          ),
+          IconButton(
             tooltip: 'Settings',
             onPressed: () => context.push('/settings'),
             icon: const Icon(Icons.settings_outlined),

@@ -8,6 +8,21 @@ import 'package:path_provider/path_provider.dart';
 
 part 'app_database.g.dart';
 
+/// Meal periods for grouping food log entries.
+enum MealPeriod {
+  breakfast,
+  lunch,
+  dinner,
+  snack;
+
+  String get dbValue => name;
+
+  static MealPeriod? fromDb(String? value) {
+    if (value == null) return null;
+    return MealPeriod.values.where((p) => p.dbValue == value).firstOrNull;
+  }
+}
+
 class Profiles extends Table {
   IntColumn get id => integer().withDefault(const Constant(1))();
   TextColumn get sex => text()(); // male | female
@@ -29,6 +44,10 @@ class Profiles extends Table {
       boolean().withDefault(const Constant(false))();
   RealColumn get dailyCalorieTarget =>
       real().nullable()();
+  RealColumn get breakfastTarget => real().nullable()();
+  RealColumn get lunchTarget => real().nullable()();
+  RealColumn get dinnerTarget => real().nullable()();
+  RealColumn get snackTarget => real().nullable()();
 
   @override
   Set<Column<Object>>? get primaryKey => {id};
@@ -124,6 +143,8 @@ class FoodLogEntries extends Table {
   RealColumn get sugarG => real().withDefault(const Constant(0))();
   RealColumn get fiberG => real().withDefault(const Constant(0))();
   RealColumn get fatG => real()();
+  TextColumn get mealPeriod => text().nullable()();
+  BoolColumn get isPlanned => boolean().withDefault(const Constant(false))();
 }
 
 @DriftDatabase(
@@ -142,7 +163,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -181,6 +202,14 @@ class AppDatabase extends _$AppDatabase {
             // to "2 × Large egg" on the next open.
             await m.addColumn(foodPrefs, foodPrefs.lastServingLabel);
             await m.addColumn(foodPrefs, foodPrefs.lastServingQty);
+          }
+          if (from < 7) {
+            await m.addColumn(foodLogEntries, foodLogEntries.mealPeriod);
+            await m.addColumn(foodLogEntries, foodLogEntries.isPlanned);
+            await m.addColumn(profiles, profiles.breakfastTarget);
+            await m.addColumn(profiles, profiles.lunchTarget);
+            await m.addColumn(profiles, profiles.dinnerTarget);
+            await m.addColumn(profiles, profiles.snackTarget);
           }
         },
       );
