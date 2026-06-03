@@ -882,13 +882,14 @@ class _GoalSummary extends StatelessWidget {
             ? '${goal.targetWeightKg.toStringAsFixed(1)} kg'
             : '${kgToLb(goal.targetWeightKg).toStringAsFixed(1)} lb';
         final rate = goal.weeklyChangeKgPerWeek;
+        final displayRate = unit == WeightUnit.kg ? rate : kgToLb(rate);
         String pace;
         if (goal.status == 'maintain' || rate.abs() < 0.001) {
           pace = 'Maintenance';
         } else if (rate < 0) {
-          pace = 'Losing ~${(-rate).toStringAsFixed(2)} kg/week';
+          pace = 'Losing ~${(-displayRate).abs().toStringAsFixed(2)} ${unit.shortLabel}/week';
         } else {
-          pace = 'Gaining ~${rate.toStringAsFixed(2)} kg/week';
+          pace = 'Gaining ~${displayRate.toStringAsFixed(2)} ${unit.shortLabel}/week';
         }
         final subtitleText =
             goal.status == 'pending_choice' ? 'Choose next step' : pace;
@@ -952,6 +953,7 @@ class _GoalSummary extends StatelessWidget {
                   goal: goal,
                   currentKg: data.latestKg,
                   trendKgWeek: data.trendKgWeek,
+                  unit: unit,
                 ),
             ],
           ),
@@ -968,11 +970,13 @@ class _GoalEtaSection extends StatelessWidget {
     required this.goal,
     required this.currentKg,
     required this.trendKgWeek,
+    required this.unit,
   });
 
   final Goal goal;
   final double? currentKg;
   final double? trendKgWeek;
+  final WeightUnit unit;
 
   @override
   Widget build(BuildContext context) {
@@ -1036,7 +1040,9 @@ class _GoalEtaSection extends StatelessWidget {
               eta: trendEta,
               color: scheme.secondary,
               trailingNote:
-                  'based on last ~14 days (${trendEta.weeklyKg.toStringAsFixed(2)} kg/wk)',
+                  unit == WeightUnit.kg
+                      ? 'based on last ~14 days (${trendEta.weeklyKg.toStringAsFixed(2)} kg/wk)'
+                      : 'based on last ~14 days (${kgToLb(trendEta.weeklyKg).toStringAsFixed(2)} lb/wk)',
             ),
           ] else if (staticEta != null)
             Padding(

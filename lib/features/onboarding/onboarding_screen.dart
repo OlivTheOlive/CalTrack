@@ -777,7 +777,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           title: const Text('Goal'),
           subtitle: Text(
             cw > 0 && gw > 0
-                ? '${cw.toStringAsFixed(1)} kg → ${gw.toStringAsFixed(1)} kg (${_weeklySignedKg(cw, gw).toStringAsFixed(2)} kg/wk)'
+                ? _unit == WeightUnit.kg
+                    ? '${cw.toStringAsFixed(1)} kg → ${gw.toStringAsFixed(1)} kg (${_weeklySignedKg(cw, gw).toStringAsFixed(2)} kg/wk)'
+                    : '${kgToLb(cw).toStringAsFixed(1)} lb → ${kgToLb(gw).toStringAsFixed(1)} lb (${kgToLb(_weeklySignedKg(cw, gw)).toStringAsFixed(2)} lb/wk)'
                 : 'Enter weights on previous steps',
           ),
         ),

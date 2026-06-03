@@ -637,7 +637,8 @@ class _GoalSettingsTile extends StatelessWidget {
       return 'Maintenance — calories match your TDEE.';
     }
     final dir = rate < 0 ? 'Losing' : 'Gaining';
-    return '$dir ~${rate.abs().toStringAsFixed(2)} kg/week';
+    final displayRate = unit == WeightUnit.kg ? rate.abs() : kgToLb(rate.abs());
+    return '$dir ~${displayRate.toStringAsFixed(2)} ${unit.shortLabel}/week';
   }
 
   @override

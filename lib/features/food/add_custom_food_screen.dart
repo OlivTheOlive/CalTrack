@@ -1,6 +1,7 @@
 import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/app_database.dart';
+import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/features/food/food_entry_sheet.dart';
 import 'package:caltrack/features/food/nutrition_label_scan_screen.dart';
@@ -277,6 +278,19 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
         initialGrams: serving,
         subtitle: 'Per $serving ${_unit.name}',
         unitLabel: _unit.name,
+        presets: serving > 0
+            ? [
+                CatalogGroupPreset(
+                  foodId: 'custom:$id',
+                  label: 'serving',
+                  grams: serving,
+                  isDefault: true,
+                  sortOrder: 0,
+                )
+              ]
+            : const <CatalogGroupPreset>[],
+        initialPresetLabel: serving > 0 ? 'serving' : null,
+        showPresetPicker: false,
       ),
     );
     if (!mounted) return;
