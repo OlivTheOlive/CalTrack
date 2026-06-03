@@ -2,12 +2,14 @@ import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/meal_time_controller.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/app/theme_controller.dart';
+import 'package:caltrack/core/spacing.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/services/notification_service.dart';
 import 'package:caltrack/widgets/goal_editor_sheet.dart';
 import 'package:caltrack/widgets/opennutrition_attribution.dart';
+import 'package:caltrack/widgets/styled_card.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -50,264 +52,570 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _loaded = true;
           }
           final unit = WeightUnit.fromStored(profile.weightUnit);
-          final sum = _protein.round() + _carbs.round() + _fat.round();
 
           return ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.md,
+              Spacing.md,
+              Spacing.md,
+              Spacing.xl,
+            ),
             children: [
-              Text(
-                'Profile',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Theme',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 8),
-              const _StylePicker(),
-              const SizedBox(height: 12),
-              const _ThemePicker(),
-              const Divider(height: 40),
-              Text(
-                'Meal times',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              const _MealTimeSettings(),
-              const Divider(height: 40),
-              Text(
-                'Weight display',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 8),
-              SegmentedButton<WeightUnit>(
-                segments: const [
-                  ButtonSegment(value: WeightUnit.kg, label: Text('kg')),
-                  ButtonSegment(value: WeightUnit.lb, label: Text('lb')),
-                ],
-                selected: {unit},
-                onSelectionChanged: (s) async {
-                  await repo.updateWeightUnit(s.first);
-                  await profileCtl.refresh();
-                  setState(() {});
-                },
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Macro percentages',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Total: $sum%',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: sum == 100
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.error,
+              _SettingsSection(
+                title: 'Appearance',
+                icon: Icons.palette_outlined,
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.all(Spacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _StylePicker(),
+                        SizedBox(height: Spacing.md),
+                        _ThemeModePicker(),
+                      ],
                     ),
-              ),
-              Text('Protein ${_protein.round()}%'),
-              Slider(
-                value: _protein.clamp(10, 80),
-                min: 10,
-                max: 80,
-                divisions: 70,
-                onChanged: (v) => setState(() {
-                  _protein = v;
-                  final rem = 100 - v.round() - _fat.round();
-                  _carbs = rem.clamp(10, 80).toDouble();
-                }),
-              ),
-              Text('Carbs ${_carbs.round()}%'),
-              Slider(
-                value: _carbs.clamp(10, 80),
-                min: 10,
-                max: 80,
-                divisions: 70,
-                onChanged: (v) => setState(() {
-                  _carbs = v;
-                  final rem = 100 - _protein.round() - v.round();
-                  _fat = rem.clamp(10, 80).toDouble();
-                }),
-              ),
-              Text('Fat ${_fat.round()}%'),
-              Slider(
-                value: _fat.clamp(10, 80),
-                min: 10,
-                max: 80,
-                divisions: 70,
-                onChanged: (v) => setState(() {
-                  _fat = v;
-                  final rem = 100 - _protein.round() - v.round();
-                  _carbs = rem.clamp(10, 80).toDouble();
-                }),
-              ),
-              FilledButton(
-                onPressed: sum != 100
-                    ? null
-                    : () async {
-                        await repo.updateMacroSplit(
-                          proteinPct: _protein.round(),
-                          carbsPct: _carbs.round(),
-                          fatPct: _fat.round(),
-                        );
-                        await profileCtl.refresh();
-                        if (!context.mounted) return;
-                        context.showAppSnackBar('Macros updated');
-                      },
-                child: const Text('Save macros'),
-              ),
-              const Divider(height: 40),
-              Text('Plan', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              _GoalSettingsTile(unit: unit),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.tune),
-                title: const Text('Calorie bands'),
-                subtitle: const Text(
-                  'Floor, maintenance and goal target, plus what-if sliders.',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/calorie-bands'),
-              ),
-              const Divider(height: 40),
-              Text(
-                'Notifications',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              ListTile(
-                title: const Text('Reschedule'),
-                subtitle: Text(
-                  'Change day and time from the onboarding flow values in database — '
-                  'edit below (weekday ${_weekdayLabel(profile.reminderWeekday)})',
-                ),
-              ),
-              DropdownButtonFormField<int>(
-                // ignore: deprecated_member_use
-                value: profile.reminderWeekday,
-                decoration: const InputDecoration(labelText: 'Day'),
-                items: const [
-                  DropdownMenuItem(value: DateTime.monday, child: Text('Monday')),
-                  DropdownMenuItem(value: DateTime.tuesday, child: Text('Tuesday')),
-                  DropdownMenuItem(
-                    value: DateTime.wednesday,
-                    child: Text('Wednesday'),
                   ),
-                  DropdownMenuItem(value: DateTime.thursday, child: Text('Thursday')),
-                  DropdownMenuItem(value: DateTime.friday, child: Text('Friday')),
-                  DropdownMenuItem(value: DateTime.saturday, child: Text('Saturday')),
-                  DropdownMenuItem(value: DateTime.sunday, child: Text('Sunday')),
                 ],
-                onChanged: (v) async {
-                  if (v == null) return;
-                  await repo.updateReminderSchedule(
-                    weekday: v,
-                    hour: profile.reminderHour,
-                    minute: profile.reminderMinute,
-                  );
-                  await NotificationService.instance.scheduleWeeklyWeighIn(repo: repo);
-                  await profileCtl.refresh();
-                  setState(() {});
-                },
               ),
-              ListTile(
-                title: const Text('Time'),
-                subtitle: Text(
-                  '${profile.reminderHour.toString().padLeft(2, '0')}:'
-                  '${profile.reminderMinute.toString().padLeft(2, '0')}',
-                ),
-                trailing: const Icon(Icons.schedule),
-                onTap: () async {
-                  final t = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay(
-                      hour: profile.reminderHour,
-                      minute: profile.reminderMinute,
+              _SettingsSection(
+                title: 'Units & macros',
+                icon: Icons.straighten_outlined,
+                children: [
+                  _WeightUnitRow(
+                    unit: unit,
+                    onChanged: (u) async {
+                      await repo.updateWeightUnit(u);
+                      await profileCtl.refresh();
+                      setState(() {});
+                    },
+                  ),
+                  const Divider(height: 1, indent: Spacing.md, endIndent: Spacing.md),
+                  _MacroEditor(
+                    protein: _protein,
+                    carbs: _carbs,
+                    fat: _fat,
+                    onChanged: (p, c, f) => setState(() {
+                      _protein = p;
+                      _carbs = c;
+                      _fat = f;
+                    }),
+                    onSave: () async {
+                      await repo.updateMacroSplit(
+                        proteinPct: _protein.round(),
+                        carbsPct: _carbs.round(),
+                        fatPct: _fat.round(),
+                      );
+                      await profileCtl.refresh();
+                      if (!context.mounted) return;
+                      context.showAppSnackBar('Macros updated');
+                    },
+                  ),
+                ],
+              ),
+              _SettingsSection(
+                title: 'Meal times',
+                icon: Icons.schedule_outlined,
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.all(Spacing.md),
+                    child: _MealTimeSettings(),
+                  ),
+                ],
+              ),
+              _SettingsSection(
+                title: 'Plan',
+                icon: Icons.flag_outlined,
+                children: [
+                  _GoalSettingsTile(unit: unit),
+                  const Divider(height: 1, indent: Spacing.md, endIndent: Spacing.md),
+                  _SettingsNavTile(
+                    icon: Icons.tune,
+                    title: 'Calorie bands',
+                    subtitle:
+                        'Floor, maintenance and goal target, plus what-if sliders.',
+                    onTap: () => context.push('/calorie-bands'),
+                  ),
+                ],
+              ),
+              _SettingsSection(
+                title: 'Notifications',
+                icon: Icons.notifications_outlined,
+                children: [
+                  _ReminderSettings(
+                    profile: profile,
+                    onChanged: () => setState(() {}),
+                  ),
+                ],
+              ),
+              _SettingsSection(
+                title: 'Food data',
+                icon: Icons.restaurant_menu_outlined,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.all(Spacing.md),
+                    child: Column(
+                      children: [
+                        OpenNutritionAttribution(),
+                        SizedBox(height: Spacing.md),
+                        _FoodDataCounts(),
+                      ],
                     ),
-                  );
-                  if (t == null) return;
-                  await repo.updateReminderSchedule(
-                    weekday: profile.reminderWeekday,
-                    hour: t.hour,
-                    minute: t.minute,
-                  );
-                  await NotificationService.instance.scheduleWeeklyWeighIn(repo: repo);
-                  await profileCtl.refresh();
-                  setState(() {});
-                },
+                  ),
+                  const Divider(height: 1, indent: Spacing.md, endIndent: Spacing.md),
+                  _SettingsNavTile(
+                    icon: Icons.restaurant_outlined,
+                    title: 'Custom foods',
+                    subtitle: 'View, edit, or delete your custom foods.',
+                    onTap: () => context.push('/custom-foods'),
+                  ),
+                  const Divider(height: 1, indent: Spacing.md, endIndent: Spacing.md),
+                  const _OpenFoodFactsTerms(),
+                ],
               ),
-              const Divider(height: 40),
-              Text('Food data', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              const OpenNutritionAttribution(),
-              const SizedBox(height: 12),
-              const _FoodDataCounts(),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.restaurant_outlined),
-                title: const Text('Custom foods'),
-                subtitle: const Text('View, edit, or delete your custom foods.'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/custom-foods'),
+              _SettingsSection(
+                title: 'Data tools',
+                icon: Icons.storage_outlined,
+                children: [
+                  _SettingsNavTile(
+                    icon: Icons.import_export_outlined,
+                    title: 'Backup / export / import',
+                    subtitle:
+                        'Export your data or restore from a backup file.',
+                    onTap: () => context.push('/data-tools'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Portions of the catalog originate from Open Food Facts. '
-                'When displaying that data, maintain attribution to '
-                '(c) Open Food Facts contributors — see their terms.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+              _SettingsSection(
+                title: 'About',
+                icon: Icons.info_outline,
+                children: const [_VersionInfoTile()],
               ),
-              TextButton(
-                onPressed: () async {
-                  final uri = Uri.parse(
-                    'https://world.openfoodfacts.org/terms-of-use',
-                  );
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
-                child: const Text('Open Food Facts terms'),
-              ),
-              const Divider(height: 40),
-              Text('Data tools', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.import_export_outlined),
-                title: const Text('Backup / export / import'),
-                subtitle: const Text('Export your data or restore from a backup file.'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/data-tools'),
-              ),
-              const Divider(height: 40),
-              Text('About', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              _VersionInfoTile(),
             ],
           );
         },
       ),
     );
   }
+}
 
-  static String _weekdayLabel(int weekday) {
-    const names = [
-      '',
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-    return names[weekday.clamp(1, 7)];
+// ---------------------------------------------------------------------------
+// Section + tile scaffolding
+// ---------------------------------------------------------------------------
+
+/// A titled group: a small section header followed by a [StyledCard]
+/// containing [children] (typically tiles separated by thin dividers).
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({
+    required this.title,
+    required this.children,
+    this.icon,
+  });
+
+  final String title;
+  final IconData? icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.xs,
+              0,
+              Spacing.xs,
+              Spacing.sm,
+            ),
+            child: Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 18, color: scheme.primary),
+                  const SizedBox(width: Spacing.sm),
+                ],
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: scheme.primary,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          StyledCard(
+            tone: CardTone.low,
+            padding: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A tappable navigation row used inside a [_SettingsSection].
+class _SettingsNavTile extends StatelessWidget {
+  const _SettingsNavTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListTile(
+      leading: Icon(icon, color: scheme.onSurfaceVariant),
+      title: Text(title),
+      subtitle: subtitle == null ? null : Text(subtitle!),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+      shape: const RoundedRectangleBorder(),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Units & macros
+// ---------------------------------------------------------------------------
+
+class _WeightUnitRow extends StatelessWidget {
+  const _WeightUnitRow({required this.unit, required this.onChanged});
+
+  final WeightUnit unit;
+  final ValueChanged<WeightUnit> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.md,
+        Spacing.md,
+        Spacing.md,
+        Spacing.md,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Weight display',
+              style: theme.textTheme.bodyLarge,
+            ),
+          ),
+          SegmentedButton<WeightUnit>(
+            segments: const [
+              ButtonSegment(value: WeightUnit.kg, label: Text('kg')),
+              ButtonSegment(value: WeightUnit.lb, label: Text('lb')),
+            ],
+            selected: {unit},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) => onChanged(s.first),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacroEditor extends StatelessWidget {
+  const _MacroEditor({
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+    required this.onChanged,
+    required this.onSave,
+  });
+
+  final double protein;
+  final double carbs;
+  final double fat;
+
+  /// Reports the new (protein, carbs, fat) tuple after a slider drag.
+  final void Function(double protein, double carbs, double fat) onChanged;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final sum = protein.round() + carbs.round() + fat.round();
+    final balanced = sum == 100;
+
+    return Padding(
+      padding: const EdgeInsets.all(Spacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Macro percentages',
+                  style: theme.textTheme.bodyLarge,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.sm,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: (balanced ? scheme.primary : scheme.error)
+                      .withValues(alpha: 0.12),
+                  borderRadius: Corners.radiusSm,
+                ),
+                child: Text(
+                  'Total $sum%',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: balanced ? scheme.primary : scheme.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Spacing.sm),
+          _MacroSlider(
+            label: 'Protein',
+            value: protein,
+            color: scheme.primary,
+            onChanged: (v) {
+              final rem = 100 - v.round() - fat.round();
+              onChanged(v, rem.clamp(10, 80).toDouble(), fat);
+            },
+          ),
+          _MacroSlider(
+            label: 'Carbs',
+            value: carbs,
+            color: scheme.tertiary,
+            onChanged: (v) {
+              final rem = 100 - protein.round() - v.round();
+              onChanged(protein, v, rem.clamp(10, 80).toDouble());
+            },
+          ),
+          _MacroSlider(
+            label: 'Fat',
+            value: fat,
+            color: scheme.secondary,
+            onChanged: (v) {
+              final rem = 100 - protein.round() - v.round();
+              onChanged(protein, rem.clamp(10, 80).toDouble(), v);
+            },
+          ),
+          const SizedBox(height: Spacing.sm),
+          FilledButton(
+            onPressed: balanced ? onSave : null,
+            child: const Text('Save macros'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacroSlider extends StatelessWidget {
+  const _MacroSlider({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double value;
+  final Color color;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        SizedBox(
+          width: 92,
+          child: Text(
+            '$label ${value.round()}%',
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+        Expanded(
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: color,
+              thumbColor: color,
+            ),
+            child: Slider(
+              value: value.clamp(10, 80),
+              min: 10,
+              max: 80,
+              divisions: 70,
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+class _ReminderSettings extends StatelessWidget {
+  const _ReminderSettings({required this.profile, required this.onChanged});
+
+  final Profile profile;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final repo = context.read<CalTrackRepository>();
+    final profileCtl = context.read<ProfileController>();
+    final timeLabel = '${profile.reminderHour.toString().padLeft(2, '0')}:'
+        '${profile.reminderMinute.toString().padLeft(2, '0')}';
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.md,
+            Spacing.md,
+            Spacing.md,
+            Spacing.sm,
+          ),
+          child: DropdownButtonFormField<int>(
+            // ignore: deprecated_member_use
+            value: profile.reminderWeekday,
+            decoration: const InputDecoration(
+              labelText: 'Weekly weigh-in day',
+              prefixIcon: Icon(Icons.event_outlined),
+            ),
+            items: const [
+              DropdownMenuItem(value: DateTime.monday, child: Text('Monday')),
+              DropdownMenuItem(value: DateTime.tuesday, child: Text('Tuesday')),
+              DropdownMenuItem(
+                value: DateTime.wednesday,
+                child: Text('Wednesday'),
+              ),
+              DropdownMenuItem(
+                value: DateTime.thursday,
+                child: Text('Thursday'),
+              ),
+              DropdownMenuItem(value: DateTime.friday, child: Text('Friday')),
+              DropdownMenuItem(
+                value: DateTime.saturday,
+                child: Text('Saturday'),
+              ),
+              DropdownMenuItem(value: DateTime.sunday, child: Text('Sunday')),
+            ],
+            onChanged: (v) async {
+              if (v == null) return;
+              await repo.updateReminderSchedule(
+                weekday: v,
+                hour: profile.reminderHour,
+                minute: profile.reminderMinute,
+              );
+              await NotificationService.instance
+                  .scheduleWeeklyWeighIn(repo: repo);
+              await profileCtl.refresh();
+              onChanged();
+            },
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.schedule),
+          title: const Text('Reminder time'),
+          subtitle: Text(timeLabel),
+          trailing: const Icon(Icons.edit_outlined),
+          onTap: () async {
+            final t = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay(
+                hour: profile.reminderHour,
+                minute: profile.reminderMinute,
+              ),
+            );
+            if (t == null) return;
+            await repo.updateReminderSchedule(
+              weekday: profile.reminderWeekday,
+              hour: t.hour,
+              minute: t.minute,
+            );
+            await NotificationService.instance
+                .scheduleWeeklyWeighIn(repo: repo);
+            await profileCtl.refresh();
+            onChanged();
+          },
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Open Food Facts attribution / terms
+// ---------------------------------------------------------------------------
+
+class _OpenFoodFactsTerms extends StatelessWidget {
+  const _OpenFoodFactsTerms();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.md,
+        Spacing.md,
+        Spacing.md,
+        Spacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Portions of the catalog originate from Open Food Facts. '
+            'When displaying that data, maintain attribution to '
+            '(c) Open Food Facts contributors — see their terms.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              icon: const Icon(Icons.open_in_new, size: 16),
+              onPressed: () async {
+                final uri = Uri.parse(
+                  'https://world.openfoodfacts.org/terms-of-use',
+                );
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              label: const Text('Open Food Facts terms'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -335,6 +643,7 @@ class _GoalSettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repo = context.read<CalTrackRepository>();
+    final scheme = Theme.of(context).colorScheme;
     return StreamBuilder<Goal?>(
       stream: repo.watchCurrentGoal(),
       builder: (context, snap) {
@@ -346,8 +655,7 @@ class _GoalSettingsTile extends StatelessWidget {
             ? 'Pick a target weight and weekly pace.'
             : _paceDescription(goal);
         return ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.flag_outlined),
+          leading: Icon(Icons.flag_outlined, color: scheme.onSurfaceVariant),
           title: Text(title),
           subtitle: Text(subtitle),
           trailing: const Icon(Icons.chevron_right),
@@ -450,7 +758,7 @@ class _MealTimeSettings extends StatelessWidget {
           dense: true,
         ),
         if (config.enabled) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.sm),
           _MealWindowRow(
             label: 'Breakfast',
             start: config.breakfastStart,
@@ -472,14 +780,12 @@ class _MealTimeSettings extends StatelessWidget {
             onStartChanged: (h) => ctl.setDinnerWindow(h, config.dinnerEnd),
             onEndChanged: (h) => ctl.setDinnerWindow(config.dinnerStart, h),
           ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Text(
-              'Windows are checked in order: Breakfast → Lunch → Dinner. First match wins.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          const SizedBox(height: Spacing.sm),
+          Text(
+            'Windows are checked in order: Breakfast → Lunch → Dinner. '
+            'First match wins.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -508,21 +814,32 @@ class _MealWindowRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
       child: Row(
         children: [
           SizedBox(
             width: 80,
-            child: Text(label, style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            )),
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-          _HourChip(hour: start, label: '${start.toString().padLeft(2, '0')}:00', onChanged: onStartChanged),
+          _HourChip(
+            hour: start,
+            label: '${start.toString().padLeft(2, '0')}:00',
+            onChanged: onStartChanged,
+          ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
             child: Text('to', style: theme.textTheme.bodySmall),
           ),
-          _HourChip(hour: end, label: '${end.toString().padLeft(2, '0')}:00', onChanged: onEndChanged),
+          _HourChip(
+            hour: end,
+            label: '${end.toString().padLeft(2, '0')}:00',
+            onChanged: onEndChanged,
+          ),
         ],
       ),
     );
@@ -572,26 +889,29 @@ class _StylePicker extends StatelessWidget {
         Text(
           'Style',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
         ),
-        const SizedBox(height: 8),
-        SegmentedButton<AppThemeStyle>(
-          showSelectedIcon: false,
-          segments: const [
-            ButtonSegment(
-              value: AppThemeStyle.classic,
-              icon: Icon(Icons.palette_outlined),
-              label: Text('Classic'),
-            ),
-            ButtonSegment(
-              value: AppThemeStyle.cyberpunk,
-              icon: Icon(Icons.flash_on),
-              label: Text('Cyberpunk'),
-            ),
-          ],
-          selected: {controller.style},
-          onSelectionChanged: (s) => controller.setStyle(s.first),
+        const SizedBox(height: Spacing.sm),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<AppThemeStyle>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(
+                value: AppThemeStyle.classic,
+                icon: Icon(Icons.palette_outlined),
+                label: Text('Classic'),
+              ),
+              ButtonSegment(
+                value: AppThemeStyle.cyberpunk,
+                icon: Icon(Icons.flash_on),
+                label: Text('Cyberpunk'),
+              ),
+            ],
+            selected: {controller.style},
+            onSelectionChanged: (s) => controller.setStyle(s.first),
+          ),
         ),
       ],
     );
@@ -599,38 +919,53 @@ class _StylePicker extends StatelessWidget {
 }
 
 /// Segmented button that lets the user pick between System, Light, Dark, OLED.
-class _ThemePicker extends StatelessWidget {
-  const _ThemePicker();
+class _ThemeModePicker extends StatelessWidget {
+  const _ThemeModePicker();
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ThemeController>();
-    return SegmentedButton<AppThemeMode>(
-      showSelectedIcon: false,
-      segments: const [
-        ButtonSegment(
-          value: AppThemeMode.system,
-          icon: Icon(Icons.brightness_auto),
-          label: Text('System'),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Mode',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
         ),
-        ButtonSegment(
-          value: AppThemeMode.light,
-          icon: Icon(Icons.light_mode),
-          label: Text('Light'),
-        ),
-        ButtonSegment(
-          value: AppThemeMode.dark,
-          icon: Icon(Icons.dark_mode),
-          label: Text('Dark'),
-        ),
-        ButtonSegment(
-          value: AppThemeMode.oled,
-          icon: Icon(Icons.circle),
-          label: Text('OLED'),
+        const SizedBox(height: Spacing.sm),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<AppThemeMode>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(
+                value: AppThemeMode.system,
+                icon: Icon(Icons.brightness_auto),
+                label: Text('System'),
+              ),
+              ButtonSegment(
+                value: AppThemeMode.light,
+                icon: Icon(Icons.light_mode),
+                label: Text('Light'),
+              ),
+              ButtonSegment(
+                value: AppThemeMode.dark,
+                icon: Icon(Icons.dark_mode),
+                label: Text('Dark'),
+              ),
+              ButtonSegment(
+                value: AppThemeMode.oled,
+                icon: Icon(Icons.circle),
+                label: Text('OLED'),
+              ),
+            ],
+            selected: {controller.mode},
+            onSelectionChanged: (s) => controller.setMode(s.first),
+          ),
         ),
       ],
-      selected: {controller.mode},
-      onSelectionChanged: (s) => controller.setMode(s.first),
     );
   }
 }
@@ -640,6 +975,7 @@ class _VersionInfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return FutureBuilder<PackageInfo>(
       future: PackageInfo.fromPlatform(),
       builder: (context, snap) {
@@ -647,8 +983,7 @@ class _VersionInfoTile extends StatelessWidget {
         final version = info == null ? '...' : info.version;
         final buildNumber = info == null ? '' : ' (${info.buildNumber})';
         return ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.info_outline),
+          leading: Icon(Icons.info_outline, color: scheme.onSurfaceVariant),
           title: Text('CalTrack v$version$buildNumber'),
           subtitle: const Text('Check for updates on GitHub.'),
           trailing: const Icon(Icons.open_in_new),
