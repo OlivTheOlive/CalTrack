@@ -57,9 +57,10 @@ class _RootShellState extends State<RootShell>
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // Reserve space below content so the FAB and NavigationBar don't
-    // cover the last item.
-    final bottomInset = kFloatingActionButtonMargin + 72 + 80;
+    // Reserve space below content so the NavBar and FAB don't obscure the
+    // last list item. The NavigationBar is ~80 dp; the FAB floats ~16 dp
+    // above it, so we need roughly 96–120 dp of clearance.
+    final bottomInset = 120.0;
 
     return Scaffold(
       appBar: AppBar(

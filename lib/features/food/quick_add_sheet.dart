@@ -1,3 +1,4 @@
+import 'package:caltrack/app/meal_time_controller.dart';
 import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/features/food/food_entry_sheet.dart';
@@ -55,7 +56,7 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
   MealPeriod? _selectedPeriod;
   bool _isPlanned = false;
 
-  @override
+@override
   void initState() {
     super.initState();
     final entry = widget.editingEntry;
@@ -78,10 +79,19 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
         _macrosExpanded = true;
       }
     }
-    // Defer auto-focus slightly so the sheet is fully settled first.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyAutoMealPeriod();
       if (mounted) _nameFocus.requestFocus();
     });
+  }
+
+  void _applyAutoMealPeriod() {
+    if (_selectedPeriod != null || widget.isEdit) return;
+    final mealCtl = context.read<MealTimeController>();
+    final suggested = mealCtl.suggestMealPeriod();
+    if (suggested != null && mounted) {
+      setState(() => _selectedPeriod = suggested);
+    }
   }
 
   static String _fmt(double v) =>

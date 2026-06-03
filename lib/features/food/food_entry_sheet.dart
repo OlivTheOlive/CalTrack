@@ -1,4 +1,5 @@
 import 'package:caltrack/app/app_snackbar.dart';
+import 'package:caltrack/app/meal_time_controller.dart';
 import 'package:caltrack/core/nutrition_scaling.dart';
 import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
@@ -136,7 +137,10 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
       _qty.text = _formatNumber(qty);
       _syncGramsFromPreset();
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPrefs());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPrefs();
+      _applyAutoMealPeriod();
+    });
   }
 
   CatalogGroupPreset? _resolveInitialPreset() {
@@ -162,6 +166,15 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
     // Snap to the nearest quarter serving; most users pick whole/half.
     final snapped = (qty * 4).round() / 4;
     return snapped <= 0 ? 1 : snapped;
+  }
+
+  void _applyAutoMealPeriod() {
+    if (_selectedPeriod != null || widget.config.isEdit) return;
+    final mealCtl = context.read<MealTimeController>();
+    final suggested = mealCtl.suggestMealPeriod();
+    if (suggested != null && mounted) {
+      setState(() => _selectedPeriod = suggested);
+    }
   }
 
   Future<void> _loadPrefs() async {

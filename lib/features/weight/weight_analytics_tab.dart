@@ -553,40 +553,82 @@ class _EntriesList extends StatelessWidget {
     return '${v.toStringAsFixed(1)} ${unit.shortLabel}';
   }
 
+  String _dateLabel(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final entryDay = DateTime(dt.year, dt.month, dt.day);
+    if (entryDay == today) return 'Today';
+    if (entryDay == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    return DateFormat.MMMd().format(dt);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Card(
       clipBehavior: Clip.hardEdge,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (var i = 0; i < entries.length; i++) ...[
-            ListTile(
-              dense: true,
-              title: Text(_fmt(entries[i].weightKg)),
-              subtitle: Text(
-                DateFormat.yMMMd().add_jm().format(entries[i].recordedAt),
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (entries[i].note != null &&
-                      entries[i].note!.isNotEmpty)
-                    Icon(
-                      Icons.notes_outlined,
-                      color: theme.colorScheme.outline,
-                    ),
-                  IconButton(
-                    tooltip: 'Edit',
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: () =>
-                        context.push('/log-weight?id=${entries[i].id}'),
-                  ),
-                ],
-              ),
+            InkWell(
               onTap: () => context.push('/log-weight?id=${entries[i].id}'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _fmt(entries[i].weightKg),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            entries[i].note ?? _dateLabel(entries[i].recordedAt),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: entries[i].note != null
+                                  ? null
+                                  : scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (entries[i].note != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Text(
+                          _dateLabel(entries[i].recordedAt),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    IconButton(
+                      tooltip: 'Edit',
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      onPressed: () =>
+                          context.push('/log-weight?id=${entries[i].id}'),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            if (i < entries.length - 1) const Divider(height: 1),
+            if (i < entries.length - 1)
+              Divider(
+                height: 1,
+                indent: 16,
+                endIndent: 16,
+                color: scheme.outlineVariant.withValues(alpha: 0.4),
+              ),
           ],
         ],
       ),

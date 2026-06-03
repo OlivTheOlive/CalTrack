@@ -1,4 +1,5 @@
 import 'package:caltrack/app/app_snackbar.dart';
+import 'package:caltrack/app/meal_time_controller.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/app/theme_controller.dart';
 import 'package:caltrack/core/units.dart';
@@ -64,8 +65,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 8),
+              const _StylePicker(),
+              const SizedBox(height: 12),
               const _ThemePicker(),
-              const SizedBox(height: 20),
+              const Divider(height: 40),
+              Text(
+                'Meal times',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              const _MealTimeSettings(),
+              const Divider(height: 40),
               Text(
                 'Weight display',
                 style: Theme.of(context).textTheme.titleSmall,
@@ -409,6 +419,181 @@ class _FoodDataCounts extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Meal time auto-selection settings
+// ---------------------------------------------------------------------------
+
+class _MealTimeSettings extends StatelessWidget {
+  const _MealTimeSettings();
+
+  @override
+  Widget build(BuildContext context) {
+    final ctl = context.watch<MealTimeController>();
+    final config = ctl.config;
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SwitchListTile(
+          title: const Text('Auto-select meal time'),
+          subtitle: const Text(
+            'Picks Breakfast/Lunch/Dinner based on the current hour.',
+          ),
+          value: config.enabled,
+          onChanged: (v) => ctl.setEnabled(v),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        if (config.enabled) ...[
+          const SizedBox(height: 8),
+          _MealWindowRow(
+            label: 'Breakfast',
+            start: config.breakfastStart,
+            end: config.breakfastEnd,
+            onStartChanged: (h) => ctl.setBreakfastWindow(h, config.breakfastEnd),
+            onEndChanged: (h) => ctl.setBreakfastWindow(config.breakfastStart, h),
+          ),
+          _MealWindowRow(
+            label: 'Lunch',
+            start: config.lunchStart,
+            end: config.lunchEnd,
+            onStartChanged: (h) => ctl.setLunchWindow(h, config.lunchEnd),
+            onEndChanged: (h) => ctl.setLunchWindow(config.lunchStart, h),
+          ),
+          _MealWindowRow(
+            label: 'Dinner',
+            start: config.dinnerStart,
+            end: config.dinnerEnd,
+            onStartChanged: (h) => ctl.setDinnerWindow(h, config.dinnerEnd),
+            onEndChanged: (h) => ctl.setDinnerWindow(config.dinnerStart, h),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Text(
+              'Windows are checked in order: Breakfast → Lunch → Dinner. First match wins.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// One labeled row with two hour pickers (start / end).
+class _MealWindowRow extends StatelessWidget {
+  const _MealWindowRow({
+    required this.label,
+    required this.start,
+    required this.end,
+    required this.onStartChanged,
+    required this.onEndChanged,
+  });
+
+  final String label;
+  final int start;
+  final int end;
+  final ValueChanged<int> onStartChanged;
+  final ValueChanged<int> onEndChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(label, style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            )),
+          ),
+          _HourChip(hour: start, label: '${start.toString().padLeft(2, '0')}:00', onChanged: onStartChanged),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text('to', style: theme.textTheme.bodySmall),
+          ),
+          _HourChip(hour: end, label: '${end.toString().padLeft(2, '0')}:00', onChanged: onEndChanged),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tap to pick an hour (0–23) via a simple dialog.
+class _HourChip extends StatelessWidget {
+  const _HourChip({
+    required this.hour,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final int hour;
+  final String label;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      label: Text(label),
+      onPressed: () async {
+        final picked = await showTimePicker(
+          context: context,
+          initialTime: TimeOfDay(hour: hour, minute: 0),
+          helpText: 'Pick hour',
+        );
+        if (picked != null && context.mounted) {
+          onChanged(picked.hour);
+        }
+      },
+    );
+  }
+}
+
+/// Segmented button that lets the user pick a theme style (classic, cyberpunk).
+class _StylePicker extends StatelessWidget {
+  const _StylePicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<ThemeController>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Style',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<AppThemeStyle>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(
+              value: AppThemeStyle.classic,
+              icon: Icon(Icons.palette_outlined),
+              label: Text('Classic'),
+            ),
+            ButtonSegment(
+              value: AppThemeStyle.cyberpunk,
+              icon: Icon(Icons.flash_on),
+              label: Text('Cyberpunk'),
+            ),
+          ],
+          selected: {controller.style},
+          onSelectionChanged: (s) => controller.setStyle(s.first),
+        ),
+      ],
     );
   }
 }

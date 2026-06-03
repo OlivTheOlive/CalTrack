@@ -1,81 +1,26 @@
+import 'package:caltrack/app/theme_controller.dart';
+import 'package:caltrack/core/themes/theme_data.dart';
 import 'package:flutter/material.dart';
 
-ThemeData buildCalTrackTheme({Brightness brightness = Brightness.light}) {
-  const seed = Color(0xFF2E7D6B);
-  final colorScheme = ColorScheme.fromSeed(
-    seedColor: seed,
+/// Thin wrapper — delegates to the style-driven [buildThemeForStyle].
+ThemeData buildCalTrackTheme({
+  AppThemeStyle style = AppThemeStyle.classic,
+  Brightness brightness = Brightness.light,
+}) {
+  return buildThemeForStyle(
+    style: style,
     brightness: brightness,
+    isOled: false,
   );
-  return _buildFromScheme(colorScheme);
 }
 
-/// Pure-black OLED theme — saves battery on AMOLED screens.
-ThemeData buildCalTrackOledTheme() {
-  const seed = Color(0xFF2E7D6B);
-  final base = ColorScheme.fromSeed(
-    seedColor: seed,
+/// Pure-black OLED variant. Delegates to the same style system.
+ThemeData buildCalTrackOledTheme({
+  AppThemeStyle style = AppThemeStyle.classic,
+}) {
+  return buildThemeForStyle(
+    style: style,
     brightness: Brightness.dark,
-  );
-  // Override surface colours to true black.
-  final colorScheme = base.copyWith(
-    surface: Colors.black,
-    surfaceContainerHighest: const Color(0xFF0D0D0D),
-    surfaceContainerHigh: const Color(0xFF111111),
-    surfaceContainer: const Color(0xFF141414),
-    surfaceContainerLow: const Color(0xFF181818),
-    surfaceContainerLowest: Colors.black,
-    surfaceDim: Colors.black,
-    surfaceBright: const Color(0xFF1C1C1C),
-  );
-  return _buildFromScheme(colorScheme).copyWith(
-    scaffoldBackgroundColor: Colors.black,
-  );
-}
-
-ThemeData _buildFromScheme(ColorScheme colorScheme) {
-  final buttonShape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(12),
-  );
-  return ThemeData(
-    useMaterial3: true,
-    colorScheme: colorScheme,
-    visualDensity: VisualDensity.adaptivePlatformDensity,
-    appBarTheme: AppBarTheme(
-      centerTitle: true,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      backgroundColor: colorScheme.surface,
-      foregroundColor: colorScheme.onSurface,
-    ),
-    cardTheme: CardThemeData(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        shape: buttonShape,
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        shape: buttonShape,
-      ),
-    ),
-    textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        shape: buttonShape,
-      ),
-    ),
-    pageTransitionsTheme: const PageTransitionsTheme(
-      builders: {TargetPlatform.android: FadeUpwardsPageTransitionsBuilder()},
-    ),
+    isOled: true,
   );
 }
