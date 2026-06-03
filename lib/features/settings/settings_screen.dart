@@ -90,7 +90,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       setState(() {});
                     },
                   ),
-                  const Divider(height: 1, indent: Spacing.md, endIndent: Spacing.md),
+                  const Divider(
+                    height: 1,
+                    indent: Spacing.md,
+                    endIndent: Spacing.md,
+                  ),
                   _MacroEditor(
                     protein: _protein,
                     carbs: _carbs,
@@ -128,7 +132,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.flag_outlined,
                 children: [
                   _GoalSettingsTile(unit: unit),
-                  const Divider(height: 1, indent: Spacing.md, endIndent: Spacing.md),
+                  const Divider(
+                    height: 1,
+                    indent: Spacing.md,
+                    endIndent: Spacing.md,
+                  ),
                   _SettingsNavTile(
                     icon: Icons.tune,
                     title: 'Calorie bands',
@@ -162,14 +170,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
-                  const Divider(height: 1, indent: Spacing.md, endIndent: Spacing.md),
+                  const Divider(
+                    height: 1,
+                    indent: Spacing.md,
+                    endIndent: Spacing.md,
+                  ),
                   _SettingsNavTile(
                     icon: Icons.restaurant_outlined,
                     title: 'Custom foods',
                     subtitle: 'View, edit, or delete your custom foods.',
                     onTap: () => context.push('/custom-foods'),
                   ),
-                  const Divider(height: 1, indent: Spacing.md, endIndent: Spacing.md),
+                  const Divider(
+                    height: 1,
+                    indent: Spacing.md,
+                    endIndent: Spacing.md,
+                  ),
                   const _OpenFoodFactsTerms(),
                 ],
               ),
@@ -180,8 +196,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsNavTile(
                     icon: Icons.import_export_outlined,
                     title: 'Backup / export / import',
-                    subtitle:
-                        'Export your data or restore from a backup file.',
+                    subtitle: 'Export your data or restore from a backup file.',
                     onTap: () => context.push('/data-tools'),
                   ),
                 ],
@@ -314,10 +329,7 @@ class _WeightUnitRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              'Weight display',
-              style: theme.textTheme.bodyLarge,
-            ),
+            child: Text('Weight display', style: theme.textTheme.bodyLarge),
           ),
           SegmentedButton<WeightUnit>(
             segments: const [
@@ -377,8 +389,9 @@ class _MacroEditor extends StatelessWidget {
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: (balanced ? scheme.primary : scheme.error)
-                      .withValues(alpha: 0.12),
+                  color: (balanced ? scheme.primary : scheme.error).withValues(
+                    alpha: 0.12,
+                  ),
                   borderRadius: Corners.radiusSm,
                 ),
                 child: Text(
@@ -457,10 +470,9 @@ class _MacroSlider extends StatelessWidget {
         ),
         Expanded(
           child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: color,
-              thumbColor: color,
-            ),
+            data: SliderTheme.of(
+              context,
+            ).copyWith(activeTrackColor: color, thumbColor: color),
             child: Slider(
               value: value.clamp(10, 80),
               min: 10,
@@ -489,7 +501,8 @@ class _ReminderSettings extends StatelessWidget {
   Widget build(BuildContext context) {
     final repo = context.read<CalTrackRepository>();
     final profileCtl = context.read<ProfileController>();
-    final timeLabel = '${profile.reminderHour.toString().padLeft(2, '0')}:'
+    final timeLabel =
+        '${profile.reminderHour.toString().padLeft(2, '0')}:'
         '${profile.reminderMinute.toString().padLeft(2, '0')}';
 
     return Column(
@@ -533,8 +546,9 @@ class _ReminderSettings extends StatelessWidget {
                 hour: profile.reminderHour,
                 minute: profile.reminderMinute,
               );
-              await NotificationService.instance
-                  .scheduleWeeklyWeighIn(repo: repo);
+              await NotificationService.instance.scheduleWeeklyWeighIn(
+                repo: repo,
+              );
               await profileCtl.refresh();
               onChanged();
             },
@@ -559,8 +573,9 @@ class _ReminderSettings extends StatelessWidget {
               hour: t.hour,
               minute: t.minute,
             );
-            await NotificationService.instance
-                .scheduleWeeklyWeighIn(repo: repo);
+            await NotificationService.instance.scheduleWeeklyWeighIn(
+              repo: repo,
+            );
             await profileCtl.refresh();
             onChanged();
           },
@@ -663,11 +678,7 @@ class _GoalSettingsTile extends StatelessWidget {
           onTap: () async {
             final profile = await repo.requireProfile();
             if (!context.mounted) return;
-            await showGoalEditorSheet(
-              context,
-              repo: repo,
-              profile: profile,
-            );
+            await showGoalEditorSheet(context, repo: repo, profile: profile);
           },
         );
       },
@@ -764,8 +775,10 @@ class _MealTimeSettings extends StatelessWidget {
             label: 'Breakfast',
             start: config.breakfastStart,
             end: config.breakfastEnd,
-            onStartChanged: (h) => ctl.setBreakfastWindow(h, config.breakfastEnd),
-            onEndChanged: (h) => ctl.setBreakfastWindow(config.breakfastStart, h),
+            onStartChanged: (h) =>
+                ctl.setBreakfastWindow(h, config.breakfastEnd),
+            onEndChanged: (h) =>
+                ctl.setBreakfastWindow(config.breakfastStart, h),
           ),
           _MealWindowRow(
             label: 'Lunch',
@@ -890,8 +903,8 @@ class _StylePicker extends StatelessWidget {
         Text(
           'Style',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: Spacing.sm),
         SizedBox(
@@ -932,8 +945,8 @@ class _ThemeModePicker extends StatelessWidget {
         Text(
           'Mode',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: Spacing.sm),
         SizedBox(
@@ -944,7 +957,7 @@ class _ThemeModePicker extends StatelessWidget {
               ButtonSegment(
                 value: AppThemeMode.system,
                 icon: Icon(Icons.brightness_auto),
-                label: Text('System'),
+                label: Text('Auto'),
               ),
               ButtonSegment(
                 value: AppThemeMode.light,

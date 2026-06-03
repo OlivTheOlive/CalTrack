@@ -1,5 +1,6 @@
 import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
+import 'package:caltrack/core/goal_eta.dart';
 import 'package:caltrack/core/nutrition.dart';
 import 'package:caltrack/core/spacing.dart';
 import 'package:caltrack/core/units.dart';
@@ -8,6 +9,7 @@ import 'package:caltrack/widgets/animated_list_item.dart';
 import 'package:caltrack/widgets/change_badge.dart';
 import 'package:caltrack/widgets/date_badge.dart';
 import 'package:caltrack/widgets/empty_state.dart';
+import 'package:caltrack/widgets/goal_editor_sheet.dart';
 import 'package:caltrack/widgets/shimmer_loading.dart';
 import 'package:caltrack/widgets/stat_chip.dart';
 import 'package:caltrack/widgets/styled_card.dart';
@@ -17,8 +19,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+final _fmtYmd = DateFormat.yMMMd();
+
 /// Header data loaded alongside the weight entries stream.
-typedef _HeaderData = ({Profile profile, Goal? goal, double? weeklyDeltaKg});
+typedef _HeaderData = ({Profile profile, Goal? goal, double? weeklyDeltaKg, double? trendKgWeek});
 
 /// Body for the "Weight" tab inside the root shell. Shows a hero summary,
 /// mini stats, a trend chart and a swipe-to-delete entries list.
@@ -45,7 +49,8 @@ class _WeightAnalyticsTabState extends State<WeightAnalyticsTab> {
     final profile = await repo.requireProfile();
     final goal = await repo.currentGoal();
     final delta = await repo.weeklyDeltaKg();
-    return (profile: profile, goal: goal, weeklyDeltaKg: delta);
+    final trend = await repo.trendKgPerWeek(windowDays: 14);
+    return (profile: profile, goal: goal, weeklyDeltaKg: delta, trendKgWeek: trend);
   }
 
   Future<void> _refresh() async {
@@ -169,6 +174,14 @@ class _WeightContent extends StatelessWidget {
                   streak: streak,
                 ),
                 Spacing.vMd,
+                if (header.goal != null)
+                  _GoalSummaryCard(
+                    goal: header.goal!,
+                    profile: header.profile,
+                    trendKgWeek: header.trendKgWeek,
+                    latestKg: entries.first.weightKg,
+                  ),
+                if (header.goal != null) Spacing.vMd,
                 _MiniStatsRow(stats: stats, unit: unit),
                 Spacing.vMd,
                 _TrendChartCard(entries: entries, unit: unit),
@@ -929,6 +942,261 @@ class _WeightSkeletonLoader extends StatelessWidget {
         ShimmerCard(height: 64),
         SizedBox(height: Spacing.sm),
         ShimmerCard(height: 64),
+      ],
+    );
+  }
+}
+
+class _GoalSummaryCard extends StatelessWidget {
+  const _GoalSummaryCard({
+    required this.goal,
+    required this.profile,
+    required this.trendKgWeek,
+    required this.latestKg,
+  });
+
+  final Goal goal;
+  final Profile profile;
+  final double? trendKgWeek;
+  final double latestKg;
+
+  Future<void> _openEditor(BuildContext context) async {
+    final repo = context.read<CalTrackRepository>();
+    final profile = await repo.requireProfile();
+    if (!context.mounted) return;
+    await showGoalEditorSheet(context, repo: repo, profile: profile);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final unit = WeightUnit.fromStored(profile.weightUnit);
+    final target = unit == WeightUnit.kg
+        ? '${goal.targetWeightKg.toStringAsFixed(1)} kg'
+        : '${kgToLb(goal.targetWeightKg).toStringAsFixed(1)} lb';
+    final rate = goal.weeklyChangeKgPerWeek;
+    final displayRate = unit == WeightUnit.kg ? rate : kgToLb(rate);
+    String pace;
+    if (goal.status == 'maintain' || rate.abs() < 0.001) {
+      pace = 'Maintenance';
+    } else if (rate < 0) {
+      pace = 'Losing ~${(-displayRate).abs().toStringAsFixed(2)} ${unit.shortLabel}/week';
+    } else {
+      pace = 'Gaining ~${displayRate.toStringAsFixed(2)} ${unit.shortLabel}/week';
+    }
+    final subtitleText =
+        goal.status == 'pending_choice' ? 'Choose next step' : pace;
+
+    return StyledCard(
+      tone: CardTone.low,
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.lg,
+        Spacing.md,
+        Spacing.sm,
+        Spacing.md,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: Corners.radiusSm,
+                ),
+                child: Icon(
+                  Icons.flag_outlined,
+                  size: 20,
+                  color: scheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Goal: $target',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitleText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Edit goal',
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () => _openEditor(context),
+              ),
+            ],
+          ),
+          if (goal.status != 'maintain' && goal.status != 'pending_choice')
+            _GoalEtaSection(
+              goal: goal,
+              currentKg: latestKg,
+              trendKgWeek: trendKgWeek,
+              unit: unit,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalEtaSection extends StatelessWidget {
+  const _GoalEtaSection({
+    required this.goal,
+    required this.currentKg,
+    required this.trendKgWeek,
+    required this.unit,
+  });
+
+  final Goal goal;
+  final double? currentKg;
+  final double? trendKgWeek;
+  final WeightUnit unit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final current = currentKg;
+    if (current == null) return const SizedBox.shrink();
+
+    final atGoal = atGoalWeight(
+      currentWeightKg: current,
+      targetWeightKg: goal.targetWeightKg,
+    );
+    if (atGoal) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12, right: 12),
+        child: Text(
+          'You are at your goal weight.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    final staticEta = estimateGoalEta(
+      currentWeightKg: current,
+      targetWeightKg: goal.targetWeightKg,
+      weeklyKg: goal.weeklyChangeKgPerWeek,
+    );
+    final trend = trendKgWeek;
+    final trendEta = trend == null
+        ? null
+        : estimateGoalEta(
+            currentWeightKg: current,
+            targetWeightKg: goal.targetWeightKg,
+            weeklyKg: trend,
+          );
+
+    if (staticEta == null && trendEta == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 14, right: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (staticEta != null)
+            _EtaRow(
+              icon: Icons.timer_outlined,
+              label: 'At your chosen pace',
+              eta: staticEta,
+              color: scheme.primary,
+            ),
+          if (trendEta != null) ...[
+            const SizedBox(height: 6),
+            _EtaRow(
+              icon: Icons.trending_flat,
+              label: 'At your recent trend',
+              eta: trendEta,
+              color: scheme.secondary,
+              trailingNote:
+                  unit == WeightUnit.kg
+                      ? 'based on last ~14 days (${trendEta.weeklyKg.toStringAsFixed(2)} kg/wk)'
+                      : 'based on last ~14 days (${kgToLb(trendEta.weeklyKg).toStringAsFixed(2)} lb/wk)',
+            ),
+          ] else if (staticEta != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Trend ETA appears once you have a few weigh-ins.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EtaRow extends StatelessWidget {
+  const _EtaRow({
+    required this.icon,
+    required this.label,
+    required this.eta,
+    required this.color,
+    this.trailingNote,
+  });
+
+  final IconData icon;
+  final String label;
+  final GoalEta eta;
+  final Color color;
+  final String? trailingNote;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dateLabel = _fmtYmd.format(eta.eta);
+    final weeksLabel =
+        eta.weeks == 1 ? '~1 week' : '~${eta.weeks} weeks';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$label · $weeksLabel',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                'around $dateLabel'
+                '${trailingNote == null ? '' : ' · $trailingNote'}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
