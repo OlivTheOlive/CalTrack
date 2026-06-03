@@ -1,3 +1,4 @@
+import 'package:caltrack/app/meal_time_controller.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/app/theme_controller.dart';
 import 'package:caltrack/data/app_database.dart';
@@ -26,12 +27,16 @@ Widget _wrapWithProviders({
   required Widget child,
   required CalTrackRepository repo,
   required ProfileController profileCtl,
+  required SharedPreferences prefs,
   OpenNutritionCatalog? catalog,
 }) {
   return MultiProvider(
     providers: [
       Provider<CalTrackRepository>.value(value: repo),
       ChangeNotifierProvider<ProfileController>.value(value: profileCtl),
+      ChangeNotifierProvider<MealTimeController>.value(
+        value: MealTimeController(prefs),
+      ),
       Provider<OpenNutritionCatalog>.value(value: catalog ?? _FakeCatalog()),
     ],
     child: MaterialApp(home: child),
@@ -97,6 +102,9 @@ void main() {
             Provider<CalTrackRepository>.value(value: repo),
             ChangeNotifierProvider<ProfileController>.value(value: profileCtl),
             ChangeNotifierProvider<ThemeController>.value(value: themeCtl),
+            ChangeNotifierProvider<MealTimeController>.value(
+              value: MealTimeController(await SharedPreferences.getInstance()),
+            ),
             Provider<OpenNutritionCatalog>.value(value: _FakeCatalog()),
           ],
           child: MaterialApp.router(routerConfig: router),
@@ -119,6 +127,8 @@ void main() {
 
     testWidgets('FoodEntrySheet shows amount error and disables add',
         (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
       final harness = Builder(
         builder: (context) => Scaffold(
           body: Center(
@@ -144,7 +154,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _wrapWithProviders(child: harness, repo: repo, profileCtl: profileCtl),
+        _wrapWithProviders(child: harness, repo: repo, profileCtl: profileCtl, prefs: prefs),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();

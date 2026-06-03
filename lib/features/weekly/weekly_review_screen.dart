@@ -1,6 +1,7 @@
 import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/nutrition.dart';
+import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/services/notification_service.dart';
 import 'package:flutter/material.dart';
@@ -31,7 +32,11 @@ class WeeklyReviewScreen extends StatelessWidget {
           IconButton(
             tooltip: 'How adjustment works',
             icon: const Icon(Icons.help_outline),
-            onPressed: () => _showMethodologySheet(context),
+            onPressed: () async {
+            final p = await repo.requireProfile();
+            if (!context.mounted) return;
+            _showMethodologySheet(context, WeightUnit.fromStored(p.weightUnit));
+          },
           ),
         ],
       ),
@@ -42,8 +47,14 @@ class WeeklyReviewScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           final (profile, goal, delta) = snap.data!;
-
+          final unit = WeightUnit.fromStored(profile.weightUnit);
+          final displayDelta = delta != null
+              ? (unit == WeightUnit.kg ? delta : kgToLb(delta))
+              : null;
           final intended = goal?.weeklyChangeKgPerWeek;
+          final displayIntended = intended != null
+              ? (unit == WeightUnit.kg ? intended : kgToLb(intended))
+              : null;
           final targetCal = profile.dailyCalorieTarget?.round();
 
           return SingleChildScrollView(
@@ -64,16 +75,16 @@ class WeeklyReviewScreen extends StatelessWidget {
                 else ...[
                   Text(
                     'Estimated change vs ~7 days ago: '
-                    '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(2)} kg',
+                    '${displayDelta! >= 0 ? '+' : ''}${displayDelta.toStringAsFixed(2)} ${unit.shortLabel}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  if (intended != null &&
+                  if (displayIntended != null &&
                       goal?.status == 'active' &&
-                      intended.abs() > 0.001)
+                      (intended?.abs() ?? 0) > 0.001)
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        'Your plan aimed for ~${intended.toStringAsFixed(2)} kg/week.',
+                        'Your plan aimed for ~${displayIntended.toStringAsFixed(2)} ${unit.shortLabel}/week.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
@@ -90,6 +101,7 @@ class WeeklyReviewScreen extends StatelessWidget {
                 _MethodologyCard(
                   intendedWeeklyKg: intended,
                   isMaintain: goal?.status != 'active',
+                  unit: unit,
                 ),
                 const SizedBox(height: 12),
                 FilledButton.icon(
@@ -106,8 +118,8 @@ class WeeklyReviewScreen extends StatelessWidget {
                             'Adjusted calories by ±'
                             '${defaultProgressStepKcal.round()} kcal '
                             'because actual change was outside the '
-                            '±${defaultProgressBandKgPerWeek.toStringAsFixed(2)} '
-                            'kg/week band.',
+                            '±${unit == WeightUnit.kg ? defaultProgressBandKgPerWeek.toStringAsFixed(2) : kgToLb(defaultProgressBandKgPerWeek).toStringAsFixed(2)} '
+                            '${unit.shortLabel}/week band.',
                             duration: const Duration(seconds: 8),
                           );
                           context.pop();
@@ -152,10 +164,12 @@ class _MethodologyCard extends StatelessWidget {
   const _MethodologyCard({
     required this.intendedWeeklyKg,
     required this.isMaintain,
+    required this.unit,
   });
 
   final double? intendedWeeklyKg;
   final bool isMaintain;
+  final WeightUnit unit;
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +178,7 @@ class _MethodologyCard extends StatelessWidget {
     final intent = intendedWeeklyKg;
     final intentLine = isMaintain || intent == null || intent.abs() < 0.001
         ? 'Plan: maintenance.'
-        : 'Plan: ${intent.toStringAsFixed(2)} kg/week.';
+        : 'Plan: ${unit == WeightUnit.kg ? intent.toStringAsFixed(2) : kgToLb(intent).toStringAsFixed(2)} ${unit.shortLabel}/week.';
 
     return Card(
       color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
@@ -191,8 +205,8 @@ class _MethodologyCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Within ±${defaultProgressBandKgPerWeek.toStringAsFixed(2)} '
-              'kg/week of plan, we leave your target alone. Outside that '
+              'Within ±${unit == WeightUnit.kg ? defaultProgressBandKgPerWeek.toStringAsFixed(2) : kgToLb(defaultProgressBandKgPerWeek).toStringAsFixed(2)} '
+              '${unit.shortLabel}/week of plan, we leave your target alone. Outside that '
               'band we nudge by ±${defaultProgressStepKcal.round()} kcal '
               '(clamped to ${defaultMinDailyCalories.round()}–'
               '${defaultMaxDailyCalories.round()} kcal/day).',
@@ -206,7 +220,7 @@ class _MethodologyCard extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
               ),
-              onPressed: () => _showMethodologySheet(context),
+              onPressed: () => _showMethodologySheet(context, unit),
               icon: const Icon(Icons.help_outline, size: 16),
               label: const Text('More detail'),
             ),
@@ -217,7 +231,7 @@ class _MethodologyCard extends StatelessWidget {
   }
 }
 
-void _showMethodologySheet(BuildContext context) {
+void _showMethodologySheet(BuildContext context, [WeightUnit unit = WeightUnit.kg]) {
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -225,6 +239,9 @@ void _showMethodologySheet(BuildContext context) {
     builder: (ctx) {
       final theme = Theme.of(ctx);
       final scheme = theme.colorScheme;
+      final bandLabel = unit == WeightUnit.kg
+          ? '±${defaultProgressBandKgPerWeek.toStringAsFixed(2)} kg/week'
+          : '±${kgToLb(defaultProgressBandKgPerWeek).toStringAsFixed(2)} lb/week';
       return SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
@@ -240,8 +257,7 @@ void _showMethodologySheet(BuildContext context) {
                     'aims for.',
               ),
               _MethodologyBullet(
-                title: 'Tolerance band: '
-                    '±${defaultProgressBandKgPerWeek.toStringAsFixed(2)} kg/week',
+                title: 'Tolerance band: $bandLabel',
                 body: 'Inside this band, normal day-to-day fluctuation '
                     'dominates. We assume the plan is fine and leave '
                     'your target alone.',

@@ -1,15 +1,15 @@
 import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/food_emoji.dart';
-import 'package:caltrack/core/goal_eta.dart';
 import 'package:caltrack/core/nutrition.dart';
-import 'package:caltrack/core/units.dart';
+import 'package:caltrack/core/spacing.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/features/food/food_entry_sheet.dart';
 import 'package:caltrack/features/food/quick_add_sheet.dart';
+import 'package:caltrack/widgets/animated_list_item.dart';
 import 'package:caltrack/widgets/goal_choice_sheet.dart';
-import 'package:caltrack/widgets/goal_editor_sheet.dart';
+import 'package:caltrack/widgets/styled_card.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -21,7 +21,6 @@ final _fmtDayShort = DateFormat.MMMd();
 final _fmtDayLong = DateFormat.yMMMEd();
 final _fmtTime = DateFormat.jm();
 final _fmtMonthDay = DateFormat.MMMEd();
-final _fmtYmd = DateFormat.yMMMd();
 
 /// Dashboard tab body. Owns the goal-completion celebration sheet and
 /// the scrolling cards. Pure body content — the surrounding shell
@@ -210,10 +209,14 @@ class _DashboardListView extends StatelessWidget {
     final today = calendarDay(DateTime.now());
     final isToday = selectedDay == today;
     const canGoForward = true;
-    final profile = profileCtl.profile!;
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+      padding: EdgeInsets.fromLTRB(
+        Spacing.md,
+        Spacing.md,
+        Spacing.md,
+        Spacing.md + bottomInset,
+      ),
       children: [
         _DayNavigator(
           selectedDay: selectedDay,
@@ -224,46 +227,57 @@ class _DashboardListView extends StatelessWidget {
           onPick: onPickDay,
           onReset: isToday ? null : onResetToday,
         ),
-        const SizedBox(height: 16),
-        FutureBuilder<ComputedPlan?>(
-          future: repo.computePlanForProfile(profileCtl.profile!, currentGoal),
-          builder: (context, planSnap) {
-            final plan = planSnap.data;
-            if (plan == null) {
-              return const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
+        const SizedBox(height: Spacing.md),
+        AnimatedListItem(
+          index: 0,
+          child: FutureBuilder<ComputedPlan?>(
+            future:
+                repo.computePlanForProfile(profileCtl.profile!, currentGoal),
+            builder: (context, planSnap) {
+              final plan = planSnap.data;
+              if (plan == null) {
+                return const StyledCard(
+                  tone: CardTone.low,
+                  padding: EdgeInsets.all(Spacing.md),
                   child: Text(
                     'Log your weight to see calorie and macro targets.',
                   ),
-                ),
-              );
-            }
-            return StreamBuilder<DailyIntakeTotals>(
-              stream: repo.watchIntakeForDay(selectedDay),
-              builder: (context, intakeSnap) {
-                final intake = intakeSnap.data ?? DailyIntakeTotals.zero;
-                return _TodaySummaryCard(
-                  plan: plan,
-                  intake: intake,
-                  selectedDay: selectedDay,
-                  isToday: isToday,
                 );
-              },
-            );
-          },
+              }
+              return StreamBuilder<DailyIntakeTotals>(
+                stream: repo.watchIntakeForDay(selectedDay),
+                builder: (context, intakeSnap) {
+                  final intake = intakeSnap.data ?? DailyIntakeTotals.zero;
+                  return _TodaySummaryCard(
+                    plan: plan,
+                    intake: intake,
+                    selectedDay: selectedDay,
+                    isToday: isToday,
+                  );
+                },
+              );
+            },
+          ),
         ),
-        const SizedBox(height: 16),
-        _FoodAdherenceStreakCard(
-          repo: repo,
-          dailyTarget: profileCtl.profile!.dailyCalorieTarget,
-          referenceDay: selectedDay,
+        const SizedBox(height: Spacing.md),
+        AnimatedListItem(
+          index: 1,
+          child: _FoodAdherenceStreakCard(
+            repo: repo,
+            dailyTarget: profileCtl.profile!.dailyCalorieTarget,
+            referenceDay: selectedDay,
+          ),
         ),
-        const SizedBox(height: 16),
-        _TodayFoodLogCard(repo: repo, selectedDay: selectedDay, isToday: isToday),
-        const SizedBox(height: 16),
-        if (currentGoal != null) _GoalSummary(goal: currentGoal, profile: profile),
-        const SizedBox(height: 16),
+        const SizedBox(height: Spacing.md),
+        AnimatedListItem(
+          index: 2,
+          child: _TodayFoodLogCard(
+            repo: repo,
+            selectedDay: selectedDay,
+            isToday: isToday,
+          ),
+        ),
+        const SizedBox(height: Spacing.md),
         FutureBuilder<List<WeightEntry>>(
           future: repo.weightEntriesLimit(1),
           builder: (context, wSnap) {
@@ -276,19 +290,21 @@ class _DashboardListView extends StatelessWidget {
                 DateTime.now().difference(last.recordedAt).inDays;
             if (overdue >= 8) {
               return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Card(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .errorContainer
-                      .withValues(alpha: 0.35),
+                padding: const EdgeInsets.only(bottom: Spacing.md),
+                child: StyledCard(
+                  tone: CardTone.high,
+                  padding: EdgeInsets.zero,
                   child: ListTile(
+                    leading: Icon(
+                      Icons.event_busy_outlined,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                     title: const Text('Weigh-in overdue'),
                     subtitle: Text(
-                      'Last entry ${_fmtYmd.format(last.recordedAt)}. '
+                      'Last entry ${_fmtMonthDay.format(last.recordedAt)}. '
                       'Weekly check-ins help adjust your plan.',
                     ),
-                    trailing: TextButton(
+                    trailing: FilledButton.tonal(
                       onPressed: () => context.push('/log-weight'),
                       child: const Text('Log'),
                     ),
@@ -333,95 +349,234 @@ class _TodaySummaryCard extends StatelessWidget {
         target <= 0 ? 0.0 : (consumed / target).clamp(0.0, 1.0);
 
     final remainingLabel = overCal
-        ? '${nf.format(-remaining)} kcal over'
-        : '${nf.format(remaining)} kcal left';
+        ? '${nf.format(-remaining)} over'
+        : '${nf.format(remaining)} left';
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Expanded(
-                  child: Text(
-                    isToday
-                        ? 'Today'
-                        : _fmtMonthDay.format(selectedDay),
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                Text(
-                  remainingLabel,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: overCal ? scheme.error : scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+    return StyledCard(
+      tone: CardTone.low,
+      padding: const EdgeInsets.all(Spacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isToday ? 'Today' : _fmtMonthDay.format(selectedDay),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+              letterSpacing: 0.5,
             ),
-            const SizedBox(height: 8),
-            RichText(
-              text: TextSpan(
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: scheme.onSurface,
-                ),
-                children: [
-                  TextSpan(text: nf.format(consumed.round())),
-                  TextSpan(
-                    text: ' / ${nf.format(target.round())} kcal',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
+          ),
+          const SizedBox(height: Spacing.md),
+          Row(
+            children: [
+              _CalorieRing(
+                ratio: calRatio,
+                over: overCal,
+                consumed: consumed.round(),
+                target: target.round(),
+              ),
+              const SizedBox(width: Spacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      remainingLabel,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: overCal ? scheme.error : scheme.onSurface,
+                      ),
                     ),
-                  ),
-                ],
+                    Text(
+                      'kcal ${overCal ? 'over budget' : 'remaining'}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: Spacing.sm),
+                    _MiniMetric(
+                      icon: Icons.restaurant_outlined,
+                      label: 'Eaten',
+                      value: '${nf.format(consumed.round())} kcal',
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    _MiniMetric(
+                      icon: Icons.flag_outlined,
+                      label: 'Target',
+                      value: '${nf.format(target.round())} kcal',
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    _MiniMetric(
+                      icon: Icons.local_fire_department_outlined,
+                      label: 'TDEE',
+                      value: '~${nf.format(plan.tdee.round())} kcal',
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'TDEE ~${nf.format(plan.tdee.round())} kcal',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
+            ],
+          ),
+          const Divider(height: Spacing.xl),
+          _MacroIntakeProgressLinear(
+            label: 'Protein',
+            consumed: intake.proteinG,
+            target: plan.macros.protein,
+            color: scheme.primary,
+          ),
+          _CarbsStackedBar(
+            consumed: intake.carbsG,
+            sugar: intake.sugarG,
+            fiber: intake.fiberG,
+            target: plan.macros.carbs,
+          ),
+          _MacroIntakeProgressLinear(
+            label: 'Fat',
+            consumed: intake.fatG,
+            target: plan.macros.fat,
+            color: scheme.tertiary,
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Circular calorie progress ring with consumed/target labels in the center.
+class _CalorieRing extends StatelessWidget {
+  const _CalorieRing({
+    required this.ratio,
+    required this.over,
+    required this.consumed,
+    required this.target,
+  });
+
+  final double ratio;
+  final bool over;
+  final int consumed;
+  final int target;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final pct = target <= 0 ? 0 : ((consumed / target) * 100).round();
+
+    return SizedBox(
+      width: 104,
+      height: 104,
+      child: CustomPaint(
+        painter: _RingPainter(
+          ratio: over ? 1.0 : ratio,
+          trackColor: scheme.surfaceContainerHighest,
+          progressColor: over ? scheme.error : scheme.primary,
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$pct%',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: over ? scheme.error : scheme.onSurface,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                minHeight: 10,
-                value: target <= 0 ? null : (overCal ? 1.0 : calRatio),
-                backgroundColor: scheme.surfaceContainerHighest,
-                color: overCal ? scheme.error : scheme.primary,
+              Text(
+                'of goal',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
-            ),
-            const Divider(height: 32),
-            _MacroIntakeProgressLinear(
-              label: 'Protein',
-              consumed: intake.proteinG,
-              target: plan.macros.protein,
-              color: scheme.primary,
-            ),
-            _CarbsStackedBar(
-              consumed: intake.carbsG,
-              sugar: intake.sugarG,
-              fiber: intake.fiberG,
-              target: plan.macros.carbs,
-            ),
-            _MacroIntakeProgressLinear(
-              label: 'Fat',
-              consumed: intake.fatG,
-              target: plan.macros.fat,
-              color: scheme.tertiary,
-              isLast: true,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter({
+    required this.ratio,
+    required this.trackColor,
+    required this.progressColor,
+  });
+
+  final double ratio;
+  final Color trackColor;
+  final Color progressColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 10.0;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.shortestSide - stroke) / 2;
+
+    final trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = trackColor;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    if (ratio > 0) {
+      final progressPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round
+        ..color = progressColor;
+      const start = -1.5707963267948966; // -90° (top)
+      final sweep = 6.283185307179586 * ratio.clamp(0.0, 1.0);
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        start,
+        sweep,
+        false,
+        progressPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.ratio != ratio ||
+      old.trackColor != trackColor ||
+      old.progressColor != progressColor;
+}
+
+/// One icon + label + value row used beside the calorie ring.
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: scheme.onSurfaceVariant),
+        const SizedBox(width: Spacing.xs),
+        Text(
+          '$label ',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -673,253 +828,6 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-class _GoalSummary extends StatelessWidget {
-  const _GoalSummary({required this.goal, required this.profile});
-
-  final Goal goal;
-  final Profile profile;
-
-  Future<({double? latestKg, double? trendKgWeek})> _loadDetails(
-    CalTrackRepository repo,
-  ) async {
-    final results = await Future.wait([
-      repo.weightEntriesLimit(1),
-      repo.trendKgPerWeek(windowDays: 14),
-    ]);
-    final entries = results[0] as List<WeightEntry>;
-    final trend = results[1] as double?;
-    return (
-      latestKg: entries.isEmpty ? null : entries.first.weightKg,
-      trendKgWeek: trend,
-    );
-  }
-
-  Future<void> _openEditor(BuildContext context) async {
-    final repo = context.read<CalTrackRepository>();
-    final profile = await repo.requireProfile();
-    if (!context.mounted) return;
-    await showGoalEditorSheet(context, repo: repo, profile: profile);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final repo = context.read<CalTrackRepository>();
-    return FutureBuilder<({double? latestKg, double? trendKgWeek})>(
-      future: _loadDetails(repo),
-      builder: (context, snap) {
-        final data = snap.data;
-        if (data == null) return const SizedBox.shrink();
-        final unit = WeightUnit.fromStored(profile.weightUnit);
-        final target = unit == WeightUnit.kg
-            ? '${goal.targetWeightKg.toStringAsFixed(1)} kg'
-            : '${kgToLb(goal.targetWeightKg).toStringAsFixed(1)} lb';
-        final rate = goal.weeklyChangeKgPerWeek;
-        String pace;
-        if (goal.status == 'maintain' || rate.abs() < 0.001) {
-          pace = 'Maintenance';
-        } else if (rate < 0) {
-          pace = 'Losing ~${(-rate).toStringAsFixed(2)} kg/week';
-        } else {
-          pace = 'Gaining ~${rate.toStringAsFixed(2)} kg/week';
-        }
-        final subtitleText =
-            goal.status == 'pending_choice' ? 'Choose next step' : pace;
-
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 8, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Goal: $target',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            subtitleText,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Edit goal',
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () => _openEditor(context),
-                    ),
-                  ],
-                ),
-                if (goal.status != 'maintain' && goal.status != 'pending_choice')
-                  _GoalEtaSection(
-                    goal: goal,
-                    currentKg: data.latestKg,
-                    trendKgWeek: data.trendKgWeek,
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Static + trend ETA rows under the dashboard goal card. Hidden when
-/// neither prediction is meaningful (no weigh-in, at-goal, etc.).
-class _GoalEtaSection extends StatelessWidget {
-  const _GoalEtaSection({
-    required this.goal,
-    required this.currentKg,
-    required this.trendKgWeek,
-  });
-
-  final Goal goal;
-  final double? currentKg;
-  final double? trendKgWeek;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final current = currentKg;
-    if (current == null) return const SizedBox.shrink();
-
-    final atGoal = atGoalWeight(
-      currentWeightKg: current,
-      targetWeightKg: goal.targetWeightKg,
-    );
-    if (atGoal) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 12, right: 12),
-        child: Text(
-          'You are at your goal weight.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: scheme.primary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
-    }
-
-    final staticEta = estimateGoalEta(
-      currentWeightKg: current,
-      targetWeightKg: goal.targetWeightKg,
-      weeklyKg: goal.weeklyChangeKgPerWeek,
-    );
-    final trend = trendKgWeek;
-    final trendEta = trend == null
-        ? null
-        : estimateGoalEta(
-            currentWeightKg: current,
-            targetWeightKg: goal.targetWeightKg,
-            weeklyKg: trend,
-          );
-
-    if (staticEta == null && trendEta == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 14, right: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (staticEta != null)
-            _EtaRow(
-              icon: Icons.timer_outlined,
-              label: 'At your chosen pace',
-              eta: staticEta,
-              color: scheme.primary,
-            ),
-          if (trendEta != null) ...[
-            const SizedBox(height: 6),
-            _EtaRow(
-              icon: Icons.trending_flat,
-              label: 'At your recent trend',
-              eta: trendEta,
-              color: scheme.secondary,
-              trailingNote:
-                  'based on last ~14 days (${trendEta.weeklyKg.toStringAsFixed(2)} kg/wk)',
-            ),
-          ] else if (staticEta != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'Trend ETA appears once you have a few weigh-ins.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EtaRow extends StatelessWidget {
-  const _EtaRow({
-    required this.icon,
-    required this.label,
-    required this.eta,
-    required this.color,
-    this.trailingNote,
-  });
-
-  final IconData icon;
-  final String label;
-  final GoalEta eta;
-  final Color color;
-  final String? trailingNote;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final dateLabel = _fmtYmd.format(eta.eta);
-    final weeksLabel =
-        eta.weeks == 1 ? '~1 week' : '~${eta.weeks} weeks';
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$label · $weeksLabel',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                'around $dateLabel'
-                '${trailingNote == null ? '' : ' · $trailingNote'}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 /// Lists every food log entry for the selected calendar day, with
 /// swipe-to-delete and an undo SnackBar. Header shows total kcal +
 /// entry count and a quick-add button.
@@ -1001,13 +909,19 @@ class _TodayFoodLogCard extends StatelessWidget {
           ));
         }
 
-        return Card(
-          clipBehavior: Clip.hardEdge,
+        return StyledCard(
+          tone: CardTone.low,
+          padding: EdgeInsets.zero,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                padding: const EdgeInsets.fromLTRB(
+                  Spacing.lg,
+                  Spacing.md,
+                  Spacing.sm,
+                  Spacing.sm,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -1017,7 +931,9 @@ class _TodayFoodLogCard extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: theme.textTheme.titleMedium,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -1074,7 +990,12 @@ class _TodayFoodLogCard extends StatelessWidget {
               ),
               if (allEntries.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  padding: const EdgeInsets.fromLTRB(
+                    Spacing.lg,
+                    0,
+                    Spacing.lg,
+                    Spacing.lg,
+                  ),
                   child: Text(
                     emptyMsg,
                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -1288,7 +1209,7 @@ class _FoodLogTile extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.tertiaryContainer,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: Corners.radiusSm,
                     ),
                     child: Text(
                       'Planned',
@@ -1473,7 +1394,6 @@ class _DayNavigator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final today = calendarDay(DateTime.now());
     final yesterday = today.subtract(const Duration(days: 1));
 
@@ -1486,40 +1406,39 @@ class _DayNavigator extends StatelessWidget {
       label = _fmtDayLong.format(selectedDay);
     }
 
-    return Card(
-      elevation: 0,
-      color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Row(
-          children: [
-            IconButton(
-              tooltip: 'Previous day',
-              onPressed: onPrev,
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Expanded(
-              child: TextButton.icon(
-                onPressed: onPick,
-                icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                label: Text(
-                  label,
-                  style: theme.textTheme.titleSmall,
+    return StyledCard(
+      tone: CardTone.high,
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs, vertical: Spacing.xs),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Previous day',
+            onPressed: onPrev,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(
+            child: TextButton.icon(
+              onPressed: onPick,
+              icon: const Icon(Icons.calendar_today_outlined, size: 18),
+              label: Text(
+                label,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            IconButton(
-              tooltip: 'Next day',
-              onPressed: canGoForward ? onNext : null,
-              icon: const Icon(Icons.chevron_right),
+          ),
+          IconButton(
+            tooltip: 'Next day',
+            onPressed: canGoForward ? onNext : null,
+            icon: const Icon(Icons.chevron_right),
+          ),
+          if (onReset != null)
+            TextButton(
+              onPressed: onReset,
+              child: const Text('Today'),
             ),
-            if (onReset != null)
-              TextButton(
-                onPressed: onReset,
-                child: const Text('Today'),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -1578,7 +1497,9 @@ class _FoodAdherenceStreakCard extends StatelessWidget {
             'Days where you logged at least ${(_adherenceFraction * 100).round()}% '
             'of your calorie target.${streak.best > 0 ? " Best: ${streak.best}." : ""}';
 
-        return Card(
+        return StyledCard(
+          tone: CardTone.low,
+          padding: EdgeInsets.zero,
           child: ListTile(
             leading: Icon(
               Icons.local_fire_department_outlined,

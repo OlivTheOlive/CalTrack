@@ -1,4 +1,5 @@
 import 'package:caltrack/core/nutrition.dart';
+import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -105,6 +106,10 @@ class _BandsBodyState extends State<_BandsBody> {
     final scheme = theme.colorScheme;
     final ctx = widget.ctx;
     final weight = ctx.weightKg;
+    final unit = WeightUnit.fromStored(ctx.profile.weightUnit);
+    final displayWeeklyKg = unit == WeightUnit.kg ? _weeklyKg : kgToLb(_weeklyKg);
+    final displayWeeklyKgAbs = displayWeeklyKg.abs();
+    final unitLabel = unit.shortLabel;
     if (weight == null) {
       return Padding(
         padding: const EdgeInsets.all(24),
@@ -174,7 +179,7 @@ class _BandsBodyState extends State<_BandsBody> {
           caption: _weeklyKg.abs() < 0.001
               ? 'Same as maintenance — you are aiming to stay put.'
               : '${_weeklyKg < 0 ? "Loss" : "Gain"} pace of '
-                  '${_weeklyKg.abs().toStringAsFixed(2)} kg/week using '
+                  '${displayWeeklyKgAbs.toStringAsFixed(2)} $unitLabel/week using '
                   '~7700 kcal per kg.',
         ),
         const SizedBox(height: 24),
@@ -228,8 +233,8 @@ class _BandsBodyState extends State<_BandsBody> {
                 const SizedBox(height: 8),
                 Text(
                   'Weekly pace: '
-                  '${_weeklyKg >= 0 ? "+" : ""}'
-                  '${_weeklyKg.toStringAsFixed(2)} kg/week '
+                  '${displayWeeklyKg >= 0 ? "+" : ""}'
+                  '${displayWeeklyKgAbs.toStringAsFixed(2)} $unitLabel/week '
                   '(${_paceLabel(pace)})',
                   style: theme.textTheme.titleSmall,
                 ),
@@ -238,7 +243,9 @@ class _BandsBodyState extends State<_BandsBody> {
                   min: -1.0,
                   max: 1.0,
                   divisions: 40,
-                  label: '${_weeklyKg.toStringAsFixed(2)} kg/wk',
+                  label: unit == WeightUnit.kg
+                      ? '${_weeklyKg.toStringAsFixed(2)} kg/wk'
+                      : '${kgToLb(_weeklyKg).toStringAsFixed(2)} lb/wk',
                   onChanged: (v) => setState(() => _weeklyKg = v),
                 ),
               ],

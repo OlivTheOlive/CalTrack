@@ -1,3 +1,4 @@
+import 'package:caltrack/app/meal_time_controller.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/app/router.dart';
 import 'package:caltrack/app/theme.dart';
@@ -28,6 +29,7 @@ Future<void> main() async {
   final profileController = ProfileController(repo);
   final prefs = await SharedPreferences.getInstance();
   final themeController = ThemeController(prefs);
+  final mealTimeController = MealTimeController(prefs);
 
   late final GoRouter router;
   router = createRouter(profileController);
@@ -50,6 +52,7 @@ Future<void> main() async {
         Provider<OpenNutritionCatalog>.value(value: catalog),
         ChangeNotifierProvider<ProfileController>.value(value: profileController),
         ChangeNotifierProvider<ThemeController>.value(value: themeController),
+        ChangeNotifierProvider<MealTimeController>.value(value: mealTimeController),
       ],
       child: CalTrackApp(router: router, repo: repo),
     ),
@@ -89,12 +92,13 @@ class _CalTrackAppState extends State<CalTrackApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final themeController = context.watch<ThemeController>();
+    final style = themeController.style;
     return MaterialApp.router(
       title: 'CalTrack',
-      theme: buildCalTrackTheme(),
+      theme: buildCalTrackTheme(style: style),
       darkTheme: themeController.isOled
-          ? buildCalTrackOledTheme()
-          : buildCalTrackTheme(brightness: Brightness.dark),
+          ? buildCalTrackOledTheme(style: style)
+          : buildCalTrackTheme(style: style, brightness: Brightness.dark),
       themeMode: themeController.themeMode,
       routerConfig: widget.router,
     );

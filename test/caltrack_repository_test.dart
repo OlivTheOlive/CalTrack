@@ -208,6 +208,48 @@ void main() {
       expect(updated.note, 'after');
     });
 
+    test('restoreWeightEntry re-inserts a deleted entry verbatim', () async {
+      final id = await db.into(db.weightEntries).insert(
+            WeightEntriesCompanion.insert(
+              recordedAt: DateTime(2026, 4, 28, 8, 0),
+              weightKg: 81.2,
+              note: const Value('keep me'),
+            ),
+          );
+      final original = await repo.weightEntryById(id);
+      expect(original, isNotNull);
+
+      await repo.deleteWeightEntry(id);
+      expect(await repo.weightEntryById(id), equals(null));
+
+      await repo.restoreWeightEntry(original!);
+      final restored = await repo.weightEntryById(id);
+      expect(restored, isNotNull);
+      expect(restored!.weightKg, 81.2);
+      expect(restored.note, 'keep me');
+      expect(restored.recordedAt, DateTime(2026, 4, 28, 8, 0));
+    });
+
+    test('weightStats aggregates average, min, max and count', () async {
+      expect(await repo.weightStats(), equals(null));
+
+      for (final kg in [80.0, 78.0, 82.0]) {
+        await db.into(db.weightEntries).insert(
+              WeightEntriesCompanion.insert(
+                recordedAt: DateTime(2026, 4, 28, 8, 0),
+                weightKg: kg,
+              ),
+            );
+      }
+
+      final stats = await repo.weightStats();
+      expect(stats, isNotNull);
+      expect(stats!.count, 3);
+      expect(stats.minKg, 78.0);
+      expect(stats.maxKg, 82.0);
+      expect(stats.averageKg, closeTo(80.0, 1e-9));
+    });
+
     test('exportJson includes foodPrefs', () async {
       await repo.setTreatAsLiquid(foodKey: 'cat:abc', treatAsLiquid: true);
       await repo.setSavedServing(foodKey: 'cat:abc', amount: 250, unit: 'ml');

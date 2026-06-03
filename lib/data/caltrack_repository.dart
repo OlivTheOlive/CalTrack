@@ -66,6 +66,41 @@ class ComputedPlan {
   final double tdee;
 }
 
+/// Aggregated summary stats over all logged weight entries (in kg).
+class WeightStats {
+  const WeightStats({
+    required this.averageKg,
+    required this.minKg,
+    required this.maxKg,
+    required this.count,
+  });
+
+  final double averageKg;
+  final double minKg;
+  final double maxKg;
+  final int count;
+
+  /// Build stats from raw entries, or null when [rows] is empty.
+  static WeightStats? fromEntries(Iterable<WeightEntry> rows) {
+    final list = rows.toList();
+    if (list.isEmpty) return null;
+    var sum = 0.0;
+    var min = list.first.weightKg;
+    var max = list.first.weightKg;
+    for (final e in list) {
+      sum += e.weightKg;
+      if (e.weightKg < min) min = e.weightKg;
+      if (e.weightKg > max) max = e.weightKg;
+    }
+    return WeightStats(
+      averageKg: sum / list.length,
+      minKg: min,
+      maxKg: max,
+      count: list.length,
+    );
+  }
+}
+
 /// Canonical key used to deduplicate / rank food log entries by the
 /// underlying food. Prefers stable ids (catalog id, custom id) before
 /// falling back to a normalized display name.
@@ -339,10 +374,11 @@ class CalTrackRepository {
   Future<void> addWeightEntry({
     required double weightKg,
     String? note,
+    DateTime? recordedAt,
   }) async {
     await _db.into(_db.weightEntries).insert(
           WeightEntriesCompanion.insert(
-            recordedAt: DateTime.now(),
+            recordedAt: recordedAt ?? DateTime.now(),
             weightKg: weightKg,
             note: Value(note),
           ),
@@ -350,6 +386,29 @@ class CalTrackRepository {
     await recacheDailyTarget();
     await checkGoalCompletionAfterWeighIn();
   }
+
+  /// Re-insert a previously-deleted [WeightEntry] verbatim (same id,
+  /// timestamp, weight and note). Used to implement swipe-to-delete undo.
+  Future<void> restoreWeightEntry(WeightEntry entry) async {
+    await _db.into(_db.weightEntries).insertOnConflictUpdate(
+          WeightEntriesCompanion(
+            id: Value(entry.id),
+            recordedAt: Value(entry.recordedAt),
+            weightKg: Value(entry.weightKg),
+            note: Value(entry.note),
+          ),
+        );
+    await recacheDailyTarget();
+    await checkGoalCompletionAfterWeighIn();
+  }
+
+  /// Aggregate summary stats over all weight entries (average, min, max,
+  /// count). Returns null when there are no entries.
+  Future<WeightStats?> weightStats() async {
+    final rows = await _db.select(_db.weightEntries).get();
+    return WeightStats.fromEntries(rows);
+  }
+
 
   /// Look up the most recent weight entry on the same calendar day as
   /// [day] (local time). Returns null if the day has no entries.
@@ -377,11 +436,14 @@ class CalTrackRepository {
     required int id,
     required double weightKg,
     String? note,
+    DateTime? recordedAt,
   }) async {
     await (_db.update(_db.weightEntries)..where((t) => t.id.equals(id))).write(
       WeightEntriesCompanion(
         weightKg: Value(weightKg),
         note: Value(note),
+        recordedAt:
+            recordedAt == null ? const Value.absent() : Value(recordedAt),
       ),
     );
     await recacheDailyTarget();

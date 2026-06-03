@@ -1,4 +1,5 @@
 import 'package:caltrack/app/app_snackbar.dart';
+import 'package:caltrack/app/meal_time_controller.dart';
 import 'package:caltrack/core/nutrition_scaling.dart';
 import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
@@ -37,6 +38,7 @@ class FoodEntrySheetConfig {
     this.initialPresetQty,
     this.initialMealPeriod,
     this.initialIsPlanned = false,
+    this.showPresetPicker = true,
   });
 
   final String displayName;
@@ -76,6 +78,10 @@ class FoodEntrySheetConfig {
 
   /// Whether the entry is planned (pre-logged for future).
   final bool initialIsPlanned;
+
+  /// When false, hides the preset dropdown even when there are presets.
+  /// Useful for single-preset foods (e.g. custom foods with one serving).
+  final bool showPresetPicker;
 
   bool get isEdit => editingEntryId != null;
 
@@ -136,7 +142,10 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
       _qty.text = _formatNumber(qty);
       _syncGramsFromPreset();
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPrefs());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPrefs();
+      _applyAutoMealPeriod();
+    });
   }
 
   CatalogGroupPreset? _resolveInitialPreset() {
@@ -162,6 +171,15 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
     // Snap to the nearest quarter serving; most users pick whole/half.
     final snapped = (qty * 4).round() / 4;
     return snapped <= 0 ? 1 : snapped;
+  }
+
+  void _applyAutoMealPeriod() {
+    if (_selectedPeriod != null || widget.config.isEdit) return;
+    final mealCtl = context.read<MealTimeController>();
+    final suggested = mealCtl.suggestMealPeriod();
+    if (suggested != null && mounted) {
+      setState(() => _selectedPeriod = suggested);
+    }
   }
 
   Future<void> _loadPrefs() async {
@@ -495,6 +513,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
                 onBump: _busy ? null : _bumpQty,
                 errorText: amountError,
                 unitLabel: unitLabel,
+                showPresetPicker: cfg.showPresetPicker,
               )
             else
               TextField(
@@ -626,6 +645,7 @@ class _ServingsInput extends StatelessWidget {
     required this.onBump,
     required this.errorText,
     required this.unitLabel,
+    this.showPresetPicker = true,
   });
 
   final List<CatalogGroupPreset> presets;
@@ -636,6 +656,7 @@ class _ServingsInput extends StatelessWidget {
   final ValueChanged<double>? onBump;
   final String? errorText;
   final String unitLabel;
+  final bool showPresetPicker;
 
   @override
   Widget build(BuildContext context) {
@@ -649,23 +670,40 @@ class _ServingsInput extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DropdownButtonFormField<CatalogGroupPreset>(
-          initialValue: preset,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            labelText: 'Serving size',
+        if (showPresetPicker)
+          DropdownButtonFormField<CatalogGroupPreset>(
+            initialValue: preset,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'Serving size',
+            ),
+            items: [
+              for (final p in presets)
+                DropdownMenuItem(
+                  value: p,
+                  child: Text('${p.label} · ${_formatGrams(p.grams)} g'),
+                ),
+            ],
+            onChanged: onPresetChanged,
+          )
+        else if (preset != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.restaurant, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  '1 serving = ${_formatGrams(preset.grams)} $unitLabel',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-          items: [
-            for (final p in presets)
-              DropdownMenuItem(
-                value: p,
-                child: Text('${p.label} · ${_formatGrams(p.grams)} g'),
-              ),
-          ],
-          onChanged: onPresetChanged,
-        ),
-        const SizedBox(height: 12),
+        if (showPresetPicker) const SizedBox(height: 12),
         Row(
           children: [
             IconButton.filledTonal(

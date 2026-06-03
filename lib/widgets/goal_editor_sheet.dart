@@ -170,9 +170,11 @@ class _GoalEditorBodyState extends State<GoalEditorBody> {
   String _directionLabel(double currentKg, double targetKg) {
     final diff = targetKg - currentKg;
     if (diff.abs() < 0.05) return 'Maintain current weight';
+    final pace = widget.unit == WeightUnit.kg ? _paceKg : kgToLb(_paceKg);
+    final label = widget.unit.shortLabel;
     return diff < 0
-        ? 'Losing ~${_paceKg.toStringAsFixed(2)} kg/week'
-        : 'Gaining ~${_paceKg.toStringAsFixed(2)} kg/week';
+        ? 'Losing ~${pace.toStringAsFixed(2)} $label/week'
+        : 'Gaining ~${pace.toStringAsFixed(2)} $label/week';
   }
 
   @override
@@ -251,7 +253,7 @@ class _GoalEditorBodyState extends State<GoalEditorBody> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Weekly pace: ${_paceKg.toStringAsFixed(2)} kg/week',
+                    'Weekly pace: ${widget.unit == WeightUnit.kg ? _paceKg.toStringAsFixed(2) : kgToLb(_paceKg).toStringAsFixed(2)} ${widget.unit.shortLabel}/week',
                     style: theme.textTheme.titleSmall,
                   ),
                   Slider(
@@ -259,13 +261,19 @@ class _GoalEditorBodyState extends State<GoalEditorBody> {
                     min: 0.1,
                     max: 1.0,
                     divisions: 18,
-                    label: '${_paceKg.toStringAsFixed(2)} kg',
+                    label: widget.unit == WeightUnit.kg
+                        ? '${_paceKg.toStringAsFixed(2)} kg'
+                        : '${kgToLb(_paceKg).toStringAsFixed(2)} lb',
                     onChanged: (v) => setState(() => _paceKg = v),
                   ),
                   Text(
-                    'Smaller paces (e.g. 0.25–0.5 kg/week) are easier to '
-                    'sustain. 1.0 kg/week is aggressive and harder to '
-                    'maintain long-term.',
+                    widget.unit == WeightUnit.kg
+                        ? 'Smaller paces (e.g. 0.25–0.5 kg/week) are easier to '
+                            'sustain. 1.0 kg/week is aggressive and harder to '
+                            'maintain long-term.'
+                        : 'Smaller paces (e.g. 0.55–1.1 lb/week) are easier to '
+                            'sustain. 2.2 lb/week is aggressive and harder to '
+                            'maintain long-term.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),

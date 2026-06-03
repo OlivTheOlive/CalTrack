@@ -158,6 +158,17 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     final serving = food.servingSize;
     final factor = serving > 0 ? 100.0 / serving : 1.0;
     final unit = ServingUnit.values.byName(food.servingUnit);
+    final presets = serving > 0
+        ? [
+            CatalogGroupPreset(
+              foodId: 'custom:${food.id}',
+              label: 'serving',
+              grams: serving,
+              isDefault: true,
+              sortOrder: 0,
+            )
+          ]
+        : const <CatalogGroupPreset>[];
     final action = await showFoodEntrySheet(
       context,
       FoodEntrySheetConfig(
@@ -173,6 +184,9 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
         initialGrams: initialAmount ?? serving,
         subtitle: food.brand,
         unitLabel: unit.name,
+        presets: presets,
+        initialPresetLabel: presets.isNotEmpty ? presets.first.label : null,
+        showPresetPicker: presets.length > 1,
       ),
     );
     if (!mounted || action == null) return;

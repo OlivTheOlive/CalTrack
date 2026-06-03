@@ -138,7 +138,9 @@ class _GoalChoiceBodyState extends State<GoalChoiceBody> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Default pace: 0.5 kg/week loss until you adjust in Settings.',
+          widget.unit == WeightUnit.kg
+              ? 'Default pace: 0.5 kg/week loss until you adjust in Settings.'
+              : 'Default pace: ${kgToLb(0.5).toStringAsFixed(1)} lb/week loss until you adjust in Settings.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
