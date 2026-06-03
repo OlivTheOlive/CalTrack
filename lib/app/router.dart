@@ -7,6 +7,7 @@ import 'package:caltrack/features/food/barcode_scan_screen.dart';
 import 'package:caltrack/features/food/custom_foods_list_screen.dart';
 import 'package:caltrack/features/food/log_food_screen.dart';
 import 'package:caltrack/features/food/nutrition_label_scan_screen.dart';
+import 'package:caltrack/features/nutrients/nutrient_breakdown_screen.dart';
 import 'package:caltrack/features/onboarding/onboarding_screen.dart';
 import 'package:caltrack/features/settings/data_tools_screen.dart';
 import 'package:caltrack/features/settings/settings_screen.dart';
@@ -101,6 +102,10 @@ GoRouter createRouter(ProfileController profileController) {
       GoRoute(
         path: '/calendar',
         builder: (context, state) => const CalendarScreen(),
+      ),
+      GoRoute(
+        path: '/nutrients',
+        builder: (context, state) => const NutrientBreakdownScreen(),
       ),
     ],
   );

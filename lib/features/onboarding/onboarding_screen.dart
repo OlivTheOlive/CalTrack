@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/nutrition.dart';
@@ -5,6 +7,7 @@ import 'package:caltrack/core/units.dart';
 import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/services/notification_service.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +25,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final _pageController = PageController();
   int _page = 0;
+  bool _importing = false;
 
   WeightUnit _unit = WeightUnit.kg;
   String _sex = 'male';
@@ -98,6 +102,44 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _proteinPct = fp.toDouble();
     _carbsPct = fc.toDouble();
     _fatPct = ff.toDouble();
+  }
+
+  Future<void> _importBackup() async {
+    final repo = context.read<CalTrackRepository>();
+    final profileCtl = context.read<ProfileController>();
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+      withData: true,
+    );
+    if (!mounted || result == null) return;
+    final file = result.files.single;
+    final bytes = file.bytes;
+    if (bytes == null) return;
+
+    Map<String, Object?> parsed;
+    try {
+      final raw = utf8.decode(bytes);
+      final obj = jsonDecode(raw);
+      if (obj is! Map) throw const FormatException('not a JSON object');
+      parsed = obj.cast<String, Object?>();
+    } catch (_) {
+      if (!mounted) return;
+      AppSnackBar.showError(context, 'Invalid backup file.');
+      return;
+    }
+
+    setState(() => _importing = true);
+    try {
+      await repo.importJson(parsed, overwrite: true);
+      await profileCtl.refresh();
+      await NotificationService.instance.scheduleWeeklyWeighIn(repo: repo);
+      if (!mounted) return;
+      context.showAppSnackBar('Backup restored — you\'re all set!');
+      context.go('/');
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
   }
 
   Future<void> _finish() async {
@@ -235,12 +277,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _welcome(ThemeData theme) {
+    final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(Icons.eco_rounded, size: 72, color: theme.colorScheme.primary),
+          Icon(Icons.eco_rounded, size: 72, color: scheme.primary),
           const SizedBox(height: 24),
           Text(
             'CalTrack',
@@ -255,6 +298,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             'Your data stays on this device.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyLarge?.copyWith(height: 1.4),
+          ),
+          const Spacer(),
+          Text(
+            'Restoring from a previous backup?',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _importing ? null : _importBackup,
+              icon: _importing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.restore),
+              label: Text(_importing ? 'Restoring...' : 'Restore from backup'),
+            ),
           ),
         ],
       ),

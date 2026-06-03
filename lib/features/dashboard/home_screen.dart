@@ -1,5 +1,4 @@
 import 'package:caltrack/app/app_snackbar.dart';
-import 'package:caltrack/app/nutrition_display_controller.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/core/food_emoji.dart';
 import 'package:caltrack/core/nutrition.dart';
@@ -10,7 +9,6 @@ import 'package:caltrack/features/food/food_entry_sheet.dart';
 import 'package:caltrack/features/food/quick_add_sheet.dart';
 import 'package:caltrack/widgets/animated_list_item.dart';
 import 'package:caltrack/widgets/goal_choice_sheet.dart';
-import 'package:caltrack/widgets/nutrient_display.dart';
 import 'package:caltrack/widgets/styled_card.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -342,7 +340,6 @@ class _TodaySummaryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final nf = _nfDecimal;
-    final displayCtl = context.watch<NutritionDisplayController>();
 
     final consumed = intake.kcal;
     final target = plan.dailyCalories;
@@ -372,7 +369,7 @@ class _TodaySummaryCard extends StatelessWidget {
                   ),
                 ),
               ),
-              _ModeChip(mode: displayCtl.mode),
+              _NutrientsChip(),
             ],
           ),
           const SizedBox(height: Spacing.md),
@@ -426,69 +423,64 @@ class _TodaySummaryCard extends StatelessWidget {
             ],
           ),
           const Divider(height: Spacing.xl),
-          if (displayCtl.mode == NutritionDisplayMode.simple) ...[
-            _MacroIntakeProgressLinear(
-              label: 'Protein',
-              consumed: intake.proteinG,
-              target: plan.macros.protein,
-              color: scheme.primary,
-            ),
-            _CarbsStackedBar(
-              consumed: intake.carbsG,
-              sugar: intake.sugarG,
-              fiber: intake.fiberG,
-              target: plan.macros.carbs,
-            ),
-            _MacroIntakeProgressLinear(
-              label: 'Fat',
-              consumed: intake.fatG,
-              target: plan.macros.fat,
-              color: scheme.tertiary,
-              isLast: true,
-            ),
-          ] else
-            DetailedNutrientBreakdown(
-              intake: intake,
-              mode: displayCtl.mode,
-              customSelection: displayCtl.customSelection,
-            ),
+          _MacroIntakeProgressLinear(
+            label: 'Protein',
+            consumed: intake.proteinG,
+            target: plan.macros.protein,
+            color: scheme.primary,
+          ),
+          _CarbsStackedBar(
+            consumed: intake.carbsG,
+            sugar: intake.sugarG,
+            fiber: intake.fiberG,
+            target: plan.macros.carbs,
+          ),
+          _MacroIntakeProgressLinear(
+            label: 'Fat',
+            consumed: intake.fatG,
+            target: plan.macros.fat,
+            color: scheme.tertiary,
+            isLast: true,
+          ),
         ],
       ),
     );
   }
 }
 
-class _ModeChip extends StatelessWidget {
-  const _ModeChip({required this.mode});
-
-  final NutritionDisplayMode mode;
-
-  String get _label {
-    switch (mode) {
-      case NutritionDisplayMode.simple:
-        return 'Simple';
-      case NutritionDisplayMode.detailed:
-        return 'All nutrients';
-      case NutritionDisplayMode.custom:
-        return 'Custom';
-    }
-  }
+class _NutrientsChip extends StatelessWidget {
+  const _NutrientsChip();
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        _label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: scheme.onPrimaryContainer,
-              fontWeight: FontWeight.w600,
+    return InkWell(
+      onTap: () => context.push('/nutrients'),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'All nutrients',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.chevron_right,
+              size: 14,
+              color: scheme.onPrimaryContainer,
+            ),
+          ],
+        ),
       ),
     );
   }

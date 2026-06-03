@@ -783,6 +783,25 @@ class CalTrackRepository {
         .map(DailyIntakeTotals.fromEntries);
   }
 
+  /// Aggregates all food log entries in the given date range and returns
+  /// the total intake along with the count of distinct calendar days that
+  /// had at least one entry. Useful for computing averages.
+  Future<({DailyIntakeTotals totals, int distinctDays})> intakeForRange(
+    DateTime start,
+    DateTime endExclusive,
+  ) async {
+    final rows = await (_db.select(_db.foodLogEntries)
+          ..where((t) =>
+              t.loggedAt.isBiggerOrEqualValue(start) &
+              t.loggedAt.isSmallerThanValue(endExclusive)))
+        .get();
+    final totals = DailyIntakeTotals.fromEntries(rows);
+    final distinctDays = <DateTime>{
+      for (final r in rows) DateTime(r.loggedAt.year, r.loggedAt.month, r.loggedAt.day),
+    }.length;
+    return (totals: totals, distinctDays: distinctDays);
+  }
+
   /// Stream of food log entries for a calendar day, newest first.
   Stream<List<FoodLogEntry>> watchFoodLogsForDay(DateTime day) {
     final (s, e) = _dayBounds(day);
