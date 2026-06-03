@@ -62,6 +62,16 @@ class DetailedNutrientBreakdown extends StatelessWidget {
               keys: grouped[cat]!,
               values: _allValues,
             ),
+        Padding(
+          padding: const EdgeInsets.only(top: Spacing.sm, left: Spacing.xs),
+          child: Text(
+            '% based on Health Canada Daily Values',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
       ],
     );
   }
