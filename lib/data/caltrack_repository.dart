@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:caltrack/core/goal_logic.dart';
 import 'package:caltrack/core/nutrition.dart';
+import 'package:caltrack/core/nutrients.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:drift/drift.dart';
@@ -16,6 +19,7 @@ class DailyIntakeTotals {
     required this.sugarG,
     required this.fiberG,
     required this.fatG,
+    this.extra = const {},
   });
 
   final double kcal;
@@ -24,6 +28,7 @@ class DailyIntakeTotals {
   final double sugarG;
   final double fiberG;
   final double fatG;
+  final Map<NutrientKey, double> extra;
 
   static DailyIntakeTotals fromEntries(Iterable<FoodLogEntry> rows) {
     var k = 0.0;
@@ -32,6 +37,7 @@ class DailyIntakeTotals {
     var s = 0.0;
     var fi = 0.0;
     var f = 0.0;
+    final extra = <NutrientKey, double>{};
     for (final e in rows) {
       k += e.kcal;
       p += e.proteinG;
@@ -39,6 +45,7 @@ class DailyIntakeTotals {
       s += e.sugarG;
       fi += e.fiberG;
       f += e.fatG;
+      _mergeExtra(extra, e.extraNutrients);
     }
     return DailyIntakeTotals(
       kcal: k,
@@ -47,11 +54,58 @@ class DailyIntakeTotals {
       sugarG: s,
       fiberG: fi,
       fatG: f,
+      extra: extra,
     );
+  }
+
+  static void _mergeExtra(
+    Map<NutrientKey, double> target,
+    String? json,
+  ) {
+    if (json == null || json.isEmpty) return;
+    try {
+      final map = jsonDecode(json) as Map<String, dynamic>;
+      for (final entry in map.entries) {
+        final key = NutrientKey.values
+            .where((k) => k.name == entry.key)
+            .firstOrNull;
+        if (key == null) continue;
+        final value = (entry.value as num).toDouble();
+        target.update(key, (v) => v + value, ifAbsent: () => value);
+      }
+    } catch (_) {}
   }
 
   static const zero =
       DailyIntakeTotals(kcal: 0, proteinG: 0, carbsG: 0, sugarG: 0, fiberG: 0, fatG: 0);
+}
+
+/// Serialize a map of NutrientKey → double to a JSON string for storage.
+String? encodeExtraNutrients(Map<NutrientKey, double>? map) {
+  if (map == null || map.isEmpty) return null;
+  return jsonEncode(
+    map.map((k, v) => MapEntry(k.name, v)),
+  );
+}
+
+/// Decode a JSON blob back into a map of NutrientKey → double.
+Map<NutrientKey, double> decodeExtraNutrients(String? json) {
+  if (json == null || json.isEmpty) return {};
+  try {
+    final map = jsonDecode(json) as Map<String, dynamic>;
+    final out = <NutrientKey, double>{};
+    for (final entry in map.entries) {
+      final key = NutrientKey.values
+          .where((k) => k.name == entry.key)
+          .firstOrNull;
+      if (key != null) {
+        out[key] = (entry.value as num).toDouble();
+      }
+    }
+    return out;
+  } catch (_) {
+    return {};
+  }
 }
 
 class ComputedPlan {
@@ -754,6 +808,7 @@ class CalTrackRepository {
     double? fiberG,
     required double fatG,
     MealPeriod? mealPeriod,
+    String? extraNutrients,
   }) async {
     await (_db.update(_db.foodLogEntries)..where((t) => t.id.equals(id))).write(
       FoodLogEntriesCompanion(
@@ -765,6 +820,7 @@ class CalTrackRepository {
         fiberG: fiberG == null ? const Value.absent() : Value(fiberG),
         fatG: Value(fatG),
         mealPeriod: Value(mealPeriod?.dbValue),
+        extraNutrients: Value(extraNutrients),
       ),
     );
   }
@@ -795,6 +851,7 @@ class CalTrackRepository {
     DateTime? loggedAt,
     MealPeriod? mealPeriod,
     bool isPlanned = false,
+    String? extraNutrients,
   }) {
     return _db.into(_db.foodLogEntries).insert(
           FoodLogEntriesCompanion.insert(
@@ -812,6 +869,7 @@ class CalTrackRepository {
             fatG: fatG,
             mealPeriod: Value(mealPeriod?.dbValue),
             isPlanned: Value(isPlanned),
+            extraNutrients: Value(extraNutrients),
           ),
         );
   }
@@ -831,6 +889,7 @@ class CalTrackRepository {
     DateTime? loggedAt,
     MealPeriod? mealPeriod,
     bool isPlanned = false,
+    String? extraNutrients,
   }) async {
     await _db.into(_db.foodLogEntries).insert(
           FoodLogEntriesCompanion.insert(
@@ -848,6 +907,7 @@ class CalTrackRepository {
             fatG: fatG,
             mealPeriod: Value(mealPeriod?.dbValue),
             isPlanned: Value(isPlanned),
+            extraNutrients: Value(extraNutrients),
           ),
         );
   }
@@ -941,6 +1001,7 @@ class CalTrackRepository {
     required double sugarG,
     required double fiberG,
     required double proteinG,
+    String? extraNutrients,
   }) async {
     final cleanedName = name.trim();
     if (cleanedName.isEmpty) {
@@ -960,6 +1021,7 @@ class CalTrackRepository {
       sugarG: Value(sugarG),
       fiberG: Value(fiberG),
       proteinG: Value(proteinG),
+      extraNutrients: Value(extraNutrients),
     );
     return _db.into(_db.customFoods).insertOnConflictUpdate(companion);
   }
@@ -1127,6 +1189,7 @@ class CalTrackRepository {
                 sugarG: Value(c.sugarG),
                 fiberG: Value(c.fiberG),
                 proteinG: Value(c.proteinG),
+                extraNutrients: Value(c.extraNutrients),
               ),
             );
       }
@@ -1148,6 +1211,7 @@ class CalTrackRepository {
                 fatG: Value(e.fatG),
                 mealPeriod: Value(e.mealPeriod),
                 isPlanned: Value(e.isPlanned),
+                extraNutrients: Value(e.extraNutrients),
               ),
             );
       }

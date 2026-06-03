@@ -2339,6 +2339,17 @@ class $CustomFoodsTable extends CustomFoods
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _extraNutrientsMeta = const VerificationMeta(
+    'extraNutrients',
+  );
+  @override
+  late final GeneratedColumn<String> extraNutrients = GeneratedColumn<String>(
+    'extra_nutrients',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2353,6 +2364,7 @@ class $CustomFoodsTable extends CustomFoods
     sugarG,
     fiberG,
     proteinG,
+    extraNutrients,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2459,6 +2471,15 @@ class $CustomFoodsTable extends CustomFoods
     } else if (isInserting) {
       context.missing(_proteinGMeta);
     }
+    if (data.containsKey('extra_nutrients')) {
+      context.handle(
+        _extraNutrientsMeta,
+        extraNutrients.isAcceptableOrUnknown(
+          data['extra_nutrients']!,
+          _extraNutrientsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2516,6 +2537,10 @@ class $CustomFoodsTable extends CustomFoods
         DriftSqlType.double,
         data['${effectivePrefix}protein_g'],
       )!,
+      extraNutrients: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}extra_nutrients'],
+      ),
     );
   }
 
@@ -2550,6 +2575,10 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
   final double sugarG;
   final double fiberG;
   final double proteinG;
+
+  /// JSON blob for extended nutrients (vitamins, minerals, fatty acids,
+  /// amino acids). Map of NutrientKey name → double value.
+  final String? extraNutrients;
   const CustomFood({
     required this.id,
     required this.name,
@@ -2563,6 +2592,7 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
     required this.sugarG,
     required this.fiberG,
     required this.proteinG,
+    this.extraNutrients,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2583,6 +2613,9 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
     map['sugar_g'] = Variable<double>(sugarG);
     map['fiber_g'] = Variable<double>(fiberG);
     map['protein_g'] = Variable<double>(proteinG);
+    if (!nullToAbsent || extraNutrients != null) {
+      map['extra_nutrients'] = Variable<String>(extraNutrients);
+    }
     return map;
   }
 
@@ -2604,6 +2637,9 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
       sugarG: Value(sugarG),
       fiberG: Value(fiberG),
       proteinG: Value(proteinG),
+      extraNutrients: extraNutrients == null && nullToAbsent
+          ? const Value.absent()
+          : Value(extraNutrients),
     );
   }
 
@@ -2625,6 +2661,7 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
       sugarG: serializer.fromJson<double>(json['sugarG']),
       fiberG: serializer.fromJson<double>(json['fiberG']),
       proteinG: serializer.fromJson<double>(json['proteinG']),
+      extraNutrients: serializer.fromJson<String?>(json['extraNutrients']),
     );
   }
   @override
@@ -2643,6 +2680,7 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
       'sugarG': serializer.toJson<double>(sugarG),
       'fiberG': serializer.toJson<double>(fiberG),
       'proteinG': serializer.toJson<double>(proteinG),
+      'extraNutrients': serializer.toJson<String?>(extraNutrients),
     };
   }
 
@@ -2659,6 +2697,7 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
     double? sugarG,
     double? fiberG,
     double? proteinG,
+    Value<String?> extraNutrients = const Value.absent(),
   }) => CustomFood(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -2672,6 +2711,9 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
     sugarG: sugarG ?? this.sugarG,
     fiberG: fiberG ?? this.fiberG,
     proteinG: proteinG ?? this.proteinG,
+    extraNutrients: extraNutrients.present
+        ? extraNutrients.value
+        : this.extraNutrients,
   );
   CustomFood copyWithCompanion(CustomFoodsCompanion data) {
     return CustomFood(
@@ -2691,6 +2733,9 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
       sugarG: data.sugarG.present ? data.sugarG.value : this.sugarG,
       fiberG: data.fiberG.present ? data.fiberG.value : this.fiberG,
       proteinG: data.proteinG.present ? data.proteinG.value : this.proteinG,
+      extraNutrients: data.extraNutrients.present
+          ? data.extraNutrients.value
+          : this.extraNutrients,
     );
   }
 
@@ -2708,7 +2753,8 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
           ..write('carbsG: $carbsG, ')
           ..write('sugarG: $sugarG, ')
           ..write('fiberG: $fiberG, ')
-          ..write('proteinG: $proteinG')
+          ..write('proteinG: $proteinG, ')
+          ..write('extraNutrients: $extraNutrients')
           ..write(')'))
         .toString();
   }
@@ -2727,6 +2773,7 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
     sugarG,
     fiberG,
     proteinG,
+    extraNutrients,
   );
   @override
   bool operator ==(Object other) =>
@@ -2743,7 +2790,8 @@ class CustomFood extends DataClass implements Insertable<CustomFood> {
           other.carbsG == this.carbsG &&
           other.sugarG == this.sugarG &&
           other.fiberG == this.fiberG &&
-          other.proteinG == this.proteinG);
+          other.proteinG == this.proteinG &&
+          other.extraNutrients == this.extraNutrients);
 }
 
 class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
@@ -2759,6 +2807,7 @@ class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
   final Value<double> sugarG;
   final Value<double> fiberG;
   final Value<double> proteinG;
+  final Value<String?> extraNutrients;
   const CustomFoodsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -2772,6 +2821,7 @@ class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
     this.sugarG = const Value.absent(),
     this.fiberG = const Value.absent(),
     this.proteinG = const Value.absent(),
+    this.extraNutrients = const Value.absent(),
   });
   CustomFoodsCompanion.insert({
     this.id = const Value.absent(),
@@ -2786,6 +2836,7 @@ class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
     required double sugarG,
     required double fiberG,
     required double proteinG,
+    this.extraNutrients = const Value.absent(),
   }) : name = Value(name),
        servingSize = Value(servingSize),
        servingUnit = Value(servingUnit),
@@ -2808,6 +2859,7 @@ class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
     Expression<double>? sugarG,
     Expression<double>? fiberG,
     Expression<double>? proteinG,
+    Expression<String>? extraNutrients,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2822,6 +2874,7 @@ class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
       if (sugarG != null) 'sugar_g': sugarG,
       if (fiberG != null) 'fiber_g': fiberG,
       if (proteinG != null) 'protein_g': proteinG,
+      if (extraNutrients != null) 'extra_nutrients': extraNutrients,
     });
   }
 
@@ -2838,6 +2891,7 @@ class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
     Value<double>? sugarG,
     Value<double>? fiberG,
     Value<double>? proteinG,
+    Value<String?>? extraNutrients,
   }) {
     return CustomFoodsCompanion(
       id: id ?? this.id,
@@ -2852,6 +2906,7 @@ class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
       sugarG: sugarG ?? this.sugarG,
       fiberG: fiberG ?? this.fiberG,
       proteinG: proteinG ?? this.proteinG,
+      extraNutrients: extraNutrients ?? this.extraNutrients,
     );
   }
 
@@ -2894,6 +2949,9 @@ class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
     if (proteinG.present) {
       map['protein_g'] = Variable<double>(proteinG.value);
     }
+    if (extraNutrients.present) {
+      map['extra_nutrients'] = Variable<String>(extraNutrients.value);
+    }
     return map;
   }
 
@@ -2911,7 +2969,8 @@ class CustomFoodsCompanion extends UpdateCompanion<CustomFood> {
           ..write('carbsG: $carbsG, ')
           ..write('sugarG: $sugarG, ')
           ..write('fiberG: $fiberG, ')
-          ..write('proteinG: $proteinG')
+          ..write('proteinG: $proteinG, ')
+          ..write('extraNutrients: $extraNutrients')
           ..write(')'))
         .toString();
   }
@@ -3082,6 +3141,17 @@ class $FoodLogEntriesTable extends FoodLogEntries
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _extraNutrientsMeta = const VerificationMeta(
+    'extraNutrients',
+  );
+  @override
+  late final GeneratedColumn<String> extraNutrients = GeneratedColumn<String>(
+    'extra_nutrients',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3099,6 +3169,7 @@ class $FoodLogEntriesTable extends FoodLogEntries
     fatG,
     mealPeriod,
     isPlanned,
+    extraNutrients,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3224,6 +3295,15 @@ class $FoodLogEntriesTable extends FoodLogEntries
         isPlanned.isAcceptableOrUnknown(data['is_planned']!, _isPlannedMeta),
       );
     }
+    if (data.containsKey('extra_nutrients')) {
+      context.handle(
+        _extraNutrientsMeta,
+        extraNutrients.isAcceptableOrUnknown(
+          data['extra_nutrients']!,
+          _extraNutrientsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3293,6 +3373,10 @@ class $FoodLogEntriesTable extends FoodLogEntries
         DriftSqlType.bool,
         data['${effectivePrefix}is_planned'],
       )!,
+      extraNutrients: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}extra_nutrients'],
+      ),
     );
   }
 
@@ -3318,6 +3402,10 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
   final double fatG;
   final String? mealPeriod;
   final bool isPlanned;
+
+  /// JSON blob for extended nutrients (vitamins, minerals, fatty acids,
+  /// amino acids). Map of NutrientKey name → double value.
+  final String? extraNutrients;
   const FoodLogEntry({
     required this.id,
     required this.loggedAt,
@@ -3334,6 +3422,7 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     required this.fatG,
     this.mealPeriod,
     required this.isPlanned,
+    this.extraNutrients,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3359,6 +3448,9 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       map['meal_period'] = Variable<String>(mealPeriod);
     }
     map['is_planned'] = Variable<bool>(isPlanned);
+    if (!nullToAbsent || extraNutrients != null) {
+      map['extra_nutrients'] = Variable<String>(extraNutrients);
+    }
     return map;
   }
 
@@ -3385,6 +3477,9 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
           ? const Value.absent()
           : Value(mealPeriod),
       isPlanned: Value(isPlanned),
+      extraNutrients: extraNutrients == null && nullToAbsent
+          ? const Value.absent()
+          : Value(extraNutrients),
     );
   }
 
@@ -3409,6 +3504,7 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       fatG: serializer.fromJson<double>(json['fatG']),
       mealPeriod: serializer.fromJson<String?>(json['mealPeriod']),
       isPlanned: serializer.fromJson<bool>(json['isPlanned']),
+      extraNutrients: serializer.fromJson<String?>(json['extraNutrients']),
     );
   }
   @override
@@ -3430,6 +3526,7 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
       'fatG': serializer.toJson<double>(fatG),
       'mealPeriod': serializer.toJson<String?>(mealPeriod),
       'isPlanned': serializer.toJson<bool>(isPlanned),
+      'extraNutrients': serializer.toJson<String?>(extraNutrients),
     };
   }
 
@@ -3449,6 +3546,7 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     double? fatG,
     Value<String?> mealPeriod = const Value.absent(),
     bool? isPlanned,
+    Value<String?> extraNutrients = const Value.absent(),
   }) => FoodLogEntry(
     id: id ?? this.id,
     loggedAt: loggedAt ?? this.loggedAt,
@@ -3467,6 +3565,9 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     fatG: fatG ?? this.fatG,
     mealPeriod: mealPeriod.present ? mealPeriod.value : this.mealPeriod,
     isPlanned: isPlanned ?? this.isPlanned,
+    extraNutrients: extraNutrients.present
+        ? extraNutrients.value
+        : this.extraNutrients,
   );
   FoodLogEntry copyWithCompanion(FoodLogEntriesCompanion data) {
     return FoodLogEntry(
@@ -3493,6 +3594,9 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
           ? data.mealPeriod.value
           : this.mealPeriod,
       isPlanned: data.isPlanned.present ? data.isPlanned.value : this.isPlanned,
+      extraNutrients: data.extraNutrients.present
+          ? data.extraNutrients.value
+          : this.extraNutrients,
     );
   }
 
@@ -3513,7 +3617,8 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
           ..write('fiberG: $fiberG, ')
           ..write('fatG: $fatG, ')
           ..write('mealPeriod: $mealPeriod, ')
-          ..write('isPlanned: $isPlanned')
+          ..write('isPlanned: $isPlanned, ')
+          ..write('extraNutrients: $extraNutrients')
           ..write(')'))
         .toString();
   }
@@ -3535,6 +3640,7 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
     fatG,
     mealPeriod,
     isPlanned,
+    extraNutrients,
   );
   @override
   bool operator ==(Object other) =>
@@ -3554,7 +3660,8 @@ class FoodLogEntry extends DataClass implements Insertable<FoodLogEntry> {
           other.fiberG == this.fiberG &&
           other.fatG == this.fatG &&
           other.mealPeriod == this.mealPeriod &&
-          other.isPlanned == this.isPlanned);
+          other.isPlanned == this.isPlanned &&
+          other.extraNutrients == this.extraNutrients);
 }
 
 class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
@@ -3573,6 +3680,7 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
   final Value<double> fatG;
   final Value<String?> mealPeriod;
   final Value<bool> isPlanned;
+  final Value<String?> extraNutrients;
   const FoodLogEntriesCompanion({
     this.id = const Value.absent(),
     this.loggedAt = const Value.absent(),
@@ -3589,6 +3697,7 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     this.fatG = const Value.absent(),
     this.mealPeriod = const Value.absent(),
     this.isPlanned = const Value.absent(),
+    this.extraNutrients = const Value.absent(),
   });
   FoodLogEntriesCompanion.insert({
     this.id = const Value.absent(),
@@ -3606,6 +3715,7 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     required double fatG,
     this.mealPeriod = const Value.absent(),
     this.isPlanned = const Value.absent(),
+    this.extraNutrients = const Value.absent(),
   }) : loggedAt = Value(loggedAt),
        source = Value(source),
        displayName = Value(displayName),
@@ -3630,6 +3740,7 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     Expression<double>? fatG,
     Expression<String>? mealPeriod,
     Expression<bool>? isPlanned,
+    Expression<String>? extraNutrients,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3647,6 +3758,7 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
       if (fatG != null) 'fat_g': fatG,
       if (mealPeriod != null) 'meal_period': mealPeriod,
       if (isPlanned != null) 'is_planned': isPlanned,
+      if (extraNutrients != null) 'extra_nutrients': extraNutrients,
     });
   }
 
@@ -3666,6 +3778,7 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     Value<double>? fatG,
     Value<String?>? mealPeriod,
     Value<bool>? isPlanned,
+    Value<String?>? extraNutrients,
   }) {
     return FoodLogEntriesCompanion(
       id: id ?? this.id,
@@ -3683,6 +3796,7 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
       fatG: fatG ?? this.fatG,
       mealPeriod: mealPeriod ?? this.mealPeriod,
       isPlanned: isPlanned ?? this.isPlanned,
+      extraNutrients: extraNutrients ?? this.extraNutrients,
     );
   }
 
@@ -3734,6 +3848,9 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
     if (isPlanned.present) {
       map['is_planned'] = Variable<bool>(isPlanned.value);
     }
+    if (extraNutrients.present) {
+      map['extra_nutrients'] = Variable<String>(extraNutrients.value);
+    }
     return map;
   }
 
@@ -3754,7 +3871,8 @@ class FoodLogEntriesCompanion extends UpdateCompanion<FoodLogEntry> {
           ..write('fiberG: $fiberG, ')
           ..write('fatG: $fatG, ')
           ..write('mealPeriod: $mealPeriod, ')
-          ..write('isPlanned: $isPlanned')
+          ..write('isPlanned: $isPlanned, ')
+          ..write('extraNutrients: $extraNutrients')
           ..write(')'))
         .toString();
   }
@@ -4851,6 +4969,7 @@ typedef $$CustomFoodsTableCreateCompanionBuilder =
       required double sugarG,
       required double fiberG,
       required double proteinG,
+      Value<String?> extraNutrients,
     });
 typedef $$CustomFoodsTableUpdateCompanionBuilder =
     CustomFoodsCompanion Function({
@@ -4866,6 +4985,7 @@ typedef $$CustomFoodsTableUpdateCompanionBuilder =
       Value<double> sugarG,
       Value<double> fiberG,
       Value<double> proteinG,
+      Value<String?> extraNutrients,
     });
 
 class $$CustomFoodsTableFilterComposer
@@ -4934,6 +5054,11 @@ class $$CustomFoodsTableFilterComposer
 
   ColumnFilters<double> get proteinG => $composableBuilder(
     column: $table.proteinG,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get extraNutrients => $composableBuilder(
+    column: $table.extraNutrients,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5006,6 +5131,11 @@ class $$CustomFoodsTableOrderingComposer
     column: $table.proteinG,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get extraNutrients => $composableBuilder(
+    column: $table.extraNutrients,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CustomFoodsTableAnnotationComposer
@@ -5056,6 +5186,11 @@ class $$CustomFoodsTableAnnotationComposer
 
   GeneratedColumn<double> get proteinG =>
       $composableBuilder(column: $table.proteinG, builder: (column) => column);
+
+  GeneratedColumn<String> get extraNutrients => $composableBuilder(
+    column: $table.extraNutrients,
+    builder: (column) => column,
+  );
 }
 
 class $$CustomFoodsTableTableManager
@@ -5101,6 +5236,7 @@ class $$CustomFoodsTableTableManager
                 Value<double> sugarG = const Value.absent(),
                 Value<double> fiberG = const Value.absent(),
                 Value<double> proteinG = const Value.absent(),
+                Value<String?> extraNutrients = const Value.absent(),
               }) => CustomFoodsCompanion(
                 id: id,
                 name: name,
@@ -5114,6 +5250,7 @@ class $$CustomFoodsTableTableManager
                 sugarG: sugarG,
                 fiberG: fiberG,
                 proteinG: proteinG,
+                extraNutrients: extraNutrients,
               ),
           createCompanionCallback:
               ({
@@ -5129,6 +5266,7 @@ class $$CustomFoodsTableTableManager
                 required double sugarG,
                 required double fiberG,
                 required double proteinG,
+                Value<String?> extraNutrients = const Value.absent(),
               }) => CustomFoodsCompanion.insert(
                 id: id,
                 name: name,
@@ -5142,6 +5280,7 @@ class $$CustomFoodsTableTableManager
                 sugarG: sugarG,
                 fiberG: fiberG,
                 proteinG: proteinG,
+                extraNutrients: extraNutrients,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -5185,6 +5324,7 @@ typedef $$FoodLogEntriesTableCreateCompanionBuilder =
       required double fatG,
       Value<String?> mealPeriod,
       Value<bool> isPlanned,
+      Value<String?> extraNutrients,
     });
 typedef $$FoodLogEntriesTableUpdateCompanionBuilder =
     FoodLogEntriesCompanion Function({
@@ -5203,6 +5343,7 @@ typedef $$FoodLogEntriesTableUpdateCompanionBuilder =
       Value<double> fatG,
       Value<String?> mealPeriod,
       Value<bool> isPlanned,
+      Value<String?> extraNutrients,
     });
 
 class $$FoodLogEntriesTableFilterComposer
@@ -5286,6 +5427,11 @@ class $$FoodLogEntriesTableFilterComposer
 
   ColumnFilters<bool> get isPlanned => $composableBuilder(
     column: $table.isPlanned,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get extraNutrients => $composableBuilder(
+    column: $table.extraNutrients,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5373,6 +5519,11 @@ class $$FoodLogEntriesTableOrderingComposer
     column: $table.isPlanned,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get extraNutrients => $composableBuilder(
+    column: $table.extraNutrients,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FoodLogEntriesTableAnnotationComposer
@@ -5436,6 +5587,11 @@ class $$FoodLogEntriesTableAnnotationComposer
 
   GeneratedColumn<bool> get isPlanned =>
       $composableBuilder(column: $table.isPlanned, builder: (column) => column);
+
+  GeneratedColumn<String> get extraNutrients => $composableBuilder(
+    column: $table.extraNutrients,
+    builder: (column) => column,
+  );
 }
 
 class $$FoodLogEntriesTableTableManager
@@ -5486,6 +5642,7 @@ class $$FoodLogEntriesTableTableManager
                 Value<double> fatG = const Value.absent(),
                 Value<String?> mealPeriod = const Value.absent(),
                 Value<bool> isPlanned = const Value.absent(),
+                Value<String?> extraNutrients = const Value.absent(),
               }) => FoodLogEntriesCompanion(
                 id: id,
                 loggedAt: loggedAt,
@@ -5502,6 +5659,7 @@ class $$FoodLogEntriesTableTableManager
                 fatG: fatG,
                 mealPeriod: mealPeriod,
                 isPlanned: isPlanned,
+                extraNutrients: extraNutrients,
               ),
           createCompanionCallback:
               ({
@@ -5520,6 +5678,7 @@ class $$FoodLogEntriesTableTableManager
                 required double fatG,
                 Value<String?> mealPeriod = const Value.absent(),
                 Value<bool> isPlanned = const Value.absent(),
+                Value<String?> extraNutrients = const Value.absent(),
               }) => FoodLogEntriesCompanion.insert(
                 id: id,
                 loggedAt: loggedAt,
@@ -5536,6 +5695,7 @@ class $$FoodLogEntriesTableTableManager
                 fatG: fatG,
                 mealPeriod: mealPeriod,
                 isPlanned: isPlanned,
+                extraNutrients: extraNutrients,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

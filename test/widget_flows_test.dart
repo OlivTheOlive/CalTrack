@@ -1,4 +1,5 @@
 import 'package:caltrack/app/meal_time_controller.dart';
+import 'package:caltrack/app/nutrition_display_controller.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/app/theme_controller.dart';
 import 'package:caltrack/data/app_database.dart';
@@ -28,14 +29,20 @@ Widget _wrapWithProviders({
   required CalTrackRepository repo,
   required ProfileController profileCtl,
   required SharedPreferences prefs,
+  required ThemeController themeCtl,
+  required NutritionDisplayController nutritionDisplayCtl,
   OpenNutritionCatalog? catalog,
 }) {
   return MultiProvider(
     providers: [
       Provider<CalTrackRepository>.value(value: repo),
       ChangeNotifierProvider<ProfileController>.value(value: profileCtl),
+      ChangeNotifierProvider<ThemeController>.value(value: themeCtl),
       ChangeNotifierProvider<MealTimeController>.value(
         value: MealTimeController(prefs),
+      ),
+      ChangeNotifierProvider<NutritionDisplayController>.value(
+        value: nutritionDisplayCtl,
       ),
       Provider<OpenNutritionCatalog>.value(value: catalog ?? _FakeCatalog()),
     ],
@@ -81,7 +88,9 @@ void main() {
     testWidgets('Settings shows Data tools and routes to DataToolsScreen',
         (tester) async {
       SharedPreferences.setMockInitialValues({});
-      final themeCtl = ThemeController(await SharedPreferences.getInstance());
+      final prefs = await SharedPreferences.getInstance();
+      final themeCtl = ThemeController(prefs);
+      final nutritionDisplayCtl = NutritionDisplayController(prefs: prefs);
       final router = GoRouter(
         initialLocation: '/settings',
         routes: [
@@ -103,7 +112,10 @@ void main() {
             ChangeNotifierProvider<ProfileController>.value(value: profileCtl),
             ChangeNotifierProvider<ThemeController>.value(value: themeCtl),
             ChangeNotifierProvider<MealTimeController>.value(
-              value: MealTimeController(await SharedPreferences.getInstance()),
+              value: MealTimeController(prefs),
+            ),
+            ChangeNotifierProvider<NutritionDisplayController>.value(
+              value: nutritionDisplayCtl,
             ),
             Provider<OpenNutritionCatalog>.value(value: _FakeCatalog()),
           ],
@@ -154,7 +166,14 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _wrapWithProviders(child: harness, repo: repo, profileCtl: profileCtl, prefs: prefs),
+        _wrapWithProviders(
+          child: harness,
+          repo: repo,
+          profileCtl: profileCtl,
+          prefs: prefs,
+          themeCtl: ThemeController(prefs),
+          nutritionDisplayCtl: NutritionDisplayController(prefs: prefs),
+        ),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();

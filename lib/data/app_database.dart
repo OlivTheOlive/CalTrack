@@ -126,6 +126,10 @@ class CustomFoods extends Table {
   RealColumn get sugarG => real()();
   RealColumn get fiberG => real()();
   RealColumn get proteinG => real()();
+
+  /// JSON blob for extended nutrients (vitamins, minerals, fatty acids,
+  /// amino acids). Map of NutrientKey name → double value.
+  TextColumn get extraNutrients => text().nullable()();
 }
 
 /// Logged food with snapshot macros for the chosen portion (not per-100g).
@@ -145,6 +149,10 @@ class FoodLogEntries extends Table {
   RealColumn get fatG => real()();
   TextColumn get mealPeriod => text().nullable()();
   BoolColumn get isPlanned => boolean().withDefault(const Constant(false))();
+
+  /// JSON blob for extended nutrients (vitamins, minerals, fatty acids,
+  /// amino acids). Map of NutrientKey name → double value.
+  TextColumn get extraNutrients => text().nullable()();
 }
 
 @DriftDatabase(
@@ -163,7 +171,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -198,8 +206,6 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(foodPrefs);
           }
           if (from < 6) {
-            // Remember the last-used group preset so the sheet can default
-            // to "2 × Large egg" on the next open.
             await m.addColumn(foodPrefs, foodPrefs.lastServingLabel);
             await m.addColumn(foodPrefs, foodPrefs.lastServingQty);
           }
@@ -210,6 +216,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(profiles, profiles.lunchTarget);
             await m.addColumn(profiles, profiles.dinnerTarget);
             await m.addColumn(profiles, profiles.snackTarget);
+          }
+          if (from < 8) {
+            await m.addColumn(foodLogEntries, foodLogEntries.extraNutrients);
+            await m.addColumn(customFoods, customFoods.extraNutrients);
           }
         },
       );
