@@ -40,6 +40,46 @@ abstract final class AppSnackBar {
     );
   }
 
+  /// Convenience for the common "X deleted — UNDO" pattern. Shows [message]
+  /// with an UNDO action wired to [onUndo]. Pass [messenger] captured before
+  /// a sheet/route closes when the originating context may be unmounted.
+  static void showUndo(
+    BuildContext context,
+    String message, {
+    required VoidCallback onUndo,
+    String actionLabel = 'UNDO',
+    Duration duration = const Duration(seconds: 5),
+    bool replaceCurrent = true,
+  }) {
+    show(
+      context,
+      message,
+      actionLabel: actionLabel,
+      onAction: onUndo,
+      duration: duration,
+      replaceCurrent: replaceCurrent,
+    );
+  }
+
+  /// Detached variant of [showUndo] for use after [Navigator.pop].
+  static void showUndoDetached(
+    ScaffoldMessengerState messenger, {
+    required String message,
+    required VoidCallback onUndo,
+    String actionLabel = 'UNDO',
+    Duration duration = const Duration(seconds: 5),
+    bool replaceCurrent = true,
+  }) {
+    showDetached(
+      messenger,
+      message: message,
+      actionLabel: actionLabel,
+      onAction: onUndo,
+      duration: duration,
+      replaceCurrent: replaceCurrent,
+    );
+  }
+
   /// Pass [messenger] captured before [Navigator.pop] or sheet close.
   ///
   /// Default duration: **5s** with an action, **3s** without. Pass [duration] to override.

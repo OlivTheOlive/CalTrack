@@ -1,3 +1,4 @@
+import 'package:caltrack/core/themes/theme_components.dart';
 import 'package:flutter/material.dart';
 
 /// Cyberpunk theme: neon cyan/magenta/green accents on dark navy or true
@@ -32,6 +33,10 @@ ThemeData _cyberpunkLight() {
     onErrorContainer: Color(0xFF410000),
     surface: Color(0xFFFFFFFF),
     onSurface: Color(0xFF1C1B1F),
+    surfaceContainerLowest: Color(0xFFFFFFFF),
+    surfaceContainerLow: Color(0xFFF5F5F5),
+    surfaceContainer: Color(0xFFEFEFEF),
+    surfaceContainerHigh: Color(0xFFE8E8E8),
     surfaceContainerHighest: Color(0xFFE0E0E0),
     onSurfaceVariant: Color(0xFF49454F),
     outline: Color(0xFF79747E),
@@ -66,6 +71,10 @@ ThemeData _cyberpunkDark() {
     onErrorContainer: Color(0xFFFFDAD6),
     surface: Color(0xFF0F0F23),
     onSurface: Color(0xFFE6E1E5),
+    surfaceContainerLowest: Color(0xFF0B0B1A),
+    surfaceContainerLow: Color(0xFF111133),
+    surfaceContainer: Color(0xFF12123A),
+    surfaceContainerHigh: Color(0xFF141440),
     surfaceContainerHighest: Color(0xFF16213E),
     onSurfaceVariant: Color(0xFFCAC4D0),
     outline: Color(0xFF938F99),
@@ -80,7 +89,7 @@ ThemeData _cyberpunkDark() {
 }
 
 ThemeData _cyberpunkOled() {
-  return _cyberpunkDark().copyWith(
+  final oled = _cyberpunkDark().copyWith(
     scaffoldBackgroundColor: Colors.black,
     colorScheme: const ColorScheme(
       brightness: Brightness.dark,
@@ -102,6 +111,10 @@ ThemeData _cyberpunkOled() {
       onErrorContainer: Color(0xFFFFDAD6),
       surface: Colors.black,
       onSurface: Color(0xFFE6E1E5),
+      surfaceContainerLowest: Colors.black,
+      surfaceContainerLow: Color(0xFF0A0A0A),
+      surfaceContainer: Color(0xFF0D0D0D),
+      surfaceContainerHigh: Color(0xFF111111),
       surfaceContainerHighest: Color(0xFF0D0D0D),
       onSurfaceVariant: Color(0xFFCAC4D0),
       outline: Color(0xFF938F99),
@@ -113,13 +126,16 @@ ThemeData _cyberpunkOled() {
       scrim: Color(0xFF000000),
     ),
   );
+  // Re-apply shared component theming so navigation bars, snack bars etc.
+  // pick up the true-black OLED surfaces instead of the dark navy ones.
+  return applySharedComponents(oled);
 }
 
 ThemeData _cyberpunkBase(ColorScheme colorScheme, {required Color scaffoldBg}) {
   final buttonShape = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(12),
   );
-  return ThemeData(
+  final theme = ThemeData(
     useMaterial3: true,
     colorScheme: colorScheme,
     visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -162,4 +178,5 @@ ThemeData _cyberpunkBase(ColorScheme colorScheme, {required Color scaffoldBg}) {
       builders: {TargetPlatform.android: FadeUpwardsPageTransitionsBuilder()},
     ),
   );
+  return applySharedComponents(theme);
 }

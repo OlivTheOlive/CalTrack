@@ -1,3 +1,4 @@
+import 'package:caltrack/core/themes/theme_components.dart';
 import 'package:flutter/material.dart';
 
 /// Build a theme using the default Material 3 seed color (#2E7D6B).
@@ -31,7 +32,7 @@ ThemeData _buildFromScheme(ColorScheme colorScheme) {
   final buttonShape = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(12),
   );
-  return ThemeData(
+  final theme = ThemeData(
     useMaterial3: true,
     colorScheme: colorScheme,
     visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -73,4 +74,5 @@ ThemeData _buildFromScheme(ColorScheme colorScheme) {
       builders: {TargetPlatform.android: FadeUpwardsPageTransitionsBuilder()},
     ),
   );
+  return applySharedComponents(theme);
 }

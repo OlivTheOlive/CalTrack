@@ -1,11 +1,13 @@
 import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/profile_controller.dart';
+import 'package:caltrack/core/spacing.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class LogWeightScreen extends StatefulWidget {
@@ -28,6 +30,8 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
   bool _saving = false;
   WeightEntry? _editingEntry;
   late WeightUnit _unit;
+  DateTime _recordedAt = DateTime.now();
+  double? _lastWeightKg;
 
   @override
   void initState() {
@@ -48,24 +52,26 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
     if (!mounted) return;
     _unit = WeightUnit.fromStored(profile.weightUnit);
 
+    final recent = await repo.weightEntriesLimit(1);
+    if (recent.isNotEmpty) _lastWeightKg = recent.first.weightKg;
+
     final id = widget.editingEntryId;
     if (id != null) {
       final existing = await repo.weightEntryById(id);
       if (!mounted) return;
       _editingEntry = existing;
       if (existing != null) {
-        final shown = _unit == WeightUnit.kg
-            ? existing.weightKg
-            : kgToLb(existing.weightKg);
-        _controller.text = _formatWeight(shown);
+        _recordedAt = existing.recordedAt;
+        final shown = _toDisplay(existing.weightKg);
+        _controller.text = shown.toStringAsFixed(1);
         _noteController.text = existing.note ?? '';
       }
     }
     setState(() => _loading = false);
   }
 
-  static String _formatWeight(double v) =>
-      v == v.roundToDouble() ? v.toStringAsFixed(1) : v.toStringAsFixed(1);
+  double _toDisplay(double kg) =>
+      _unit == WeightUnit.kg ? kg : kgToLb(kg);
 
   double? _parseWeightKg() {
     final v = parseDouble(_controller.text);
@@ -80,73 +86,119 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
 
   String? _validateWeight(String? raw) {
     final label = 'Weight (${_unit.shortLabel})';
-    final err = validatePositiveDouble(
+    return validatePositiveDouble(
       raw ?? '',
       fieldLabel: label,
       min: _unit == WeightUnit.kg ? 20 : 44,
       max: _unit == WeightUnit.kg ? 500 : 1100,
     );
-    return err;
   }
 
   String? _validateNote(String? raw) =>
       validateOptionalNote(raw ?? '', maxLen: 140);
 
+  /// Combine the user-picked calendar day with the current wall-clock time
+  /// so multiple same-day weigh-ins still sort sensibly.
+  DateTime _resolvedTimestamp() {
+    final now = DateTime.now();
+    final day = _recordedAt;
+    if (day.year == now.year && day.month == now.month && day.day == now.day) {
+      return now;
+    }
+    return DateTime(day.year, day.month, day.day, now.hour, now.minute);
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _recordedAt,
+      firstDate: DateTime(now.year - 5),
+      lastDate: now,
+    );
+    if (picked != null && mounted) {
+      setState(() => _recordedAt = picked);
+    }
+  }
+
+  void _applyQuickWeight(double kg) {
+    _controller.text = _toDisplay(kg).toStringAsFixed(1);
+    _formKey.currentState?.validate();
+  }
+
   Future<void> _submit() async {
+    if (_saving) return;
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) return;
 
     final repo = context.read<CalTrackRepository>();
     final profileCtl = context.read<ProfileController>();
+    final messenger = ScaffoldMessenger.of(context);
     final kg = _parseWeightKg();
     if (kg == null) {
       AppSnackBar.showError(context, 'Enter a valid weight.');
       return;
     }
     final note = _trimmedNote();
+    final when = _resolvedTimestamp();
 
-      setState(() => _saving = true);
+    setState(() => _saving = true);
     try {
       final editing = _editingEntry;
       if (editing != null) {
-        await repo.updateWeightEntry(id: editing.id, weightKg: kg, note: note);
+        await repo.updateWeightEntry(
+          id: editing.id,
+          weightKg: kg,
+          note: note,
+          recordedAt: when,
+        );
       } else {
-        final today = await repo.weightEntryForDay(DateTime.now());
-        if (today != null) {
+        final existing = await repo.weightEntryForDay(_recordedAt);
+        if (existing != null) {
           if (!mounted) return;
-          final replace = await _confirmReplaceTodaysEntry(today);
+          final replace = await _confirmReplaceTodaysEntry(existing);
           if (replace != true) {
+            if (mounted) setState(() => _saving = false);
             return;
           }
           await repo.updateWeightEntry(
-            id: today.id,
+            id: existing.id,
             weightKg: kg,
             note: note,
+            recordedAt: when,
           );
         } else {
-          await repo.addWeightEntry(weightKg: kg, note: note);
+          await repo.addWeightEntry(
+            weightKg: kg,
+            note: note,
+            recordedAt: when,
+          );
         }
       }
       if (!mounted) return;
       context.pop();
+      AppSnackBar.showDetached(
+        messenger,
+        message: editing != null ? 'Weigh-in updated' : 'Weigh-in logged',
+      );
       WidgetsBinding.instance.addPostFrameCallback((_) => profileCtl.refresh());
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  Future<bool?> _confirmReplaceTodaysEntry(WeightEntry today) {
-    final shown = _unit == WeightUnit.kg
-        ? today.weightKg
-        : kgToLb(today.weightKg);
+  Future<bool?> _confirmReplaceTodaysEntry(WeightEntry existing) {
+    final shown = _toDisplay(existing.weightKg);
     final label = '${shown.toStringAsFixed(1)} ${_unit.shortLabel}';
+    final dayLabel =
+        DateFormat.MMMd().format(existing.recordedAt);
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Update today\'s weigh-in?'),
+        title: const Text('Update existing weigh-in?'),
         content: Text(
-          'You already logged $label today. Do you want to change your '
-          'weigh-in for today?',
+          'You already logged $label on $dayLabel. Do you want to change '
+          'that weigh-in?',
         ),
         actions: [
           TextButton(
@@ -223,44 +275,163 @@ class _LogWeightScreenState extends State<LogWeightScreen> {
   }
 
   Widget _buildForm(BuildContext context) {
+    final theme = Theme.of(context);
     final suffix = _unit.shortLabel;
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: _controller,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: 'Weight ($suffix)',
+    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+
+    return SafeArea(
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                Spacing.lg,
+                Spacing.lg,
+                Spacing.lg,
+                Spacing.lg + viewInsets,
               ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-              ],
-              validator: _validateWeight,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _noteController,
-              decoration: const InputDecoration(
-                labelText: 'Note (optional)',
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _DateField(
+                      date: _recordedAt,
+                      onTap: _saving ? null : _pickDate,
+                    ),
+                    const SizedBox(height: Spacing.md),
+                    TextFormField(
+                      controller: _controller,
+                      autofocus: true,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: 'Weight ($suffix)',
+                        prefixIcon: const Icon(Icons.monitor_weight_outlined),
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                      ],
+                      validator: _validateWeight,
+                    ),
+                    if (_lastWeightKg != null) ...[
+                      const SizedBox(height: Spacing.sm),
+                      _QuickWeightChips(
+                        lastKg: _lastWeightKg!,
+                        unit: _unit,
+                        onSelect: _saving ? null : _applyQuickWeight,
+                      ),
+                    ],
+                    const SizedBox(height: Spacing.md),
+                    TextFormField(
+                      controller: _noteController,
+                      decoration: const InputDecoration(
+                        labelText: 'Note (optional)',
+                        prefixIcon: Icon(Icons.notes_outlined),
+                      ),
+                      maxLines: 2,
+                      validator: _validateNote,
+                    ),
+                  ],
+                ),
               ),
-              maxLines: 2,
-              validator: _validateNote,
             ),
-            const Spacer(),
-            FilledButton(
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.lg,
+              0,
+              Spacing.lg,
+              Spacing.md,
+            ),
+            child: FilledButton(
               onPressed: _saving ? null : _submit,
-              child: Text(_editingEntry != null ? 'Save changes' : 'Save'),
+              child: _saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(_editingEntry != null ? 'Save changes' : 'Save',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      )),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DateField extends StatelessWidget {
+  const _DateField({required this.date, required this.onTap});
+
+  final DateTime date;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+    final isToday =
+        date.year == now.year && date.month == now.month && date.day == now.day;
+    final label = isToday ? 'Today' : DateFormat.yMMMEd().format(date);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: Corners.radiusMd,
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'Date',
+          prefixIcon: Icon(Icons.event_outlined),
+        ),
+        child: Row(
+          children: [
+            Expanded(child: Text(label, style: theme.textTheme.bodyLarge)),
+            Icon(Icons.edit_calendar_outlined,
+                size: 18, color: theme.colorScheme.onSurfaceVariant),
           ],
         ),
       ),
     );
+  }
+}
+
+class _QuickWeightChips extends StatelessWidget {
+  const _QuickWeightChips({
+    required this.lastKg,
+    required this.unit,
+    required this.onSelect,
+  });
+
+  final double lastKg;
+  final WeightUnit unit;
+  final void Function(double kg)? onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    // Offer a few nudges around the last logged weight so quick daily
+    // weigh-ins are a single tap.
+    final stepKg = unit == WeightUnit.kg ? 0.5 : lbToKg(1);
+    final offsets = <double>[-stepKg, 0, stepKg];
+
+    return Wrap(
+      spacing: Spacing.sm,
+      children: [
+        for (final off in offsets)
+          ActionChip(
+            label: Text(_fmt(lastKg + off)),
+            onPressed: onSelect == null ? null : () => onSelect!(lastKg + off),
+          ),
+      ],
+    );
+  }
+
+  String _fmt(double kg) {
+    final v = unit == WeightUnit.kg ? kg : kgToLb(kg);
+    return '${v.toStringAsFixed(1)} ${unit.shortLabel}';
   }
 }
