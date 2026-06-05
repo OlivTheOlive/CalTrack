@@ -71,7 +71,10 @@ ThemeData _buildFromScheme(ColorScheme colorScheme) {
       ),
     ),
     pageTransitionsTheme: const PageTransitionsTheme(
-      builders: {TargetPlatform.android: FadeUpwardsPageTransitionsBuilder()},
+      builders: {
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      },
     ),
   );
   return applySharedComponents(theme);
