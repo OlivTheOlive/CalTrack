@@ -31,7 +31,7 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
   final themeController = ThemeController(prefs);
   final mealTimeController = MealTimeController(prefs);
-  final nutritionDisplayController = NutritionDisplayController(prefs: prefs);
+  final nutritionDisplayController = NutritionDisplayController(prefs);
 
   late final GoRouter router;
   router = createRouter(profileController);

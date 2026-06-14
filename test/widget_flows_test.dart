@@ -90,7 +90,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final themeCtl = ThemeController(prefs);
-      final nutritionDisplayCtl = NutritionDisplayController(prefs: prefs);
+      final nutritionDisplayCtl = NutritionDisplayController(prefs);
       final router = GoRouter(
         initialLocation: '/settings',
         routes: [
@@ -172,7 +172,7 @@ void main() {
           profileCtl: profileCtl,
           prefs: prefs,
           themeCtl: ThemeController(prefs),
-          nutritionDisplayCtl: NutritionDisplayController(prefs: prefs),
+          nutritionDisplayCtl: NutritionDisplayController(prefs),
         ),
       );
       await tester.tap(find.text('Open'));

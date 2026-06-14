@@ -1,16 +1,13 @@
 import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/meal_time_controller.dart';
-import 'package:caltrack/app/nutrition_display_controller.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/app/theme_controller.dart';
-import 'package:caltrack/core/nutrients.dart';
 import 'package:caltrack/core/spacing.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:caltrack/services/notification_service.dart';
 import 'package:caltrack/widgets/goal_editor_sheet.dart';
-import 'package:caltrack/widgets/nutrient_display.dart';
 import 'package:caltrack/widgets/opennutrition_attribution.dart';
 import 'package:caltrack/widgets/styled_card.dart';
 import 'package:flutter/material.dart';
@@ -78,16 +75,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _ThemeModePicker(),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              _SettingsSection(
-                title: 'Nutrition display',
-                icon: Icons.bar_chart_outlined,
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.all(Spacing.md),
-                    child: _NutritionDisplaySettings(),
                   ),
                 ],
               ),
@@ -1024,83 +1011,6 @@ class _VersionInfoTile extends StatelessWidget {
           },
         );
       },
-    );
-  }
-}
-
-class _NutritionDisplaySettings extends StatelessWidget {
-  const _NutritionDisplaySettings();
-
-  @override
-  Widget build(BuildContext context) {
-    final ctl = context.watch<NutritionDisplayController>();
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Breakdown detail',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: Spacing.sm),
-        SizedBox(
-          width: double.infinity,
-          child: SegmentedButton<NutritionDisplayMode>(
-            showSelectedIcon: false,
-            segments: const [
-              ButtonSegment(
-                value: NutritionDisplayMode.simple,
-                icon: Icon(Icons.view_agenda),
-                label: Text('Simple'),
-              ),
-              ButtonSegment(
-                value: NutritionDisplayMode.detailed,
-                icon: Icon(Icons.library_books),
-                label: Text('Detailed'),
-              ),
-              ButtonSegment(
-                value: NutritionDisplayMode.custom,
-                icon: Icon(Icons.tune),
-                label: Text('Custom'),
-              ),
-            ],
-            selected: {ctl.mode},
-            onSelectionChanged: (s) => ctl.setMode(s.first),
-          ),
-        ),
-        if (ctl.mode == NutritionDisplayMode.custom) ...[
-          const SizedBox(height: Spacing.md),
-          Text(
-            'Tap to pick which nutrients to show on the dashboard.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: Spacing.sm),
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              '${ctl.customSelection.length} of ${NutrientKey.values.length} nutrients selected',
-              style: theme.textTheme.bodyMedium,
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => CustomNutrientSelector(
-                  selection: ctl.customSelection,
-                  onChanged: (keys) => ctl.setCustomSelection(keys),
-                ),
-              );
-            },
-          ),
-        ],
-      ],
     );
   }
 }

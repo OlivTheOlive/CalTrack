@@ -1,84 +1,78 @@
-import 'package:caltrack/app/nutrition_display_controller.dart';
 import 'package:caltrack/core/nutrients.dart';
 import 'package:caltrack/core/spacing.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
+import 'package:caltrack/widgets/styled_card.dart';
 import 'package:flutter/material.dart';
 
-/// Displays all nutrients in the current view mode (detailed or custom).
-/// Categories are rendered as expandable/collapsible sections.
+/// Displays logged nutrient amounts grouped by category.
+/// Shows only what was consumed — no DV percentages or external benchmarks.
 class DetailedNutrientBreakdown extends StatelessWidget {
   const DetailedNutrientBreakdown({
     super.key,
     required this.intake,
-    required this.mode,
     required this.customSelection,
   });
 
   final DailyIntakeTotals intake;
-  final NutritionDisplayMode mode;
   final Set<NutrientKey> customSelection;
 
-  Map<NutrientKey, double> get _allValues {
-    final out = <NutrientKey, double>{};
-    out[NutrientKey.kcal] = intake.kcal;
-    out[NutrientKey.totalFatG] = intake.fatG;
-    out[NutrientKey.totalCarbsG] = intake.carbsG;
-    out[NutrientKey.proteinG] = intake.proteinG;
-    out[NutrientKey.dietaryFiberG] = intake.fiberG;
-    out[NutrientKey.totalSugarsG] = intake.sugarG;
-    out.addAll(intake.extra);
-    return out;
-  }
-
-  List<NutrientKey> _visibleKeys() {
-    if (mode == NutritionDisplayMode.custom) {
-      return customSelection.toList();
-    }
-    return nutrientCategoryOrder.expand(nutrientsInCategory).toList();
+  Map<NutrientKey, double> get _loggedValues {
+    return {
+      NutrientKey.kcal: intake.kcal,
+      NutrientKey.totalFatG: intake.fatG,
+      NutrientKey.totalCarbsG: intake.carbsG,
+      NutrientKey.proteinG: intake.proteinG,
+      NutrientKey.dietaryFiberG: intake.fiberG,
+      NutrientKey.totalSugarsG: intake.sugarG,
+      ...intake.extra,
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    final keys = _visibleKeys();
-    if (keys.isEmpty) {
-      return Text(
-        'No nutrients selected',
-        style: Theme.of(context).textTheme.bodySmall,
+    if (customSelection.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
+        child: Center(
+          child: Text(
+            'No nutrients selected.\nOpen the selector to add some.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ),
       );
     }
 
     final grouped = <NutrientCategory, List<NutrientKey>>{};
-    for (final k in keys) {
+    for (final k in customSelection) {
       grouped.putIfAbsent(k.category, () => []).add(k);
     }
+    final values = _loggedValues;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final cat in nutrientCategoryOrder)
           if (grouped.containsKey(cat))
-            _NutrientCategorySection(
-              category: cat,
-              keys: grouped[cat]!,
-              values: _allValues,
+            Padding(
+              padding: const EdgeInsets.only(bottom: Spacing.sm),
+              child: _NutrientCategoryCard(
+                category: cat,
+                keys: grouped[cat]!,
+                values: values,
+              ),
             ),
-        Padding(
-          padding: const EdgeInsets.only(top: Spacing.sm, left: Spacing.xs),
-          child: Text(
-            '% based on Health Canada Daily Values',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ),
       ],
     );
   }
 }
 
-class _NutrientCategorySection extends StatefulWidget {
-  const _NutrientCategorySection({
+// ─── Category card ────────────────────────────────────────────────────────────
+
+class _NutrientCategoryCard extends StatelessWidget {
+  const _NutrientCategoryCard({
     required this.category,
     required this.keys,
     required this.values,
@@ -89,163 +83,171 @@ class _NutrientCategorySection extends StatefulWidget {
   final Map<NutrientKey, double> values;
 
   @override
-  State<_NutrientCategorySection> createState() =>
-      _NutrientCategorySectionState();
-}
-
-class _NutrientCategorySectionState extends State<_NutrientCategorySection> {
-  bool _expanded = false;
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final label = nutrientCategoryLabels[widget.category] ??
-        widget.category.name;
+    final accent = _categoryColor(category, scheme);
+    final label = nutrientCategoryLabels[category] ?? category.name;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Spacing.sm),
+    return StyledCard(
+      tone: CardTone.low,
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            borderRadius: Corners.radiusSm,
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: Spacing.sm,
-                horizontal: Spacing.xs,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _expanded
-                        ? Icons.expand_less
-                        : Icons.expand_more,
-                    size: 18,
-                    color: scheme.primary,
+          // ── Section header ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.md,
+              Spacing.sm,
+              Spacing.md,
+              Spacing.sm,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: Spacing.xs),
-                  Text(
+                  child: Icon(
+                    _categoryIcon(category),
+                    size: 16,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: Spacing.sm),
+                Expanded(
+                  child: Text(
                     label,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: scheme.primary,
+                      color: accent,
                     ),
                   ),
-                ],
-              ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${keys.length}',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: accent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          if (_expanded) ...[
-            const Divider(height: 1),
-            ...List.generate(widget.keys.length, (i) {
-              final isLast = i == widget.keys.length - 1;
-              return _NutrientRow(
-                key: ValueKey(widget.keys[i]),
-                nutrientKey: widget.keys[i],
-                value: widget.values[widget.keys[i]] ?? 0,
-                isLast: isLast,
-              );
-            }),
-          ],
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: scheme.outlineVariant.withValues(alpha: 0.6),
+          ),
+          // ── Nutrient rows ──
+          ...List.generate(keys.length, (i) {
+            final key = keys[i];
+            return _NutrientLogRow(
+              nutrientKey: key,
+              value: values[key] ?? 0,
+              accent: accent,
+              showDivider: i < keys.length - 1,
+            );
+          }),
         ],
       ),
     );
   }
 }
 
-class _NutrientRow extends StatelessWidget {
-  const _NutrientRow({
-    required super.key,
+// ─── Individual row ───────────────────────────────────────────────────────────
+
+class _NutrientLogRow extends StatelessWidget {
+  const _NutrientLogRow({
     required this.nutrientKey,
     required this.value,
-    this.isLast = false,
+    required this.accent,
+    required this.showDivider,
   });
 
   final NutrientKey nutrientKey;
   final double value;
-  final bool isLast;
+  final Color accent;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final info = nutrientKey.info;
-    final dv = nutrientKey.dailyValue;
-    final ul = nutrientKey.upperLimit;
-    final pct = dv != null && dv > 0 ? (value / dv * 100) : 0.0;
-    final overUl = ul != null && value > ul;
-    final overUlLabel = overUl ? ' >UL' : '';
-    final displayValue = _formatValue(value, info.unit);
+    final logged = value > 0;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 0),
-      child: ListTile(
-        dense: true,
-        visualDensity: VisualDensity.compact,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: Spacing.sm,
-          vertical: 0,
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                info.displayName,
-                style: theme.textTheme.bodySmall,
-                overflow: TextOverflow.ellipsis,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: 9,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: logged
+                      ? accent.withValues(alpha: 0.65)
+                      : scheme.outlineVariant,
+                  shape: BoxShape.circle,
+                ),
               ),
-            ),
-            Text(
-              displayValue,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: Spacing.sm),
-            if (dv != null)
-              SizedBox(
-                width: 52,
+              const SizedBox(width: Spacing.sm),
+              Expanded(
                 child: Text(
-                  '${pct.round()}%$overUlLabel',
-                  textAlign: TextAlign.end,
+                  info.displayName,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: overUl
-                        ? scheme.error
-                        : pct >= 90
-                            ? scheme.primary
-                            : null,
+                    color: logged
+                        ? scheme.onSurface
+                        : scheme.onSurface.withValues(alpha: 0.38),
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-          ],
-        ),
-        subtitle: dv != null
-            ? Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    minHeight: 4,
-                    value: (pct / 100).clamp(0.0, 1.0),
-                    backgroundColor: scheme.surfaceContainerHighest,
-                    color: overUl
-                        ? scheme.error
-                        : pct >= 90
-                            ? scheme.primary
-                            : scheme.secondary,
-                  ),
+              const SizedBox(width: Spacing.sm),
+              Text(
+                _fmtValue(value, info.unit),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: logged ? FontWeight.w600 : FontWeight.w400,
+                  color: logged
+                      ? scheme.onSurface
+                      : scheme.onSurface.withValues(alpha: 0.32),
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
-              )
-            : null,
-      ),
+              ),
+            ],
+          ),
+        ),
+        if (showDivider)
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            indent: Spacing.md + 5 + Spacing.sm,
+            endIndent: Spacing.md,
+            color: scheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+      ],
     );
   }
 
-  String _formatValue(double v, String unit) {
-    if (v == 0) return '0 $unit';
+  String _fmtValue(double v, String unit) {
+    if (v == 0) return '— $unit';
     if (v < 0.01) return '<0.01 $unit';
     if (v < 1) return '${v.toStringAsFixed(2)} $unit';
     if (v < 10) return '${v.toStringAsFixed(1)} $unit';
@@ -253,8 +255,44 @@ class _NutrientRow extends StatelessWidget {
   }
 }
 
-/// Bottom sheet that allows the user to select which nutrients to track
-/// in custom mode. Grouped by nutrient category with checkboxes.
+// ─── Category helpers ─────────────────────────────────────────────────────────
+
+IconData _categoryIcon(NutrientCategory cat) {
+  switch (cat) {
+    case NutrientCategory.macro:
+      return Icons.restaurant_rounded;
+    case NutrientCategory.subMacro:
+      return Icons.grain_rounded;
+    case NutrientCategory.mineral:
+      return Icons.diamond_outlined;
+    case NutrientCategory.vitamin:
+      return Icons.spa_outlined;
+    case NutrientCategory.fattyAcid:
+      return Icons.water_drop_outlined;
+    case NutrientCategory.aminoAcid:
+      return Icons.science_outlined;
+  }
+}
+
+Color _categoryColor(NutrientCategory cat, ColorScheme scheme) {
+  switch (cat) {
+    case NutrientCategory.macro:
+      return scheme.primary;
+    case NutrientCategory.subMacro:
+      return scheme.secondary;
+    case NutrientCategory.mineral:
+      return scheme.tertiary;
+    case NutrientCategory.vitamin:
+      return scheme.primary;
+    case NutrientCategory.fattyAcid:
+      return scheme.secondary;
+    case NutrientCategory.aminoAcid:
+      return scheme.tertiary;
+  }
+}
+
+// ─── Custom nutrient selector ─────────────────────────────────────────────────
+
 class CustomNutrientSelector extends StatefulWidget {
   const CustomNutrientSelector({
     super.key,
@@ -291,6 +329,15 @@ class _CustomNutrientSelectorState extends State<CustomNutrientSelector> {
       builder: (context, scrollController) {
         return Column(
           children: [
+            Container(
+              margin: const EdgeInsets.only(top: Spacing.sm),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 Spacing.md,
@@ -307,14 +354,12 @@ class _CustomNutrientSelectorState extends State<CustomNutrientSelector> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () {
-                      setState(() => _selected = {
-                        NutrientKey.kcal,
-                        NutrientKey.proteinG,
-                        NutrientKey.totalCarbsG,
-                        NutrientKey.totalFatG,
-                      });
-                    },
+                    onPressed: () => setState(() => _selected = {
+                          NutrientKey.kcal,
+                          NutrientKey.proteinG,
+                          NutrientKey.totalCarbsG,
+                          NutrientKey.totalFatG,
+                        }),
                     child: const Text('Reset'),
                   ),
                 ],
@@ -326,20 +371,10 @@ class _CustomNutrientSelectorState extends State<CustomNutrientSelector> {
                 controller: scrollController,
                 children: [
                   for (final cat in nutrientCategoryOrder) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Spacing.md,
-                        Spacing.md,
-                        Spacing.md,
-                        Spacing.xs,
-                      ),
-                      child: Text(
-                        nutrientCategoryLabels[cat] ?? cat.name,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: scheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                    _SelectorCategoryHeader(
+                      category: cat,
+                      scheme: scheme,
+                      theme: theme,
                     ),
                     for (final key in nutrientsInCategory(cat))
                       CheckboxListTile(
@@ -349,7 +384,7 @@ class _CustomNutrientSelectorState extends State<CustomNutrientSelector> {
                           style: theme.textTheme.bodyMedium,
                         ),
                         subtitle: Text(
-                          '${key.unit}${key.dailyValue != null ? ' · DV ${_fmtDv(key.dailyValue!, key.unit)}' : ''}',
+                          key.unit,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -379,10 +414,42 @@ class _CustomNutrientSelectorState extends State<CustomNutrientSelector> {
       },
     );
   }
+}
 
-  String _fmtDv(double v, String unit) {
-    if (v >= 100) return '${v.round()} $unit';
-    if (v >= 10) return '${v.toStringAsFixed(1)} $unit';
-    return '${v.toStringAsFixed(2)} $unit';
+class _SelectorCategoryHeader extends StatelessWidget {
+  const _SelectorCategoryHeader({
+    required this.category,
+    required this.scheme,
+    required this.theme,
+  });
+
+  final NutrientCategory category;
+  final ColorScheme scheme;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _categoryColor(category, scheme);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.md,
+        Spacing.md,
+        Spacing.md,
+        Spacing.xs,
+      ),
+      child: Row(
+        children: [
+          Icon(_categoryIcon(category), size: 15, color: accent),
+          const SizedBox(width: Spacing.xs),
+          Text(
+            nutrientCategoryLabels[category] ?? category.name,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: accent,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 final _nfInt = NumberFormat.decimalPattern();
+final _fmtDate = DateFormat.yMMMEd();
 
 class NutrientBreakdownScreen extends StatefulWidget {
   const NutrientBreakdownScreen({super.key});
@@ -39,7 +40,7 @@ class _NutrientBreakdownScreenState extends State<NutrientBreakdownScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nutrient Breakdown'),
+        title: const Text('Nutrient Log'),
         actions: [
           IconButton(
             icon: const Icon(Icons.tune),
@@ -48,9 +49,14 @@ class _NutrientBreakdownScreenState extends State<NutrientBreakdownScreen>
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+          preferredSize: const Size.fromHeight(52),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Spacing.md,
+              0,
+              Spacing.md,
+              Spacing.sm,
+            ),
             child: Container(
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
@@ -85,21 +91,28 @@ class _NutrientBreakdownScreenState extends State<NutrientBreakdownScreen>
         children: [
           _TodayTab(displayCtl: displayCtl),
           _RangeTab(
-            rangeLabel: 'Last 30 day average',
+            periodLabel: 'Monthly average',
+            days: 30,
             start: DateTime.now().subtract(const Duration(days: 30)),
             endExclusive: DateTime.now().add(const Duration(days: 1)),
+            displayCtl: displayCtl,
           ),
           _RangeTab(
-            rangeLabel: 'Last 365 day average',
+            periodLabel: 'Yearly average',
+            days: 365,
             start: DateTime.now().subtract(const Duration(days: 365)),
             endExclusive: DateTime.now().add(const Duration(days: 1)),
+            displayCtl: displayCtl,
           ),
         ],
       ),
     );
   }
 
-  void _openCustomSelector(BuildContext context, NutritionDisplayController ctl) {
+  void _openCustomSelector(
+    BuildContext context,
+    NutritionDisplayController ctl,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -110,6 +123,8 @@ class _NutrientBreakdownScreenState extends State<NutrientBreakdownScreen>
     );
   }
 }
+
+// ─── Today tab ────────────────────────────────────────────────────────────────
 
 class _TodayTab extends StatelessWidget {
   const _TodayTab({required this.displayCtl});
@@ -126,13 +141,18 @@ class _TodayTab extends StatelessWidget {
       builder: (context, snap) {
         final intake = snap.data ?? DailyIntakeTotals.zero;
         return ListView(
-          padding: const EdgeInsets.all(Spacing.md),
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.md, Spacing.md, Spacing.md, Spacing.xl,
+          ),
           children: [
-            _MacroSummaryCard(intake: intake),
+            _IntakeHeaderCard(
+              title: 'Today',
+              subtitle: _fmtDate.format(today),
+              intake: intake,
+            ),
             const SizedBox(height: Spacing.md),
             DetailedNutrientBreakdown(
               intake: intake,
-              mode: displayCtl.mode,
               customSelection: displayCtl.customSelection,
             ),
           ],
@@ -142,21 +162,26 @@ class _TodayTab extends StatelessWidget {
   }
 }
 
+// ─── Range tab ────────────────────────────────────────────────────────────────
+
 class _RangeTab extends StatelessWidget {
   const _RangeTab({
-    required this.rangeLabel,
+    required this.periodLabel,
+    required this.days,
     required this.start,
     required this.endExclusive,
+    required this.displayCtl,
   });
 
-  final String rangeLabel;
+  final String periodLabel;
+  final int days;
   final DateTime start;
   final DateTime endExclusive;
+  final NutritionDisplayController displayCtl;
 
   @override
   Widget build(BuildContext context) {
     final repo = context.read<CalTrackRepository>();
-    final displayCtl = context.watch<NutritionDisplayController>();
     final scheme = Theme.of(context).colorScheme;
 
     return FutureBuilder<({DailyIntakeTotals totals, int distinctDays})>(
@@ -165,57 +190,47 @@ class _RangeTab extends StatelessWidget {
         if (!snap.hasData) {
           return Center(
             child: CircularProgressIndicator(
-              strokeWidth: 3,
+              strokeWidth: 2.5,
               color: scheme.primary,
             ),
           );
         }
+
         final result = snap.data!;
-        final days = result.distinctDays;
-        if (days == 0) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(Spacing.lg),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.inbox_outlined, size: 64, color: scheme.onSurfaceVariant.withValues(alpha: 0.4)),
-                  const SizedBox(height: Spacing.md),
-                  Text(
-                    'No entries logged yet',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          );
+        final logged = result.distinctDays;
+
+        if (logged == 0) {
+          return _EmptyState(periodLabel: periodLabel);
         }
-        final avgIntake = DailyIntakeTotals(
-          kcal: result.totals.kcal / days,
-          proteinG: result.totals.proteinG / days,
-          carbsG: result.totals.carbsG / days,
-          sugarG: result.totals.sugarG / days,
-          fiberG: result.totals.fiberG / days,
-          fatG: result.totals.fatG / days,
-          extra: result.totals.extra.map((k, v) => MapEntry(k, v / days)),
+
+        final avg = DailyIntakeTotals(
+          kcal: result.totals.kcal / logged,
+          proteinG: result.totals.proteinG / logged,
+          carbsG: result.totals.carbsG / logged,
+          sugarG: result.totals.sugarG / logged,
+          fiberG: result.totals.fiberG / logged,
+          fatG: result.totals.fatG / logged,
+          extra: result.totals.extra.map((k, v) => MapEntry(k, v / logged)),
         );
 
         return ListView(
-          padding: const EdgeInsets.all(Spacing.md),
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.md,
+            Spacing.md,
+            Spacing.md,
+            Spacing.xl,
+          ),
           children: [
-            _RangeHeader(
-              rangeLabel: rangeLabel,
-              days: days,
-              kcalTotal: result.totals.kcal.round(),
+            _IntakeHeaderCard(
+              title: periodLabel,
+              subtitle: '$logged of $days days tracked',
+              footerNote:
+                  '${_nfInt.format(result.totals.kcal.round())} kcal total in period',
+              intake: avg,
             ),
             const SizedBox(height: Spacing.md),
-            _MacroSummaryCard(intake: avgIntake),
-            const SizedBox(height: Spacing.md),
             DetailedNutrientBreakdown(
-              intake: avgIntake,
-              mode: displayCtl.mode,
+              intake: avg,
               customSelection: displayCtl.customSelection,
             ),
           ],
@@ -225,104 +240,116 @@ class _RangeTab extends StatelessWidget {
   }
 }
 
-class _RangeHeader extends StatelessWidget {
-  const _RangeHeader({
-    required this.rangeLabel,
-    required this.days,
-    required this.kcalTotal,
+// ─── Unified header card ──────────────────────────────────────────────────────
+
+class _IntakeHeaderCard extends StatelessWidget {
+  const _IntakeHeaderCard({
+    required this.title,
+    required this.intake,
+    this.subtitle,
+    this.footerNote,
   });
 
-  final String rangeLabel;
-  final int days;
-  final int kcalTotal;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: scheme.primaryContainer,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            rangeLabel,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: scheme.onPrimaryContainer,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(width: Spacing.sm),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            '$days day${days == 1 ? '' : 's'} · $_nfInt($kcalTotal) kcal total',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MacroSummaryCard extends StatelessWidget {
-  const _MacroSummaryCard({required this.intake});
-
+  final String title;
   final DailyIntakeTotals intake;
+  final String? subtitle;
+  final String? footerNote;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final onCard = scheme.onPrimaryContainer;
 
     return Container(
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: scheme.outlineVariant,
-          width: 0.5,
-        ),
+        color: scheme.primaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(20),
       ),
-      padding: const EdgeInsets.all(Spacing.md),
-      child: Row(
+      padding: const EdgeInsets.all(Spacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _MiniValue(
-            color: scheme.primary,
-            label: 'Cal',
-            value: '${intake.kcal.round()}',
-            sub: 'kcal',
+          // ── Period label + date ──
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  title.toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: onCard.withValues(alpha: 0.55),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: onCard.withValues(alpha: 0.5),
+                  ),
+                ),
+            ],
           ),
-          _Divider(height: 32, color: scheme.outlineVariant),
-          _MiniValue(
-            color: scheme.primary,
-            label: 'P',
-            value: '${intake.proteinG.round()}',
-            sub: 'g',
+          const SizedBox(height: Spacing.sm),
+
+          // ── Calories – big number ──
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _nfInt.format(intake.kcal.round()),
+                style: theme.textTheme.displaySmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: onCard,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text(
+                  'kcal',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: onCard.withValues(alpha: 0.6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
-          _Divider(height: 32, color: scheme.outlineVariant),
-          _MiniValue(
-            color: scheme.tertiary,
-            label: 'C',
-            value: '${intake.carbsG.round()}',
-            sub: 'g',
+
+          if (footerNote != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              footerNote!,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: onCard.withValues(alpha: 0.45),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: Spacing.md),
+          Divider(
+            height: 1,
+            thickness: 0.5,
+            color: onCard.withValues(alpha: 0.15),
           ),
-          _Divider(height: 32, color: scheme.outlineVariant),
-          _MiniValue(
-            color: scheme.secondary,
-            label: 'F',
-            value: '${intake.fatG.round()}',
-            sub: 'g',
+          const SizedBox(height: Spacing.md),
+
+          // ── Three macros ──
+          Row(
+            children: [
+              _MacroColumn(
+                label: 'Protein',
+                value: intake.proteinG,
+                color: onCard,
+              ),
+              _MacroColumn(label: 'Carbs', value: intake.carbsG, color: onCard),
+              _MacroColumn(label: 'Fat', value: intake.fatG, color: onCard),
+            ],
           ),
         ],
       ),
@@ -330,73 +357,86 @@ class _MacroSummaryCard extends StatelessWidget {
   }
 }
 
-class _MiniValue extends StatelessWidget {
-  const _MiniValue({
-    required this.color,
+class _MacroColumn extends StatelessWidget {
+  const _MacroColumn({
     required this.label,
     required this.value,
-    required this.sub,
+    required this.color,
   });
 
-  final Color color;
   final String label;
-  final String value;
-  final String sub;
+  final double value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color.withValues(alpha: 0.5),
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${value.round()} g',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.periodLabel});
+
+  final String periodLabel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Expanded(
-      child: Column(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(Spacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.bar_chart_outlined,
+              size: 56,
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.3),
             ),
-            child: Center(
-              child: Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                ),
+            const SizedBox(height: Spacing.md),
+            Text(
+              'Nothing logged yet',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+            const SizedBox(height: Spacing.xs),
+            Text(
+              'Log some food and your $periodLabel\nwill appear here.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.65),
+              ),
             ),
-          ),
-          Text(
-            sub,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider({required this.height, required this.color});
-
-  final double height;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: VerticalDivider(width: 1, thickness: 1, color: color),
     );
   }
 }
