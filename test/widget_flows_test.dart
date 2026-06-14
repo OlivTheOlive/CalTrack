@@ -1,3 +1,4 @@
+import 'package:caltrack/app/dev_options_controller.dart';
 import 'package:caltrack/app/meal_time_controller.dart';
 import 'package:caltrack/app/nutrition_display_controller.dart';
 import 'package:caltrack/app/profile_controller.dart';
@@ -40,6 +41,9 @@ Widget _wrapWithProviders({
       ChangeNotifierProvider<ThemeController>.value(value: themeCtl),
       ChangeNotifierProvider<MealTimeController>.value(
         value: MealTimeController(prefs),
+      ),
+      ChangeNotifierProvider<DevOptionsController>.value(
+        value: DevOptionsController(prefs),
       ),
       ChangeNotifierProvider<NutritionDisplayController>.value(
         value: nutritionDisplayCtl,
@@ -113,6 +117,9 @@ void main() {
             ChangeNotifierProvider<ThemeController>.value(value: themeCtl),
             ChangeNotifierProvider<MealTimeController>.value(
               value: MealTimeController(prefs),
+            ),
+            ChangeNotifierProvider<DevOptionsController>.value(
+              value: DevOptionsController(prefs),
             ),
             ChangeNotifierProvider<NutritionDisplayController>.value(
               value: nutritionDisplayCtl,

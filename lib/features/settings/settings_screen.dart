@@ -1,4 +1,5 @@
 import 'package:caltrack/app/app_snackbar.dart';
+import 'package:caltrack/app/dev_options_controller.dart';
 import 'package:caltrack/app/meal_time_controller.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/app/theme_controller.dart';
@@ -201,6 +202,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+              if (context.watch<DevOptionsController>().enabled)
+                _SettingsSection(
+                  title: 'Developer options',
+                  icon: Icons.developer_mode,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.notifications_active_outlined),
+                      title: const Text('Trigger test notification'),
+                      subtitle: const Text('Immediately sends a test notification to verify the channel is working.'),
+                      onTap: () async {
+                        await NotificationService.instance.showTestNotification();
+                        if (!context.mounted) return;
+                        context.showAppSnackBar('Test notification requested');
+                      },
+                    ),
+                  ],
+                ),
               _SettingsSection(
                 title: 'About',
                 icon: Icons.info_outline,
@@ -1001,7 +1019,10 @@ class _VersionInfoTile extends StatelessWidget {
           title: Text('CalTrack v$version$buildNumber'),
           subtitle: const Text('Check for updates on GitHub.'),
           trailing: const Icon(Icons.open_in_new),
-          onTap: () async {
+          onTap: () {
+            context.read<DevOptionsController>().handleUnlockTap(context);
+          },
+          onLongPress: () async {
             final uri = Uri.parse(
               'https://github.com/OlivTheOlive/CalTrack/releases',
             );
