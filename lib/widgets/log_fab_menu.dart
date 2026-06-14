@@ -22,6 +22,7 @@ class LogFabMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final mainFab = FloatingActionButton(
       onPressed: onToggle,
       tooltip: isOpen ? 'Close menu' : 'Add entry',

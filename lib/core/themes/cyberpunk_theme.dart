@@ -156,6 +156,10 @@ ThemeData _cyberpunkBase(ColorScheme colorScheme, {required Color scaffoldBg}) {
       filled: true,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
     ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: colorScheme.primary,
+      foregroundColor: colorScheme.onPrimary,
+    ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),

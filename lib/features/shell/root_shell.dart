@@ -105,7 +105,7 @@ class _RootShellState extends State<RootShell>
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: _closeFabMenu,
-                child: Container(color: scheme.scrim.withValues(alpha: 0.32)),
+                child: Container(color: Colors.transparent),
               ),
             ),
           ),
