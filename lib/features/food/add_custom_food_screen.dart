@@ -17,12 +17,17 @@ class AddCustomFoodScreen extends StatefulWidget {
     super.key,
     this.initialBarcode,
     this.existingFood,
+    this.loggedAtForEdit,
   });
 
   final String? initialBarcode;
 
   /// When non-null, the screen is in **edit mode** for this custom food.
   final CustomFood? existingFood;
+
+  /// Timestamp used when the user taps "Save & log" from an alternate-day
+  /// [LogFoodScreen]. Null defaults to the current time.
+  final DateTime? loggedAtForEdit;
 
   bool get isEdit => existingFood != null;
 
@@ -291,6 +296,7 @@ class _AddCustomFoodScreenState extends State<AddCustomFoodScreen> {
             : const <CatalogGroupPreset>[],
         initialPresetLabel: serving > 0 ? 'serving' : null,
         showPresetPicker: false,
+        loggedAtForEdit: widget.loggedAtForEdit,
       ),
     );
     if (!mounted) return;

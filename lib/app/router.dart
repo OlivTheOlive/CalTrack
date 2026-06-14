@@ -85,9 +85,11 @@ GoRouter createRouter(ProfileController profileController) {
           final extra = state.extra;
           final barcode = extra is Map ? extra['barcode'] as String? : null;
           final existingFood = extra is Map ? extra['existingFood'] as CustomFood? : null;
+          final loggedAtForEdit = extra is Map ? extra['loggedAtForEdit'] as DateTime? : null;
           return AddCustomFoodScreen(
             initialBarcode: barcode,
             existingFood: existingFood,
+            loggedAtForEdit: loggedAtForEdit,
           );
         },
       ),

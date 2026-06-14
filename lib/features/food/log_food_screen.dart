@@ -31,7 +31,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
   bool _searching = false;
   String _lastQuery = '';
   Map<String, int> _foodFrequencies = const {};
-  late Future<List<FoodLogEntry>> _recentFuture;
+  late Future<List<FoodLogEntry>> _recentFuture = Future.value([]);
 
   bool get _hasQuery => _search.text.trim().length >= 2;
 
@@ -187,6 +187,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
         presets: presets,
         initialPresetLabel: presets.isNotEmpty ? presets.first.label : null,
         showPresetPicker: presets.length > 1,
+        loggedAtForEdit: _initialLoggedAt(),
       ),
     );
     if (!mounted || action == null) return;
@@ -395,7 +396,10 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                             key: const ValueKey('add'),
                             padding: const EdgeInsets.only(left: 8),
                             child: _AddCustomFoodButton(
-                              onPressed: () => context.push('/add-custom-food'),
+                              onPressed: () => context.push(
+                                '/add-custom-food',
+                                extra: {'loggedAtForEdit': _initialLoggedAt()},
+                              ),
                             ),
                           ),
                   ),
