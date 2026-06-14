@@ -316,10 +316,54 @@ class _CustomNutrientSelectorState extends State<CustomNutrientSelector> {
     _selected = Set.from(widget.selection);
   }
 
+  bool get _isAllSelected => _selected.length == NutrientKey.values.length;
+
+  void _notify() => widget.onChanged(Set.of(_selected));
+
+  void _selectAll() {
+    setState(() => _selected = Set.of(NutrientKey.values));
+    _notify();
+  }
+
+  void _reset() {
+    setState(() => _selected = {
+          NutrientKey.kcal,
+          NutrientKey.proteinG,
+          NutrientKey.totalCarbsG,
+          NutrientKey.totalFatG,
+        });
+    _notify();
+  }
+
+  void _toggleCategory(NutrientCategory category) {
+    final categoryKeys = nutrientsInCategory(category).toSet();
+    final allSelected = categoryKeys.every(_selected.contains);
+    setState(() {
+      if (allSelected) {
+        _selected.removeAll(categoryKeys);
+      } else {
+        _selected.addAll(categoryKeys);
+      }
+    });
+    _notify();
+  }
+
+  void _toggleKey(NutrientKey key, bool selected) {
+    setState(() {
+      if (selected) {
+        _selected.add(key);
+      } else {
+        _selected.remove(key);
+      }
+    });
+    _notify();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final total = NutrientKey.values.length;
 
     return DraggableScrollableSheet(
       expand: false,
@@ -345,22 +389,38 @@ class _CustomNutrientSelectorState extends State<CustomNutrientSelector> {
                 Spacing.md,
                 Spacing.xs,
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Tracked nutrients',
-                      style: theme.textTheme.titleLarge,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Tracked nutrients',
+                          style: theme.textTheme.titleLarge,
+                        ),
+                      ),
+                      Wrap(
+                        spacing: 0,
+                        children: [
+                          TextButton(
+                            onPressed: _isAllSelected ? null : _selectAll,
+                            child: const Text('Select all'),
+                          ),
+                          TextButton(
+                            onPressed: _reset,
+                            child: const Text('Reset'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: () => setState(() => _selected = {
-                          NutrientKey.kcal,
-                          NutrientKey.proteinG,
-                          NutrientKey.totalCarbsG,
-                          NutrientKey.totalFatG,
-                        }),
-                    child: const Text('Reset'),
+                  Text(
+                    '${_selected.length} of $total selected',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -369,43 +429,15 @@ class _CustomNutrientSelectorState extends State<CustomNutrientSelector> {
             Expanded(
               child: ListView(
                 controller: scrollController,
+                padding: const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.xl),
                 children: [
-                  for (final cat in nutrientCategoryOrder) ...[
-                    _SelectorCategoryHeader(
+                  for (final cat in nutrientCategoryOrder)
+                    _SelectorCategoryCard(
                       category: cat,
-                      scheme: scheme,
-                      theme: theme,
+                      selected: _selected,
+                      onToggleCategory: () => _toggleCategory(cat),
+                      onToggleKey: _toggleKey,
                     ),
-                    for (final key in nutrientsInCategory(cat))
-                      CheckboxListTile(
-                        dense: true,
-                        title: Text(
-                          key.displayName,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        subtitle: Text(
-                          key.unit,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                        value: _selected.contains(key),
-                        onChanged: (checked) {
-                          setState(() {
-                            if (checked == true) {
-                              _selected.add(key);
-                            } else {
-                              _selected.remove(key);
-                            }
-                          });
-                          widget.onChanged(_selected);
-                        },
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: Spacing.md,
-                        ),
-                      ),
-                  ],
-                  const SizedBox(height: Spacing.xl),
                 ],
               ),
             ),
@@ -416,39 +448,212 @@ class _CustomNutrientSelectorState extends State<CustomNutrientSelector> {
   }
 }
 
-class _SelectorCategoryHeader extends StatelessWidget {
-  const _SelectorCategoryHeader({
+// ─── Category card in selector ───────────────────────────────────────────────
+
+class _SelectorCategoryCard extends StatelessWidget {
+  const _SelectorCategoryCard({
     required this.category,
-    required this.scheme,
-    required this.theme,
+    required this.selected,
+    required this.onToggleCategory,
+    required this.onToggleKey,
   });
 
   final NutrientCategory category;
-  final ColorScheme scheme;
-  final ThemeData theme;
+  final Set<NutrientKey> selected;
+  final VoidCallback onToggleCategory;
+  final void Function(NutrientKey key, bool selected) onToggleKey;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final accent = _categoryColor(category, scheme);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
+    final icon = _categoryIcon(category);
+    final label = nutrientCategoryLabels[category] ?? category.name;
+    final keys = nutrientsInCategory(category);
+    final selectedCount = keys.where(selected.contains).length;
+    final allSelected = selectedCount == keys.length;
+    final someSelected = selectedCount > 0 && !allSelected;
+
+    return StyledCard(
+      tone: CardTone.low,
+      margin: const EdgeInsets.fromLTRB(
+        Spacing.md,
+        0,
         Spacing.md,
         Spacing.md,
-        Spacing.md,
-        Spacing.xs,
       ),
-      child: Row(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(_categoryIcon(category), size: 15, color: accent),
-          const SizedBox(width: Spacing.xs),
-          Text(
-            nutrientCategoryLabels[category] ?? category.name,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: accent,
-              fontWeight: FontWeight.w700,
+          InkWell(
+            onTap: onToggleCategory,
+            borderRadius: Corners.radiusLg,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.md,
+                Spacing.sm,
+                Spacing.sm,
+                Spacing.sm,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.12),
+                      borderRadius: Corners.radiusMd,
+                    ),
+                    child: Icon(icon, size: 16, color: accent),
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: accent,
+                          ),
+                        ),
+                        Text(
+                          '$selectedCount of ${keys.length} selected',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      allSelected
+                          ? Icons.check_box
+                          : someSelected
+                              ? Icons.indeterminate_check_box_outlined
+                              : Icons.check_box_outline_blank,
+                      color: accent,
+                    ),
+                    tooltip: allSelected ? 'Deselect category' : 'Select category',
+                    onPressed: onToggleCategory,
+                  ),
+                ],
+              ),
             ),
           ),
+          const Divider(height: 1),
+          ...List.generate(
+            keys.length,
+            (i) {
+              final key = keys[i];
+              final isSelected = selected.contains(key);
+              return Column(
+                children: [
+                  _NutrientSelectorTile(
+                    nutrientKey: key,
+                    selected: isSelected,
+                    onChanged: (checked) => onToggleKey(key, checked),
+                  ),
+                  if (i < keys.length - 1)
+                    Divider(
+                      height: 1,
+                      indent: Spacing.md + 24 + Spacing.sm,
+                      endIndent: Spacing.md,
+                      color: scheme.outlineVariant.withValues(alpha: 0.4),
+                    ),
+                ],
+              );
+            },
+          ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Individual selectable nutrient row ──────────────────────────────────────
+
+class _NutrientSelectorTile extends StatelessWidget {
+  const _NutrientSelectorTile({
+    required this.nutrientKey,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final NutrientKey nutrientKey;
+  final bool selected;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return InkWell(
+      onTap: () => onChanged(!selected),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: 11,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    nutrientKey.displayName,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    nutrientKey.unit,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: Spacing.sm),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              transitionBuilder: (child, animation) =>
+                  ScaleTransition(scale: animation, child: child),
+              child: selected
+                  ? Container(
+                      key: const ValueKey('checked'),
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: scheme.primary,
+                        borderRadius: Corners.radiusSm,
+                      ),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: scheme.onPrimary,
+                      ),
+                    )
+                  : Container(
+                      key: const ValueKey('unchecked'),
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: scheme.outlineVariant),
+                        borderRadius: Corners.radiusSm,
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
