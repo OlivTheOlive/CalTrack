@@ -9,64 +9,53 @@ import 'package:provider/provider.dart';
 final _nfInt = NumberFormat.decimalPattern();
 final _fmtDate = DateFormat.yMMMEd();
 
-class NutrientBreakdownScreen extends StatefulWidget {
-  const NutrientBreakdownScreen({super.key});
-
-  @override
-  State<NutrientBreakdownScreen> createState() =>
-      _NutrientBreakdownScreenState();
-}
-
 enum _TimeRange { today, monthly, yearly }
 
-class _NutrientBreakdownScreenState extends State<NutrientBreakdownScreen> {
+/// Body for the "Nutrients" tab inside the root shell. Shows today,
+/// monthly-average and yearly-average nutrient breakdowns.
+class NutrientsTab extends StatefulWidget {
+  const NutrientsTab({super.key, this.bottomInset = 0});
+
+  final double bottomInset;
+
+  @override
+  State<NutrientsTab> createState() => _NutrientsTabState();
+}
+
+class _NutrientsTabState extends State<NutrientsTab> {
   _TimeRange _range = _TimeRange.today;
 
   @override
   Widget build(BuildContext context) {
     final displayCtl = context.watch<NutritionDisplayController>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nutrient Log'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.tune),
-            tooltip: 'Customize tracked nutrients',
-            onPressed: () => _openCustomSelector(context, displayCtl),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+      child: switch (_range) {
+        _TimeRange.today => _buildTodayTab(displayCtl, key: const ValueKey('today')),
+        _TimeRange.monthly => _buildRangeTab(
+            displayCtl: displayCtl,
+            key: const ValueKey('monthly'),
+            periodLabel: 'Monthly average',
+            days: 30,
+            start: DateTime.now().subtract(const Duration(days: 30)),
+            endExclusive: DateTime.now().add(const Duration(days: 1)),
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-          child: switch (_range) {
-            _TimeRange.today => _buildTodayTab(displayCtl, key: const ValueKey('today')),
-            _TimeRange.monthly => _buildRangeTab(
-                displayCtl: displayCtl,
-                key: const ValueKey('monthly'),
-                periodLabel: 'Monthly average',
-                days: 30,
-                start: DateTime.now().subtract(const Duration(days: 30)),
-                endExclusive: DateTime.now().add(const Duration(days: 1)),
-              ),
-            _TimeRange.yearly => _buildRangeTab(
-                displayCtl: displayCtl,
-                key: const ValueKey('yearly'),
-                periodLabel: 'Yearly average',
-                days: 365,
-                start: DateTime.now().subtract(const Duration(days: 365)),
-                endExclusive: DateTime.now().add(const Duration(days: 1)),
-              ),
-          },
-        ),
-      ),
+        _TimeRange.yearly => _buildRangeTab(
+            displayCtl: displayCtl,
+            key: const ValueKey('yearly'),
+            periodLabel: 'Yearly average',
+            days: 365,
+            start: DateTime.now().subtract(const Duration(days: 365)),
+            endExclusive: DateTime.now().add(const Duration(days: 1)),
+          ),
+      },
     );
   }
 
@@ -176,7 +165,10 @@ class _NutrientBreakdownScreenState extends State<NutrientBreakdownScreen> {
     );
   }
 
-  Widget _buildPeriodSelector(BuildContext context) {
+  Widget _buildPeriodSelector(
+    BuildContext context,
+    NutritionDisplayController displayCtl,
+  ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         Spacing.md,
@@ -184,31 +176,43 @@ class _NutrientBreakdownScreenState extends State<NutrientBreakdownScreen> {
         Spacing.md,
         Spacing.xs,
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: SegmentedButton<_TimeRange>(
-          showSelectedIcon: false,
-          segments: const [
-            ButtonSegment(
-              value: _TimeRange.today,
-              label: Text('Today'),
+      child: Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<_TimeRange>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: _TimeRange.today,
+                    label: Text('Today'),
+                  ),
+                  ButtonSegment(
+                    value: _TimeRange.monthly,
+                    label: Text('Monthly'),
+                  ),
+                  ButtonSegment(
+                    value: _TimeRange.yearly,
+                    label: Text('Yearly'),
+                  ),
+                ],
+                selected: {_range},
+                onSelectionChanged: (selected) {
+                  if (selected.isNotEmpty) {
+                    setState(() => _range = selected.first);
+                  }
+                },
+              ),
             ),
-            ButtonSegment(
-              value: _TimeRange.monthly,
-              label: Text('Monthly'),
-            ),
-            ButtonSegment(
-              value: _TimeRange.yearly,
-              label: Text('Yearly'),
-            ),
-          ],
-          selected: {_range},
-          onSelectionChanged: (selected) {
-            if (selected.isNotEmpty) {
-              setState(() => _range = selected.first);
-            }
-          },
-        ),
+          ),
+          const SizedBox(width: Spacing.sm),
+          IconButton(
+            tooltip: 'Customize tracked nutrients',
+            onPressed: () => _openCustomSelector(context, displayCtl),
+            icon: const Icon(Icons.tune),
+          ),
+        ],
       ),
     );
   }
@@ -218,15 +222,16 @@ class _NutrientBreakdownScreenState extends State<NutrientBreakdownScreen> {
     _IntakeHeaderCard? header,
     required List<Widget> trailing,
   }) {
+    final displayCtl = context.read<NutritionDisplayController>();
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         Spacing.md,
         0,
         Spacing.md,
-        Spacing.xl,
+        Spacing.xl + widget.bottomInset,
       ),
       children: [
-        _buildPeriodSelector(context),
+        _buildPeriodSelector(context, displayCtl),
         if (header != null) ...[
           header,
           const SizedBox(height: Spacing.md),

@@ -369,7 +369,6 @@ class _TodaySummaryCard extends StatelessWidget {
                   ),
                 ),
               ),
-              _NutrientsChip(),
             ],
           ),
           const SizedBox(height: Spacing.md),
@@ -443,44 +442,6 @@ class _TodaySummaryCard extends StatelessWidget {
             isLast: true,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _NutrientsChip extends StatelessWidget {
-  const _NutrientsChip();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: () => context.push('/nutrients'),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: scheme.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'All nutrients',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: scheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.chevron_right,
-              size: 14,
-              color: scheme.onPrimaryContainer,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1212,7 +1173,6 @@ class _FoodLogTile extends StatelessWidget {
         initialPresetLabel: initialPresetLabel,
         initialPresetQty: initialPresetQty,
         initialMealPeriod: MealPeriod.fromDb(entry.mealPeriod),
-        initialIsPlanned: entry.isPlanned,
       ),
     );
   }

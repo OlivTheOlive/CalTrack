@@ -37,7 +37,6 @@ class FoodEntrySheetConfig {
     this.initialPresetLabel,
     this.initialPresetQty,
     this.initialMealPeriod,
-    this.initialIsPlanned = false,
     this.showPresetPicker = true,
   });
 
@@ -75,9 +74,6 @@ class FoodEntrySheetConfig {
 
   /// Initial meal period selection.
   final MealPeriod? initialMealPeriod;
-
-  /// Whether the entry is planned (pre-logged for future).
-  final bool initialIsPlanned;
 
   /// When false, hides the preset dropdown even when there are presets.
   /// Useful for single-preset foods (e.g. custom foods with one serving).
@@ -128,14 +124,12 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   CatalogGroupPreset? _selectedPreset;
 
   MealPeriod? _selectedPeriod;
-  bool _isPlanned = false;
 
   @override
   void initState() {
     super.initState();
     _mode = widget.config.hasPresets ? _AmountMode.servings : _AmountMode.grams;
     _selectedPeriod = widget.config.initialMealPeriod;
-    _isPlanned = widget.config.initialIsPlanned;
     if (widget.config.hasPresets) {
       _selectedPreset = _resolveInitialPreset();
       final qty = widget.config.initialPresetQty ?? _inferQtyFromGrams();
@@ -390,7 +384,6 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
           fatG: scaled.fatG,
           loggedAt: widget.config.loggedAtForEdit,
           mealPeriod: _selectedPeriod,
-          isPlanned: _isPlanned,
         );
         await _persistLastServing();
         if (!mounted) return;
@@ -589,14 +582,6 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
               onChanged: (p) => setState(() => _selectedPeriod = p),
               enabled: !_busy,
             ),
-            if (!cfg.isEdit) ...[
-              const SizedBox(height: 12),
-              PlannedToggle(
-                value: _isPlanned,
-                onChanged: (v) => setState(() => _isPlanned = v),
-                enabled: !_busy,
-              ),
-            ],
             const SizedBox(height: 20),
             if (cfg.isEdit)
               Row(
@@ -926,12 +911,6 @@ class MealPeriodPicker extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              FilterChip(
-                label: const Text('None'),
-                selected: selected == null,
-                onSelected: enabled ? (_) => onChanged(null) : null,
-              ),
-              const SizedBox(width: 8),
               for (final period in MealPeriod.values)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -952,29 +931,3 @@ class MealPeriodPicker extends StatelessWidget {
 }
 
 /// Toggle to mark the entry as planned (pre-logged for future).
-class PlannedToggle extends StatelessWidget {
-  const PlannedToggle({
-    super.key,
-    required this.value,
-    required this.onChanged,
-    this.enabled = true,
-  });
-
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    return SwitchListTile(
-      title: const Text('Plan for future'),
-      subtitle: const Text(
-        'Pre-log this entry. It will count toward daily totals.',
-      ),
-      value: value,
-      onChanged: enabled ? onChanged : null,
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-    );
-  }
-}
