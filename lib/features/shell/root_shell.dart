@@ -1,6 +1,7 @@
 import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/features/dashboard/home_screen.dart';
 import 'package:caltrack/features/food/quick_add_sheet.dart';
+import 'package:caltrack/features/nutrients/nutrients_tab.dart';
 import 'package:caltrack/features/weight/weight_analytics_tab.dart';
 import 'package:caltrack/widgets/log_fab_menu.dart';
 import 'package:flutter/material.dart';
@@ -93,6 +94,7 @@ class _RootShellState extends State<RootShell>
             children: [
               DashboardTab(bottomInset: bottomInset),
               WeightAnalyticsTab(bottomInset: bottomInset),
+              NutrientsTab(bottomInset: bottomInset),
             ],
           ),
           IgnorePointer(
@@ -103,7 +105,7 @@ class _RootShellState extends State<RootShell>
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: _closeFabMenu,
-                child: Container(color: scheme.scrim.withValues(alpha: 0.32)),
+                child: Container(color: Colors.transparent),
               ),
             ),
           ),
@@ -145,6 +147,11 @@ class _RootShellState extends State<RootShell>
             icon: Icon(Icons.monitor_weight_outlined),
             selectedIcon: Icon(Icons.monitor_weight),
             label: 'Weight',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: 'Nutrients',
           ),
         ],
       ),

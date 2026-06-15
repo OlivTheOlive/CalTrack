@@ -72,7 +72,14 @@ class NotificationService {
 
       while (scheduled.weekday != profile.reminderWeekday ||
           !scheduled.isAfter(now)) {
-        scheduled = scheduled.add(const Duration(days: 1));
+        scheduled = tz.TZDateTime(
+          tz.local,
+          scheduled.year,
+          scheduled.month,
+          scheduled.day + 1,
+          profile.reminderHour,
+          profile.reminderMinute,
+        );
       }
 
       const android = AndroidNotificationDetails(
@@ -114,5 +121,27 @@ class NotificationService {
 
   Future<void> cancelWeekly() async {
     await _plugin.cancel(_weeklyNotificationId);
+  }
+
+  /// Triggers a test notification immediately for debugging purposes.
+  Future<void> showTestNotification() async {
+    if (!_initialized) return;
+
+    const android = AndroidNotificationDetails(
+      'caltrack_test',
+      'Test Notifications',
+      channelDescription: 'Developer test notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const details = NotificationDetails(android: android);
+
+    await _plugin.show(
+      999, // test ID
+      'CalTrack Test',
+      'This is a test notification triggered from Dev Options.',
+      details,
+      payload: '/log-weight',
+    );
   }
 }

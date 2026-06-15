@@ -54,7 +54,6 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
   bool _busy = false;
   bool _submitted = false; // only show errors after first save attempt
   MealPeriod? _selectedPeriod;
-  bool _isPlanned = false;
 
 @override
   void initState() {
@@ -65,7 +64,6 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
       _nameCtrl.text = entry.displayName;
       _kcalCtrl.text = _fmt(entry.kcal);
       _selectedPeriod = MealPeriod.fromDb(entry.mealPeriod);
-      _isPlanned = entry.isPlanned;
       if (entry.proteinG > 0) {
         _proteinCtrl.text = _fmt(entry.proteinG);
         _macrosExpanded = true;
@@ -174,7 +172,6 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
           fatG: fat,
           loggedAt: widget.loggedAt,
           mealPeriod: _selectedPeriod,
-          isPlanned: _isPlanned,
         );
       }
       if (!mounted) return;
@@ -388,14 +385,6 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
               onChanged: (p) => setState(() => _selectedPeriod = p),
               enabled: !_busy,
             ),
-            if (!widget.isEdit) ...[
-              const SizedBox(height: 8),
-              PlannedToggle(
-                value: _isPlanned,
-                onChanged: (v) => setState(() => _isPlanned = v),
-                enabled: !_busy,
-              ),
-            ],
             const SizedBox(height: 24),
 
             // ---- Action buttons -----------------------------------------

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:caltrack/core/nutrients.dart';
 import 'package:caltrack/core/nutrition_label_parser.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:camera/camera.dart';
@@ -22,6 +23,7 @@ class NutritionFactsDraft {
     this.sugarG,
     this.fiberG,
     this.proteinG,
+    this.extraNutrients = const {},
   });
 
   final double? servingSize;
@@ -32,6 +34,7 @@ class NutritionFactsDraft {
   final double? sugarG;
   final double? fiberG;
   final double? proteinG;
+  final Map<NutrientKey, double> extraNutrients;
 }
 
 /// Nutrition label scan flow (OCR + highlight animation).
@@ -353,6 +356,7 @@ class _NutritionLabelScanScreenState extends State<NutritionLabelScanScreen>
         sugarG: p.draft.sugarG,
         fiberG: p.draft.fiberG,
         proteinG: p.draft.proteinG,
+        extraNutrients: p.draft.extraNutrients,
       ),
     );
   }

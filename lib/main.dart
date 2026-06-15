@@ -1,4 +1,6 @@
+import 'package:caltrack/app/dev_options_controller.dart';
 import 'package:caltrack/app/meal_time_controller.dart';
+import 'package:caltrack/app/nutrition_display_controller.dart';
 import 'package:caltrack/app/profile_controller.dart';
 import 'package:caltrack/app/router.dart';
 import 'package:caltrack/app/theme.dart';
@@ -29,7 +31,9 @@ Future<void> main() async {
   final profileController = ProfileController(repo);
   final prefs = await SharedPreferences.getInstance();
   final themeController = ThemeController(prefs);
+  final devOptionsController = DevOptionsController(prefs);
   final mealTimeController = MealTimeController(prefs);
+  final nutritionDisplayController = NutritionDisplayController(prefs);
 
   late final GoRouter router;
   router = createRouter(profileController);
@@ -52,7 +56,11 @@ Future<void> main() async {
         Provider<OpenNutritionCatalog>.value(value: catalog),
         ChangeNotifierProvider<ProfileController>.value(value: profileController),
         ChangeNotifierProvider<ThemeController>.value(value: themeController),
+        ChangeNotifierProvider<DevOptionsController>.value(value: devOptionsController),
         ChangeNotifierProvider<MealTimeController>.value(value: mealTimeController),
+        ChangeNotifierProvider<NutritionDisplayController>.value(
+          value: nutritionDisplayController,
+        ),
       ],
       child: CalTrackApp(router: router, repo: repo),
     ),

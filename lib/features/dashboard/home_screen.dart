@@ -358,12 +358,18 @@ class _TodaySummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            isToday ? 'Today' : _fmtMonthDay.format(selectedDay),
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-              letterSpacing: 0.5,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isToday ? 'Today' : _fmtMonthDay.format(selectedDay),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: Spacing.md),
           Row(
@@ -1167,7 +1173,6 @@ class _FoodLogTile extends StatelessWidget {
         initialPresetLabel: initialPresetLabel,
         initialPresetQty: initialPresetQty,
         initialMealPeriod: MealPeriod.fromDb(entry.mealPeriod),
-        initialIsPlanned: entry.isPlanned,
       ),
     );
   }
