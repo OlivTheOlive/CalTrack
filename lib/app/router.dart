@@ -7,6 +7,8 @@ import 'package:caltrack/features/food/barcode_scan_screen.dart';
 import 'package:caltrack/features/food/custom_foods_list_screen.dart';
 import 'package:caltrack/features/food/log_food_screen.dart';
 import 'package:caltrack/features/food/nutrition_label_scan_screen.dart';
+import 'package:caltrack/features/meals/meals_list_screen.dart';
+import 'package:caltrack/features/meals/create_meal_screen.dart';
 import 'package:caltrack/features/onboarding/onboarding_screen.dart';
 import 'package:caltrack/features/settings/data_tools_screen.dart';
 import 'package:caltrack/features/settings/settings_screen.dart';
@@ -95,6 +97,18 @@ GoRouter createRouter(ProfileController profileController) {
       GoRoute(
         path: '/custom-foods',
         builder: (context, state) => const CustomFoodsListScreen(),
+      ),
+      GoRoute(
+        path: '/meals',
+        builder: (context, state) => const MealsListScreen(),
+      ),
+      GoRoute(
+        path: '/create-meal',
+        builder: (context, state) {
+          final extra = state.extra;
+          final existingMeal = extra is Map ? extra['existingMeal'] as Meal? : null;
+          return CreateMealScreen(existingMeal: existingMeal);
+        },
       ),
       GoRoute(
         path: '/scan-nutrition-label',

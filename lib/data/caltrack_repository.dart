@@ -5,6 +5,7 @@ import 'package:caltrack/core/nutrition.dart';
 import 'package:caltrack/core/nutrients.dart';
 import 'package:caltrack/core/units.dart';
 import 'package:caltrack/data/app_database.dart';
+import 'package:caltrack/data/opennutrition_catalog.dart';
 import 'package:drift/drift.dart';
 
 export 'package:caltrack/data/app_database.dart'
@@ -1247,5 +1248,177 @@ class CalTrackRepository {
             );
       }
     });
+  }
+
+  // ---- Meals and MealItems ----
+
+  Future<List<Meal>> allMeals() async {
+    return (_db.select(_db.meals)
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+  }
+
+  Future<Meal?> mealById(int id) async {
+    return (_db.select(_db.meals)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+  }
+
+  Future<List<MealItem>> mealItemsForMeal(int mealId) async {
+    return (_db.select(_db.mealItems)..where((t) => t.mealId.equals(mealId)))
+        .get();
+  }
+
+  Future<int> upsertMeal({
+    int? id,
+    required String name,
+    String? description,
+    required double calories,
+    required double fatG,
+    required double carbsG,
+    required double sugarG,
+    required double fiberG,
+    required double proteinG,
+    required double totalGrams,
+    required int servingCount,
+    required String? servingLabel,
+    required String? extraNutrients,
+    required List<MealItemsCompanion> items,
+  }) async {
+    return _db.transaction(() async {
+      final mealCompanion = MealsCompanion(
+        id: id == null ? const Value.absent() : Value(id),
+        name: Value(name.trim()),
+        description: Value(description?.trim().isEmpty ?? true ? null : description!.trim()),
+        createdAt: Value(DateTime.now()),
+        calories: Value(calories),
+        fatG: Value(fatG),
+        carbsG: Value(carbsG),
+        sugarG: Value(sugarG),
+        fiberG: Value(fiberG),
+        proteinG: Value(proteinG),
+        extraNutrients: Value(extraNutrients),
+        totalGrams: Value(totalGrams),
+        servingCount: Value(servingCount),
+        servingLabel: Value(servingLabel?.trim().isEmpty ?? true ? null : servingLabel!.trim()),
+      );
+
+      final mealId = await _db.into(_db.meals).insertOnConflictUpdate(mealCompanion);
+
+      // If updating, delete existing items first to avoid orphan entries
+      if (id != null) {
+        await (_db.delete(_db.mealItems)..where((t) => t.mealId.equals(id))).go();
+      }
+
+      for (final item in items) {
+        final withMealId = item.copyWith(mealId: Value(mealId));
+        await _db.into(_db.mealItems).insert(withMealId);
+      }
+
+      return mealId;
+    });
+  }
+
+  Future<void> deleteMeal(int id) async {
+    await _db.transaction(() async {
+      await (_db.delete(_db.meals)..where((t) => t.id.equals(id))).go();
+      await (_db.delete(_db.mealItems)..where((t) => t.mealId.equals(id))).go();
+    });
+  }
+
+  // ---- Custom Food Servings ----
+
+  Future<List<CustomFoodServing>> customFoodServings(int customFoodId) async {
+    return (_db.select(_db.customFoodServings)
+          ..where((t) => t.customFoodId.equals(customFoodId))
+          ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+        .get();
+  }
+
+  Future<int> upsertCustomFoodServing({
+    int? id,
+    required int customFoodId,
+    required String label,
+    required double grams,
+    bool isDefault = false,
+    int sortOrder = 0,
+  }) async {
+    final companion = CustomFoodServingsCompanion(
+      id: id == null ? const Value.absent() : Value(id),
+      customFoodId: Value(customFoodId),
+      label: Value(label.trim()),
+      grams: Value(grams),
+      isDefault: Value(isDefault),
+      sortOrder: Value(sortOrder),
+    );
+    return _db.into(_db.customFoodServings).insertOnConflictUpdate(companion);
+  }
+
+  Future<void> deleteCustomFoodServing(int id) async {
+    await (_db.delete(_db.customFoodServings)..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<int> upsertCustomFoodWithServings({
+    int? id,
+    required String name,
+    String? brand,
+    String? barcode,
+    required double servingSize,
+    required String servingUnit,
+    required double calories,
+    required double fatG,
+    required double carbsG,
+    required double sugarG,
+    required double fiberG,
+    required double proteinG,
+    String? extraNutrients,
+    required List<CustomFoodServingsCompanion> servings,
+  }) async {
+    return _db.transaction(() async {
+      final companion = CustomFoodsCompanion(
+        id: id == null ? const Value.absent() : Value(id),
+        name: Value(name.trim()),
+        brand: Value(brand?.trim().isEmpty ?? true ? null : brand!.trim()),
+        barcode: Value(barcode == null ? null : normalizeBarcode(barcode)),
+        servingSize: Value(servingSize),
+        servingUnit: Value(servingUnit),
+        calories: Value(calories),
+        fatG: Value(fatG),
+        carbsG: Value(carbsG),
+        sugarG: Value(sugarG),
+        fiberG: Value(fiberG),
+        proteinG: Value(proteinG),
+        extraNutrients: Value(extraNutrients),
+      );
+
+      final customFoodId = await _db.into(_db.customFoods).insertOnConflictUpdate(companion);
+
+      // Delete existing servings for this custom food
+      await (_db.delete(_db.customFoodServings)
+            ..where((t) => t.customFoodId.equals(customFoodId)))
+          .go();
+
+      // Insert new ones
+      for (final s in servings) {
+        final withFoodId = s.copyWith(customFoodId: Value(customFoodId));
+        await _db.into(_db.customFoodServings).insertOnConflictUpdate(withFoodId);
+      }
+
+      return customFoodId;
+    });
+  }
+
+  /// Convert custom food serving rows into [CatalogGroupPreset] items so
+  /// the existing entry-sheet serving-mode UI works unchanged.
+  List<CatalogGroupPreset> presetsFromServings(
+    List<CustomFoodServing> servings,
+    int customFoodId,
+  ) {
+    return servings.map((s) => CatalogGroupPreset(
+      foodId: 'custom:$customFoodId',
+      label: s.label,
+      grams: s.grams,
+      isDefault: s.isDefault,
+      sortOrder: s.sortOrder,
+    )).toList();
   }
 }

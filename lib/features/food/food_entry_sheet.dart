@@ -1,5 +1,6 @@
 import 'package:caltrack/app/app_snackbar.dart';
 import 'package:caltrack/app/meal_time_controller.dart';
+import 'package:caltrack/core/nutrients.dart';
 import 'package:caltrack/core/nutrition_scaling.dart';
 import 'package:caltrack/core/validation.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
@@ -27,6 +28,8 @@ class FoodEntrySheetConfig {
     this.sugarPer100g = 0,
     this.fiberPer100g = 0,
     required this.fatPer100g,
+    this.extraNutrientsPer100g = const {},
+    this.onSelectIngredient,
     this.initialGrams = 100,
     this.editingEntryId,
     this.loggedAtForEdit,
@@ -50,6 +53,8 @@ class FoodEntrySheetConfig {
   final double sugarPer100g;
   final double fiberPer100g;
   final double fatPer100g;
+  final Map<NutrientKey, double> extraNutrientsPer100g;
+  final void Function(double grams, String label)? onSelectIngredient;
   final double initialGrams;
 
   /// When non-null, the sheet is in **edit mode** for this entry id.
@@ -347,10 +352,36 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
   Future<void> _save() async {
     final grams = _effectiveGrams();
     if (grams == null) return;
+
+    if (widget.config.onSelectIngredient != null) {
+      String label;
+      if (_mode == _AmountMode.servings && _selectedPreset != null) {
+        final qtyVal = parseDouble(_qty.text);
+        if (qtyVal != null) {
+          final isInteger = qtyVal == qtyVal.roundToDouble();
+          final formattedQty = isInteger ? qtyVal.round().toString() : qtyVal.toStringAsFixed(1);
+          label = '$formattedQty × ${_selectedPreset!.label}';
+        } else {
+          label = _selectedPreset!.label;
+        }
+      } else {
+        final isLiquid = widget.config.unitLabel == 'ml';
+        label = '${grams.round()}${isLiquid ? 'ml' : 'g'}';
+      }
+      widget.config.onSelectIngredient!(grams, label);
+      Navigator.of(context).pop(FoodEntryAction.added);
+      return;
+    }
+
     final scaled = _scale(grams);
     final factor = grams / 100.0;
     final sugar = widget.config.sugarPer100g * factor;
     final fiber = widget.config.fiberPer100g * factor;
+    final scaledExtra = widget.config.extraNutrientsPer100g.map(
+      (k, v) => MapEntry(k, v * factor),
+    );
+    final extraJson = encodeExtraNutrients(scaledExtra);
+
     final repo = context.read<CalTrackRepository>();
     setState(() => _busy = true);
     try {
@@ -365,6 +396,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
           fiberG: fiber,
           fatG: scaled.fatG,
           mealPeriod: _selectedPeriod,
+          extraNutrients: extraJson,
         );
         await _persistLastServing();
         if (!mounted) return;
@@ -384,6 +416,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
           fatG: scaled.fatG,
           loggedAt: widget.config.loggedAtForEdit,
           mealPeriod: _selectedPeriod,
+          extraNutrients: extraJson,
         );
         await _persistLastServing();
         if (!mounted) return;
@@ -576,12 +609,14 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
               const SizedBox(height: 12),
               const OpenNutritionAttribution(),
             ],
-            const SizedBox(height: 16),
-            MealPeriodPicker(
-              selected: _selectedPeriod,
-              onChanged: (p) => setState(() => _selectedPeriod = p),
-              enabled: !_busy,
-            ),
+            if (cfg.onSelectIngredient == null) ...[
+              const SizedBox(height: 16),
+              MealPeriodPicker(
+                selected: _selectedPeriod,
+                onChanged: (p) => setState(() => _selectedPeriod = p),
+                enabled: !_busy,
+              ),
+            ],
             const SizedBox(height: 20),
             if (cfg.isEdit)
               Row(
@@ -610,7 +645,7 @@ class _FoodEntrySheetState extends State<_FoodEntrySheet> {
               FilledButton.icon(
                 onPressed: saveEnabled ? _save : null,
                 icon: const Icon(Icons.add),
-                label: const Text('Add to diary'),
+                label: Text(widget.config.onSelectIngredient != null ? 'Add to recipe' : 'Add to diary'),
               ),
           ],
         ),

@@ -155,6 +155,70 @@ class FoodLogEntries extends Table {
   TextColumn get extraNutrients => text().nullable()();
 }
 
+class Meals extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get description => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  
+  // Total summary of standard macros
+  RealColumn get calories => real()();
+  RealColumn get fatG => real()();
+  RealColumn get carbsG => real()();
+  RealColumn get sugarG => real()();
+  RealColumn get fiberG => real()();
+  RealColumn get proteinG => real()();
+
+  // Total weight of all ingredients combined (grams)
+  RealColumn get totalGrams => real().withDefault(const Constant(0))();
+
+  // Serving count (how many servings this meal makes)
+  IntColumn get servingCount => integer().withDefault(const Constant(1))();
+
+  // Custom label of the serving (e.g. "1 bowl", "1 plate")
+  TextColumn get servingLabel => text().nullable()();
+
+  /// JSON blob for aggregated extended nutrients (vitamins, minerals, etc.)
+  TextColumn get extraNutrients => text().nullable()();
+}
+
+class MealItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get mealId => integer()(); // References Meals.id
+
+  TextColumn get foodSource => text()(); // opennutrition | custom
+  TextColumn get catalogFoodId => text().nullable()();
+  IntColumn get customFoodId => integer().nullable()();
+  TextColumn get displayName => text()();
+
+  RealColumn get grams => real()();
+
+  // Macros for this portion
+  RealColumn get kcal => real()();
+  RealColumn get proteinG => real()();
+  RealColumn get carbsG => real()();
+  RealColumn get fatG => real()();
+  RealColumn get sugarG => real()();
+  RealColumn get fiberG => real()();
+
+  /// JSON blob for extended nutrients for this item portion
+  TextColumn get extraNutrients => text().nullable()();
+}
+
+/// User-defined serving presets for custom foods.
+///
+/// Each custom food always has at least one serving.  Users can add extras
+/// like "1 cup (250 g)" or "1 slice (45 g)".  The [label] describes the
+/// serving (e.g. "1 bag") and [grams] is its mass.
+class CustomFoodServings extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get customFoodId => integer()();
+  TextColumn get label => text()(); // e.g. "1 bag", "1 cup", "1 slice"
+  RealColumn get grams => real()(); // mass of this serving
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+}
+
 @DriftDatabase(
   tables: [
     Profiles,
@@ -163,6 +227,9 @@ class FoodLogEntries extends Table {
     FoodPrefs,
     CustomFoods,
     FoodLogEntries,
+    Meals,
+    MealItems,
+    CustomFoodServings,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -171,7 +238,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -220,6 +287,18 @@ class AppDatabase extends _$AppDatabase {
           if (from < 8) {
             await m.addColumn(foodLogEntries, foodLogEntries.extraNutrients);
             await m.addColumn(customFoods, customFoods.extraNutrients);
+          }
+          if (from < 9) {
+            await m.createTable(meals);
+            await m.createTable(mealItems);
+          }
+          if (from < 10) {
+            await m.createTable(customFoodServings);
+            await m.addColumn(meals, meals.totalGrams);
+          }
+          if (from < 11) {
+            await m.addColumn(meals, meals.servingCount);
+            await m.addColumn(meals, meals.servingLabel);
           }
         },
       );

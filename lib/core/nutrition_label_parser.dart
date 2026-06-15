@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:caltrack/core/nutrients.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
@@ -7,10 +8,19 @@ enum NutritionField {
   servingSize,
   calories,
   totalFat,
+  saturatedFat,
+  transFat,
+  cholesterol,
+  sodium,
   totalCarbs,
-  sugar,
   fiber,
+  sugar,
+  addedSugars,
   protein,
+  vitaminD,
+  calcium,
+  iron,
+  potassium,
 }
 
 class ExtractedField<T> {
@@ -32,6 +42,7 @@ class NutritionParseResult {
     double? sugarG,
     double? fiberG,
     double? proteinG,
+    Map<NutrientKey, double> extraNutrients,
   })
   draft;
 
@@ -62,6 +73,18 @@ final RegExp _mlQuantity = RegExp(
   caseSensitive: false,
 );
 
+/// Matches a number followed by a milligram unit.
+final RegExp _mgQuantity = RegExp(
+  r'(\d+(?:[.,]\d+)?)\s*(?:mg|milligrams?)\b',
+  caseSensitive: false,
+);
+
+/// Matches a number followed by a microgram/mcg unit.
+final RegExp _mcgQuantity = RegExp(
+  r'(\d+(?:[.,]\d+)?)\s*(?:mcg|µg|ug|micrograms?)\b',
+  caseSensitive: false,
+);
+
 /// Bare number anywhere in the string.
 final RegExp _bareNumber = RegExp(r'(-?\d+(?:[.,]\d+)?)');
 
@@ -79,6 +102,14 @@ double? _firstGramQuantity(String s) =>
 /// First explicit `<n> ml` quantity in the line.
 double? _firstMlQuantity(String s) =>
     _toDouble(_mlQuantity.firstMatch(s)?.group(1));
+
+/// First explicit `<n> mg` quantity in the line.
+double? _firstMgQuantity(String s) =>
+    _toDouble(_mgQuantity.firstMatch(s)?.group(1));
+
+/// First explicit `<n> mcg` quantity in the line.
+double? _firstMcgQuantity(String s) =>
+    _toDouble(_mcgQuantity.firstMatch(s)?.group(1));
 
 /// A serving-size measurement preferring the LAST occurrence on the line so
 /// labels like "Per 1 cup (30 g)" pick the 30 g, not the 1.
@@ -164,6 +195,50 @@ final List<RegExp> _proteinPatterns = [
   RegExp(r'\bprot[ée]ines?\b', caseSensitive: false),
 ];
 
+final List<RegExp> _saturatedFatPatterns = [
+  RegExp(r'\bsaturated fat\b', caseSensitive: false),
+  RegExp(r'\bsaturated\b', caseSensitive: false),
+  RegExp(r'\bsatur[ée]s?\b', caseSensitive: false),
+];
+
+final List<RegExp> _transFatPatterns = [
+  RegExp(r'\btrans fat\b', caseSensitive: false),
+  RegExp(r'\btrans\b', caseSensitive: false),
+];
+
+final List<RegExp> _cholesterolPatterns = [
+  RegExp(r'\bcholesterol\b', caseSensitive: false),
+  RegExp(r'\bcholest[ée]rol\b', caseSensitive: false),
+];
+
+final List<RegExp> _sodiumPatterns = [
+  RegExp(r'\bsodium\b', caseSensitive: false),
+];
+
+final List<RegExp> _addedSugarsPatterns = [
+  RegExp(r'\badded sugars?\b', caseSensitive: false),
+  RegExp(r'\badded sugar\b', caseSensitive: false),
+  RegExp(r'^\s*includes?\s.*\badded sugars?\b', caseSensitive: false),
+];
+
+final List<RegExp> _vitaminDPatterns = [
+  RegExp(r'\bvitamin d\b', caseSensitive: false),
+  RegExp(r'\bvitamine d\b', caseSensitive: false),
+];
+
+final List<RegExp> _calciumPatterns = [
+  RegExp(r'\bcalcium\b', caseSensitive: false),
+];
+
+final List<RegExp> _ironPatterns = [
+  RegExp(r'\biron\b', caseSensitive: false),
+  RegExp(r'\bfer\b', caseSensitive: false),
+];
+
+final List<RegExp> _potassiumPatterns = [
+  RegExp(r'\bpotassium\b', caseSensitive: false),
+];
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -183,10 +258,19 @@ NutritionParseResult parseNutritionLabelFromLines(Iterable<OcrLine> lines) {
 
   ExtractedField<double>? calories;
   ExtractedField<double>? fat;
+  ExtractedField<double>? saturatedFat;
+  ExtractedField<double>? transFat;
+  ExtractedField<double>? cholesterol;
+  ExtractedField<double>? sodium;
   ExtractedField<double>? carbs;
   ExtractedField<double>? sugar;
+  ExtractedField<double>? addedSugars;
   ExtractedField<double>? fiber;
   ExtractedField<double>? protein;
+  ExtractedField<double>? vitaminD;
+  ExtractedField<double>? calcium;
+  ExtractedField<double>? iron;
+  ExtractedField<double>? potassium;
 
   double? servingSize;
   ServingUnit? servingUnit;
@@ -228,12 +312,55 @@ NutritionParseResult parseNutritionLabelFromLines(Iterable<OcrLine> lines) {
       }
     }
 
+    // Saturated Fat (checked before general fat so "Saturated Fat" is not consumed as general "Fat")
+    if (saturatedFat == null && _matchesAny(raw, _saturatedFatPatterns)) {
+      final n = _firstGramQuantity(raw) ?? _firstNumber(raw);
+      if (n != null) {
+        saturatedFat = ExtractedField(value: n, box: box);
+        continue;
+      }
+    }
+
+    // Trans Fat (checked before general fat)
+    if (transFat == null && _matchesAny(raw, _transFatPatterns)) {
+      final n = _firstGramQuantity(raw) ?? _firstNumber(raw);
+      if (n != null) {
+        transFat = ExtractedField(value: n, box: box);
+        continue;
+      }
+    }
+
     // Macros: prefer the gram-anchored number (skips "% Daily Value" digits
     // and other companions); fall back to the first bare number if needed.
     if (fat == null && _matchesAny(raw, _fatPatterns)) {
       final n = _firstGramQuantity(raw) ?? _firstNumber(raw);
       if (n != null) {
         fat = ExtractedField(value: n, box: box);
+        continue;
+      }
+    }
+
+    if (cholesterol == null && _matchesAny(raw, _cholesterolPatterns)) {
+      final n = _firstMgQuantity(raw) ?? _firstNumber(raw);
+      if (n != null) {
+        cholesterol = ExtractedField(value: n, box: box);
+        continue;
+      }
+    }
+
+    if (sodium == null && _matchesAny(raw, _sodiumPatterns)) {
+      final n = _firstMgQuantity(raw) ?? _firstNumber(raw);
+      if (n != null) {
+        sodium = ExtractedField(value: n, box: box);
+        continue;
+      }
+    }
+
+    // Added Sugars (checked before total sugars/carbs)
+    if (addedSugars == null && _matchesAny(raw, _addedSugarsPatterns)) {
+      final n = _firstGramQuantity(raw) ?? _firstNumber(raw);
+      if (n != null) {
+        addedSugars = ExtractedField(value: n, box: box);
         continue;
       }
     }
@@ -271,6 +398,38 @@ NutritionParseResult parseNutritionLabelFromLines(Iterable<OcrLine> lines) {
         continue;
       }
     }
+
+    if (vitaminD == null && _matchesAny(raw, _vitaminDPatterns)) {
+      final n = _firstMcgQuantity(raw) ?? _firstNumber(raw);
+      if (n != null) {
+        vitaminD = ExtractedField(value: n, box: box);
+        continue;
+      }
+    }
+
+    if (calcium == null && _matchesAny(raw, _calciumPatterns)) {
+      final n = _firstMgQuantity(raw) ?? _firstNumber(raw);
+      if (n != null) {
+        calcium = ExtractedField(value: n, box: box);
+        continue;
+      }
+    }
+
+    if (iron == null && _matchesAny(raw, _ironPatterns)) {
+      final n = _firstMgQuantity(raw) ?? _firstNumber(raw);
+      if (n != null) {
+        iron = ExtractedField(value: n, box: box);
+        continue;
+      }
+    }
+
+    if (potassium == null && _matchesAny(raw, _potassiumPatterns)) {
+      final n = _firstMgQuantity(raw) ?? _firstNumber(raw);
+      if (n != null) {
+        potassium = ExtractedField(value: n, box: box);
+        continue;
+      }
+    }
   }
 
   // Last-resort: if no serving header matched but the OCR contains a stand-
@@ -298,16 +457,36 @@ NutritionParseResult parseNutritionLabelFromLines(Iterable<OcrLine> lines) {
   final fields = <NutritionField, ExtractedField<double>>{};
   if (calories != null) fields[NutritionField.calories] = calories;
   if (fat != null) fields[NutritionField.totalFat] = fat;
+  if (saturatedFat != null) fields[NutritionField.saturatedFat] = saturatedFat;
+  if (transFat != null) fields[NutritionField.transFat] = transFat;
+  if (cholesterol != null) fields[NutritionField.cholesterol] = cholesterol;
+  if (sodium != null) fields[NutritionField.sodium] = sodium;
   if (carbs != null) fields[NutritionField.totalCarbs] = carbs;
   if (sugar != null) fields[NutritionField.sugar] = sugar;
+  if (addedSugars != null) fields[NutritionField.addedSugars] = addedSugars;
   if (fiber != null) fields[NutritionField.fiber] = fiber;
   if (protein != null) fields[NutritionField.protein] = protein;
+  if (vitaminD != null) fields[NutritionField.vitaminD] = vitaminD;
+  if (calcium != null) fields[NutritionField.calcium] = calcium;
+  if (iron != null) fields[NutritionField.iron] = iron;
+  if (potassium != null) fields[NutritionField.potassium] = potassium;
   if (servingSize != null && servingBox != null) {
     fields[NutritionField.servingSize] = ExtractedField(
       value: servingSize,
       box: servingBox,
     );
   }
+
+  final extra = <NutrientKey, double>{};
+  if (saturatedFat != null) extra[NutrientKey.saturatedFatG] = saturatedFat.value;
+  if (transFat != null) extra[NutrientKey.transFatG] = transFat.value;
+  if (cholesterol != null) extra[NutrientKey.cholesterolMg] = cholesterol.value;
+  if (sodium != null) extra[NutrientKey.sodiumMg] = sodium.value;
+  if (addedSugars != null) extra[NutrientKey.addedSugarsG] = addedSugars.value;
+  if (vitaminD != null) extra[NutrientKey.vitaminD2D3Ug] = vitaminD.value;
+  if (calcium != null) extra[NutrientKey.calciumMg] = calcium.value;
+  if (iron != null) extra[NutrientKey.ironMg] = iron.value;
+  if (potassium != null) extra[NutrientKey.potassiumMg] = potassium.value;
 
   return NutritionParseResult(
     draft: (
@@ -319,6 +498,7 @@ NutritionParseResult parseNutritionLabelFromLines(Iterable<OcrLine> lines) {
       sugarG: sugar?.value,
       fiberG: fiber?.value,
       proteinG: protein?.value,
+      extraNutrients: extra,
     ),
     fields: fields,
   );

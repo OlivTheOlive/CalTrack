@@ -187,6 +187,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     indent: Spacing.md,
                     endIndent: Spacing.md,
                   ),
+                  _SettingsNavTile(
+                    icon: Icons.dining_outlined,
+                    title: 'My MealPreps',
+                    subtitle: 'Create and manage your reusable MealPreps/recipes.',
+                    onTap: () => context.push('/meals'),
+                  ),
+                  const Divider(
+                    height: 1,
+                    indent: Spacing.md,
+                    endIndent: Spacing.md,
+                  ),
                   const _OpenFoodFactsTerms(),
                 ],
               ),

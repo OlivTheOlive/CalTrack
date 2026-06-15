@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LogFoodScreen extends StatefulWidget {
   const LogFoodScreen({super.key, this.initialDay});
@@ -121,14 +122,34 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
       _lastQuery = q;
     });
     try {
+      final recents = await _loadRecentSlow();
       final res = await Future.wait([
         catalog.search(q),
         repo.searchCustomFoods(q),
       ]);
       if (!mounted || _lastQuery != q) return;
+      final catRaw = _rankCatalog(res[0] as List<CatalogFood>);
+      final custRaw = _rankCustom(res[1] as List<CustomFood>);
+
+      // Boost recently selected items to the top
+      final boostedCust = List<CustomFood>.from(custRaw);
+      boostedCust.sort((a, b) {
+        final aRecent = recents.contains('cus:${a.id}') ? 1 : 0;
+        final bRecent = recents.contains('cus:${b.id}') ? 1 : 0;
+        if (aRecent != bRecent) return bRecent - aRecent;
+        return 0;
+      });
+      final boostedCat = List<CatalogFood>.from(catRaw);
+      boostedCat.sort((a, b) {
+        final aRecent = recents.contains('cat:${a.id}') ? 1 : 0;
+        final bRecent = recents.contains('cat:${b.id}') ? 1 : 0;
+        if (aRecent != bRecent) return bRecent - aRecent;
+        return 0;
+      });
+
       setState(() {
-        _results = _rankCatalog(res[0] as List<CatalogFood>);
-        _customResults = _rankCustom(res[1] as List<CustomFood>);
+        _results = boostedCat;
+        _customResults = boostedCust;
       });
     } finally {
       if (mounted) setState(() => _searching = false);
@@ -158,17 +179,24 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     final serving = food.servingSize;
     final factor = serving > 0 ? 100.0 / serving : 1.0;
     final unit = ServingUnit.values.byName(food.servingUnit);
-    final presets = serving > 0
-        ? [
-            CatalogGroupPreset(
-              foodId: 'custom:${food.id}',
-              label: 'serving',
-              grams: serving,
-              isDefault: true,
-              sortOrder: 0,
-            )
-          ]
-        : const <CatalogGroupPreset>[];
+
+    // Load custom serving presets from the database
+    final repo = context.read<CalTrackRepository>();
+    final servings = await repo.customFoodServings(food.id);
+    List<CatalogGroupPreset> presets;
+    if (servings.isNotEmpty) {
+      presets = repo.presetsFromServings(servings, food.id);
+    } else if (serving > 0) {
+      presets = [
+        CatalogGroupPreset(foodId: 'custom:${food.id}', label: '1 serving', grams: serving, isDefault: true, sortOrder: 0),
+      ];
+    } else {
+      presets = const [];
+    }
+
+    // Remember this selection for search boosting
+    await _recordRecentSelection('cus:${food.id}');
+
     final action = await showFoodEntrySheet(
       context,
       FoodEntrySheetConfig(
@@ -216,6 +244,9 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     final presets = group?.presets ?? const <CatalogGroupPreset>[];
     final defaultPreset = group?.defaultPreset;
     final resolved = initialGrams ?? (defaultPreset?.grams ?? 100.0);
+
+    // Remember this selection for search boosting
+    await _recordRecentSelection('cat:${canonical.id}');
 
     final action = await showFoodEntrySheet(
       context,
@@ -305,6 +336,23 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
           .read<CalTrackRepository>()
           .recentDistinctFoodLogs(limit: 15);
     });
+  }
+
+  static const _recentKey = 'recent_selections';
+
+  Future<List<String>> _loadRecentSlow() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_recentKey);
+    return raw ?? [];
+  }
+
+  Future<void> _recordRecentSelection(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_recentKey) ?? [];
+    raw.remove(key);
+    raw.insert(0, key);
+    if (raw.length > 20) raw.removeRange(20, raw.length);
+    await prefs.setStringList(_recentKey, raw);
   }
 
   Future<void> _scanBarcode() async {
@@ -455,6 +503,29 @@ class _IdleView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(top: 8, bottom: 32),
       children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => context.push('/custom-foods'),
+                  icon: const Icon(Icons.restaurant_outlined, size: 18),
+                  label: const Text('Custom Foods'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => context.push('/meals'),
+                  icon: const Icon(Icons.dining_outlined, size: 18),
+                  label: const Text('My MealPreps'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
         // Recent section
         _SectionHeader(
           icon: Icons.history_rounded,
@@ -532,6 +603,9 @@ class _SearchResultsView extends StatelessWidget {
             _CustomFoodTile(
               food: customResults[i],
               onTap: () => onCustomTap(customResults[i]),
+              onEdit: () async {
+                await context.push('/add-custom-food', extra: {'existingFood': customResults[i]});
+              },
               showDivider: i < customResults.length - 1 || results.isNotEmpty,
             ),
         ],
@@ -814,10 +888,12 @@ class _CustomFoodTile extends StatelessWidget {
     required this.food,
     required this.onTap,
     required this.showDivider,
+    required this.onEdit,
   });
 
   final CustomFood food;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
   final bool showDivider;
 
   @override
@@ -890,6 +966,12 @@ class _CustomFoodTile extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: 'Edit custom food',
+                  onPressed: onEdit,
                 ),
               ],
             ),

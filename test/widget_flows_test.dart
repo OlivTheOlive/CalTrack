@@ -6,6 +6,7 @@ import 'package:caltrack/app/theme_controller.dart';
 import 'package:caltrack/data/app_database.dart';
 import 'package:caltrack/data/caltrack_repository.dart';
 import 'package:caltrack/data/opennutrition_catalog.dart';
+import 'package:caltrack/features/food/add_custom_food_screen.dart';
 import 'package:caltrack/features/food/food_entry_sheet.dart';
 import 'package:caltrack/features/settings/data_tools_screen.dart';
 import 'package:caltrack/features/settings/settings_screen.dart';
@@ -194,6 +195,85 @@ void main() {
       final addButton = find.widgetWithText(FilledButton, 'Add to diary');
       final btnWidget = tester.widget<FilledButton>(addButton);
       expect(btnWidget.onPressed, isNull);
+    });
+
+    testWidgets('AddCustomFoodScreen saves a new custom food successfully',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final themeCtl = ThemeController(prefs);
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const Scaffold(body: Text('Main Page')),
+          ),
+          GoRoute(
+            path: '/add-custom-food',
+            builder: (context, state) => const AddCustomFoodScreen(),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<CalTrackRepository>.value(value: repo),
+            ChangeNotifierProvider<ProfileController>.value(value: profileCtl),
+            ChangeNotifierProvider<ThemeController>.value(value: themeCtl),
+            ChangeNotifierProvider<MealTimeController>.value(
+              value: MealTimeController(prefs),
+            ),
+            ChangeNotifierProvider<DevOptionsController>.value(
+              value: DevOptionsController(prefs),
+            ),
+            ChangeNotifierProvider<NutritionDisplayController>.value(
+              value: NutritionDisplayController(prefs),
+            ),
+            Provider<OpenNutritionCatalog>.value(value: _FakeCatalog()),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Navigate to /add-custom-food
+      router.push('/add-custom-food');
+      await tester.pumpAndSettle();
+
+      // Enter food details
+      Finder findField(String label) {
+        return find.byWidgetPredicate((w) => w is TextField && w.decoration?.labelText == label);
+      }
+
+      await tester.enterText(findField('Food name'), 'Avocado');
+      await tester.enterText(findField('Serving size'), '100');
+      await tester.enterText(findField('Calories'), '160');
+      await tester.enterText(findField('Total fat'), '15');
+      await tester.enterText(findField('Protein'), '2');
+
+      // Scroll down to bring remaining fields into view
+      await tester.drag(find.byType(ListView).first, const Offset(0, -600));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(findField('Total carbs'), '9');
+      await tester.enterText(findField('Sugar'), '1');
+      await tester.enterText(findField('Fiber'), '7');
+
+      await tester.pumpAndSettle();
+
+      // Drag again to make sure the Save button is fully in view
+      await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+      await tester.pumpAndSettle();
+
+      // Tap the OutlinedButton that says Save
+      final saveBtn = find.widgetWithText(OutlinedButton, 'Save');
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      // Verify page popped successfully to Main Page
+      expect(find.text('Main Page'), findsOneWidget);
     });
   });
 }
