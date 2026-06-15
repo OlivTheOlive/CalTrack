@@ -196,6 +196,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
 
     // Remember this selection for search boosting
     await _recordRecentSelection('cus:${food.id}');
+    if (!mounted) return;
 
     final action = await showFoodEntrySheet(
       context,
@@ -247,6 +248,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
 
     // Remember this selection for search boosting
     await _recordRecentSelection('cat:${canonical.id}');
+    if (!mounted) return;
 
     final action = await showFoodEntrySheet(
       context,
